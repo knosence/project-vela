@@ -1,0 +1,7 @@
+name: test-custom
+label: Test Custom
+base_profile: vela
+replaceable: true
+system_owned: false
+persona_path: runtime/personas/test-custom
+agent_sot_path: knowledge/agents/test-custom

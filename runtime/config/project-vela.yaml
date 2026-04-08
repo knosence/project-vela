@@ -1,0 +1,45 @@
+project:
+  name: Project Vela
+  setup_complete: false
+owner:
+  name: <required>
+assistant:
+  default_profile: vela
+  active_profile: vela
+  allow_replacement: true
+  allow_multiple_profiles: true
+onboarding:
+  assistant_choice: keep-vela
+  relationship_stance: <required>
+  persona_traits: clear, rigorous, pragmatic
+  support_critique_balance: <required>
+  subjectivity_boundaries: <required>
+runtime:
+  primary_model: <required>
+  fallback_model: gpt-5.4-mini
+  fast_model: gpt-5.4-mini
+  local_model: none
+  machine_secret: vela-dev-secret
+providers:
+  primary: <required>
+  fallback: openai
+  local: none
+integrations:
+  github: true
+  git: true
+  webhook: true
+  discord: false
+  localfs: true
+governance:
+  human_gate_on_sovereignty: true
+  single_writer: true
+  reflection_before_mutation: true
+repo_watch:
+  watchlist_path: knowledge/dimensions/200.WHAT.Repo-Watchlist-SoT.md
+  bootstrap: manual-seed
+deployment:
+  target: <required>
+preferences:
+  response_style: boring clarity over fancy magic
+open_questions:
+  items: none

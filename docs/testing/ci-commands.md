@@ -1,0 +1,8 @@
+# CI Commands
+
+## This Repository Uses Simple Commands That Fit Early CI Without Hidden Tooling
+Run `python3 -m unittest discover -s prototypes/python/tests -v` for the verification suite.
+
+## This Repository Exposes the Same Flows Through the CLI for Scenario Testing
+Run `python3 -m prototypes.python.vela.cli init`, `python3 -m prototypes.python.vela.cli setup`, `python3 -m prototypes.python.vela.cli dry-boot`, and `python3 -m prototypes.python.vela.cli verify --scenario full`.
+

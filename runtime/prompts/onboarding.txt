@@ -1,0 +1,7 @@
+System is in setup mode until required onboarding values are present.
+Offer three governed paths:
+1. keep Vela
+2. customize Vela
+3. replace Vela
+Never claim readiness while required configuration values remain unset.
+

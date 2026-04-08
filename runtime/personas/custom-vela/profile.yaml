@@ -1,0 +1,7 @@
+name: custom-vela
+label: Custom Vela
+base_profile: vela
+replaceable: true
+system_owned: false
+persona_path: runtime/personas/custom-vela
+agent_sot_path: knowledge/agents/custom-vela

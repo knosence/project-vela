@@ -1,0 +1,171 @@
+from __future__ import annotations
+
+import json
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
+
+from .config import load_config, missing_required_fields, setup_complete
+from .governance import record_approval
+from .models import new_id
+from .paths import REPO_ROOT, VERIFICATION_STATUS_PATH
+from .profiles import activate_profile, list_profiles
+from .repo_watch import ingest_release
+from .verification import run_scenario, write_verification_report
+
+
+def envelope(ok: bool, endpoint: str, status: str, message: str, data: dict[str, Any] | None = None, errors: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    return {
+        "ok": ok,
+        "request_id": new_id("req"),
+        "endpoint": endpoint,
+        "status": status,
+        "message": message,
+        "data": data or {},
+        "errors": errors or [],
+    }
+
+
+class VelaService:
+    def __init__(self) -> None:
+        self.config = load_config()
+
+    def authenticate(self, headers: dict[str, str]) -> bool:
+        secret = self.config["runtime"]["machine_secret"]
+        return headers.get("X-VELA-SECRET") == secret
+
+    def health(self) -> dict[str, Any]:
+        verification = json.loads(VERIFICATION_STATUS_PATH.read_text(encoding="utf-8"))
+        missing = missing_required_fields(self.config)
+        status = "ready" if setup_complete(self.config) else "setup-required"
+        return envelope(
+            ok=True,
+            endpoint="health",
+            status=status,
+            message="Service readiness evaluated",
+            data={
+                "setup_complete": setup_complete(self.config),
+                "active_profile": self.config["assistant"]["active_profile"],
+                "verification_last_passed": verification["last_passed"],
+                "missing_required_fields": missing,
+            },
+        )
+
+    def repo_release(self, payload: dict[str, Any]) -> dict[str, Any]:
+        target = payload.get("target", "knowledge/refs/repo-release.md")
+        watchlist = (REPO_ROOT / "knowledge/dimensions/200.WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8")
+        result = ingest_release(payload, watchlist, target)
+        if result["committed"]:
+            return envelope(True, "repo-release", "accepted", "Release processed", data=result)
+        return envelope(False, "repo-release", "rejected", "Release processing blocked", data=result, errors=result["findings"])
+
+    def validate(self, payload: dict[str, Any]) -> dict[str, Any]:
+        scope = payload.get("scope", "repo")
+        requested_checks = payload.get("checks", ["narrative", "policy"])
+        mode = payload.get("mode", "report")
+        findings = []
+        if scope == "repo":
+            cfg = load_config()
+            for item in missing_required_fields(cfg):
+                findings.append({"code": "CONFIG_REQUIRED", "detail": f"Missing required field: {item}"})
+        if "narrative" in requested_checks:
+            findings.append({"code": "NARRATIVE_VALIDATOR_ACTIVE", "detail": "Narrative validator executed", "severity": "info"})
+        ok = not any(item["code"] == "CONFIG_REQUIRED" for item in findings) or mode == "report"
+        status = "accepted" if ok else "rejected"
+        return envelope(ok, "validate", status, "Validation finished", data={"scope": scope, "mode": mode, "findings": findings}, errors=[] if ok else findings)
+
+    def reflect(self, payload: dict[str, Any]) -> dict[str, Any]:
+        proposals = [
+            "Tighten repo-watch schema before broadening integrations",
+            "Add a dedicated sovereign approval queue view in n8n",
+        ]
+        return envelope(True, "reflect", "accepted", "Reflection completed", data={"inputs": payload, "proposals": proposals})
+
+    def approval(self, payload: dict[str, Any]) -> dict[str, Any]:
+        item = record_approval(
+            payload["approval_id"],
+            payload["decision"],
+            payload["actor"],
+            payload.get("reason", ""),
+            payload["target"],
+        )
+        return envelope(True, "approval", "accepted", "Approval recorded", data=item)
+
+    def verify(self, payload: dict[str, Any]) -> dict[str, Any]:
+        scenario = payload.get("scenario", "full")
+        results = run_scenario(scenario)
+        report_path = write_verification_report(results, scenario)
+        passed = all(item["passed"] for item in results)
+        return envelope(
+            passed,
+            "verify",
+            "accepted" if passed else "rejected",
+            "Verification completed",
+            data={
+                "scenario": scenario,
+                "passed": passed,
+                "counts": {"passed": sum(item["passed"] for item in results), "failed": sum(not item["passed"] for item in results)},
+                "report_path": str(report_path.relative_to(REPO_ROOT)),
+            },
+            errors=[] if passed else [item for item in results if not item["passed"]],
+        )
+
+    def profiles(self) -> dict[str, Any]:
+        return envelope(True, "profiles", "accepted", "Profiles listed", data=list_profiles())
+
+    def profiles_use(self, payload: dict[str, Any]) -> dict[str, Any]:
+        cfg = activate_profile(payload["name"])
+        return envelope(True, "profiles-use", "accepted", "Profile activated", data={"active_profile": cfg["assistant"]["active_profile"]})
+
+
+class RequestHandler(BaseHTTPRequestHandler):
+    service = VelaService()
+
+    def _send(self, payload: dict[str, Any], code: int = 200) -> None:
+        body = json.dumps(payload, indent=2).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _read_json(self) -> dict[str, Any]:
+        length = int(self.headers.get("Content-Length", "0"))
+        return json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path == "/api/health":
+            self._send(self.service.health())
+            return
+        if self.path == "/api/n8n/profiles":
+            self._send(self.service.profiles())
+            return
+        self._send(envelope(False, "unknown", "rejected", "Endpoint not found", errors=[{"code": "NOT_FOUND", "detail": self.path}]), HTTPStatus.NOT_FOUND)
+
+    def do_POST(self) -> None:  # noqa: N802
+        if not self.service.authenticate(dict(self.headers)):
+            self._send(envelope(False, "auth", "rejected", "Authentication failed", errors=[{"code": "AUTH_FAILED", "detail": "Missing or invalid X-VELA-SECRET"}]), HTTPStatus.UNAUTHORIZED)
+            return
+        payload = self._read_json()
+        routes = {
+            "/api/n8n/repo-release": self.service.repo_release,
+            "/api/n8n/validate": self.service.validate,
+            "/api/n8n/reflect": self.service.reflect,
+            "/api/n8n/approval": self.service.approval,
+            "/api/n8n/verify": self.service.verify,
+            "/api/n8n/profiles/use": self.service.profiles_use,
+        }
+        handler = routes.get(self.path)
+        if handler is None:
+            self._send(envelope(False, "unknown", "rejected", "Endpoint not found", errors=[{"code": "NOT_FOUND", "detail": self.path}]), HTTPStatus.NOT_FOUND)
+            return
+        self._send(handler(payload))
+
+
+def serve(host: str = "127.0.0.1", port: int = 8787) -> None:
+    server = ThreadingHTTPServer((host, port), RequestHandler)
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
+
