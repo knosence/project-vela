@@ -71,7 +71,10 @@ class VelaService:
         if scope == "repo":
             cfg = load_config()
             config_findings = annotate_findings(
-                [ValidationFinding(item["code"], item["detail"], item["severity"]) for item in validate_config_payload(cfg)["findings"]]
+                [
+                    ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", []))
+                    for item in validate_config_payload(cfg)["findings"]
+                ]
             )
             findings.extend(item.as_dict() for item in config_findings)
             findings.extend(item.as_dict() for item in validate_matrix_rules())

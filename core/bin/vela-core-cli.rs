@@ -156,10 +156,16 @@ fn print_findings(findings: &[ValidationFinding], route: Option<&str>) {
 
 fn render_finding(finding: &ValidationFinding) -> String {
     format!(
-        "{{\"code\":\"{}\",\"detail\":\"{}\",\"severity\":\"{}\"}}",
+        "{{\"code\":\"{}\",\"detail\":\"{}\",\"severity\":\"{}\",\"rule_refs\":[{}]}}",
         escape_json(&finding.code),
         escape_json(&finding.detail),
-        severity_label(&finding.severity)
+        severity_label(&finding.severity),
+        finding
+            .rule_refs
+            .iter()
+            .map(|item| format!("\"{}\"", escape_json(item)))
+            .collect::<Vec<String>>()
+            .join(",")
     )
 }
 

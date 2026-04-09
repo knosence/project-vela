@@ -60,12 +60,16 @@ def record_approval(approval_id: str, decision: str, actor: str, reason: str, ta
 
 def narrative_findings(text: str) -> list[ValidationFinding]:
     payload = rust_validate_target("knowledge/refs/narrative-check.md", text, "approved")
-    return annotate_findings([ValidationFinding(item["code"], item["detail"], item["severity"]) for item in payload["findings"]])
+    return annotate_findings(
+        [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
+    )
 
 
 def validate_target(target: str, content: str, approval_id: str | None = None) -> list[ValidationFinding]:
     payload = rust_validate_target(target, content, approval_status(approval_id) or "missing")
-    return annotate_findings([ValidationFinding(item["code"], item["detail"], item["severity"]) for item in payload["findings"]])
+    return annotate_findings(
+        [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
+    )
 
 
 def append_event(record: EventRecord) -> None:

@@ -12,7 +12,7 @@ from prototypes.python.vela.matrix import classify_change_zone
 from prototypes.python.vela.matrix import write_matrix_index
 from prototypes.python.vela.paths import EVENT_LOG_PATH, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
-from prototypes.python.vela.rust_bridge import route_for_target, validate_config_payload
+from prototypes.python.vela.rust_bridge import route_for_target, validate_config_payload, validate_target as validate_target_payload
 from prototypes.python.vela.server import VelaService
 from prototypes.python.vela.verification import run_scenario
 
@@ -121,6 +121,15 @@ class VelaSystemTest(unittest.TestCase):
         result = VelaService().validate({"scope": "repo", "checks": ["policy"], "mode": "report"})
         config_finding = next(item for item in result["data"]["findings"] if item["code"] == "CONFIG_REQUIRED")
         self.assertIn("Vela Setup Rule: Setup Mode Honesty", config_finding["rule_refs"])
+
+    def test_rust_bridge_findings_include_rule_refs(self) -> None:
+        payload = validate_target_payload(
+            "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md",
+            "# Proposed Change\n\n## This Draft Tries to Touch the Cornerstone\nThis should require approval.\n",
+            "missing",
+        )
+        finding = next(item for item in payload["findings"] if item["code"] == "SOVEREIGN_APPROVAL_REQUIRED")
+        self.assertIn("Pattern 18 Human Gate", finding["rule_refs"])
 
     def test_event_log(self) -> None:
         pipeline = SequentialPipeline()
