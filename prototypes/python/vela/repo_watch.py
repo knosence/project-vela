@@ -66,7 +66,7 @@ def build_release_body(packet: dict[str, Any], watchlist_text: str) -> str:
 
 def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> dict[str, Any]:
     assessment = analyze_release(packet, watchlist_text)
-    assessment_target = _assessment_target_for(target)
+    assessment_target = _derived_target_for(target, "assessment")
     assessment_result = write_text(
         assessment_target,
         json.dumps(
@@ -92,14 +92,49 @@ def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> 
         body=build_release_body(packet, watchlist_text),
         target=target,
     )
+    reflection_target = _derived_target_for(target, "reflection")
+    reflection_result = write_text(
+        reflection_target,
+        json.dumps(
+            {
+                "repo": packet.get("repo", "unknown/repo"),
+                "version": packet.get("version", "unknown"),
+                "route": result.route,
+                "critique": result.critique,
+            },
+            indent=2,
+        ),
+        actor="reflector",
+        endpoint="repo-release-reflection",
+        reason="write structured release reflection",
+    )
+    validation_target = _derived_target_for(target, "validation")
+    validation_result = write_text(
+        validation_target,
+        json.dumps(
+            {
+                "repo": packet.get("repo", "unknown/repo"),
+                "version": packet.get("version", "unknown"),
+                "route": result.route,
+                "findings": result.findings,
+                "committed": result.committed,
+            },
+            indent=2,
+        ),
+        actor="warden",
+        endpoint="repo-release-validation",
+        reason="write structured release validation",
+    )
     return {
         "route": result.route,
         "plan": result.plan,
         "critique": result.critique,
-        "findings": assessment_result.get("findings", []) + result.findings,
-        "committed": result.committed and assessment_result["ok"],
+        "findings": assessment_result.get("findings", []) + reflection_result.get("findings", []) + validation_result.get("findings", []) + result.findings,
+        "committed": result.committed and assessment_result["ok"] and reflection_result["ok"] and validation_result["ok"],
         "target": result.target,
         "assessment_target": assessment_target,
+        "reflection_target": reflection_target,
+        "validation_target": validation_target,
         "risk": assessment["risk"],
         "relevance": assessment["relevance"],
         "watched": assessment["watched"],
@@ -107,6 +142,6 @@ def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> 
     }
 
 
-def _assessment_target_for(target: str) -> str:
+def _derived_target_for(target: str, suffix: str) -> str:
     path = Path(target)
-    return str(path.with_name(f"{path.stem}.assessment.json"))
+    return str(path.with_name(f"{path.stem}.{suffix}.json"))
