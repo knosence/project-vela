@@ -126,6 +126,7 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue((REPO_ROOT / "knowledge/refs/repo-watch-test.md").exists())
         self.assertEqual(result["data"]["risk"]["level"], "high")
         self.assertEqual(result["data"]["relevance"]["level"], "high")
+        self.assertEqual(result["data"]["local_impact"]["level"], "high")
 
     def test_repo_watch_analysis_uses_watchlist_reasoning(self) -> None:
         watchlist = (REPO_ROOT / "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8")
@@ -142,6 +143,9 @@ class VelaSystemTest(unittest.TestCase):
         self.assertEqual(assessment["relevance"]["level"], "high")
         self.assertIn("client", assessment["relevance"]["signals"])
         self.assertIn("Python SDK changes are relevant", assessment["relevance"]["watch_reason"])
+        self.assertEqual(assessment["local_impact"]["level"], "high")
+        self.assertIn("runtime:python", assessment["local_impact"]["context_markers"])
+        self.assertIn("integration:github", assessment["local_impact"]["context_markers"])
 
     def test_narrative_structure(self) -> None:
         result = VelaService().validate({"scope": "repo", "checks": ["narrative"], "mode": "report"})

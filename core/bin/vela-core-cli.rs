@@ -133,13 +133,19 @@ fn run() -> Result<(), String> {
             let repo = args.next().ok_or_else(|| "missing repo".to_string())?;
             let version = args.next().ok_or_else(|| "missing version".to_string())?;
             let notes = args.next().ok_or_else(|| "missing notes".to_string())?;
+            let context = args.next().unwrap_or_default();
+            let context_markers: Vec<String> = if context.is_empty() {
+                Vec::new()
+            } else {
+                context.split(',').filter(|item| !item.is_empty()).map(|item| item.to_string()).collect()
+            };
             let mut watchlist = String::new();
             io::stdin()
                 .read_to_string(&mut watchlist)
                 .map_err(|err| format!("failed reading stdin: {err}"))?;
-            let assessment = assess_release(&repo, &notes, &watchlist);
+            let assessment = assess_release(&repo, &notes, &watchlist, &context_markers);
             println!(
-                "{{\"ok\":true,\"repo\":\"{}\",\"version\":\"{}\",\"watched\":{},\"risk\":{{\"level\":\"{}\",\"signals\":[{}]}},\"relevance\":{{\"level\":\"{}\",\"signals\":[{}],\"watch_reason\":\"{}\"}}}}",
+                "{{\"ok\":true,\"repo\":\"{}\",\"version\":\"{}\",\"watched\":{},\"risk\":{{\"level\":\"{}\",\"signals\":[{}]}},\"relevance\":{{\"level\":\"{}\",\"signals\":[{}],\"watch_reason\":\"{}\"}},\"local_impact\":{{\"level\":\"{}\",\"signals\":[{}],\"context_markers\":[{}]}}}}",
                 escape_json(&repo),
                 escape_json(&version),
                 if assessment.watched { "true" } else { "false" },
@@ -157,7 +163,19 @@ fn run() -> Result<(), String> {
                     .map(|item| format!("\"{}\"", escape_json(item)))
                     .collect::<Vec<String>>()
                     .join(","),
-                escape_json(&assessment.watch_reason)
+                escape_json(&assessment.watch_reason),
+                escape_json(&assessment.impact_level),
+                assessment
+                    .impact_signals
+                    .iter()
+                    .map(|item| format!("\"{}\"", escape_json(item)))
+                    .collect::<Vec<String>>()
+                    .join(","),
+                context_markers
+                    .iter()
+                    .map(|item| format!("\"{}\"", escape_json(item)))
+                    .collect::<Vec<String>>()
+                    .join(",")
             );
         }
         other => return Err(format!("unknown command: {other}")),

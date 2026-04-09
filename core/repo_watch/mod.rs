@@ -5,13 +5,16 @@ pub struct ReleaseAssessment {
     pub risk_signals: Vec<String>,
     pub relevance_level: String,
     pub relevance_signals: Vec<String>,
+    pub impact_level: String,
+    pub impact_signals: Vec<String>,
     pub watch_reason: String,
 }
 
-pub fn assess_release(repo: &str, notes: &str, watchlist_text: &str) -> ReleaseAssessment {
+pub fn assess_release(repo: &str, notes: &str, watchlist_text: &str, context_markers: &[String]) -> ReleaseAssessment {
     let watchlist = parse_watchlist_entries(watchlist_text);
     let risk = assess_breaking_change_risk(notes);
     let relevance = assess_local_relevance(repo, notes, &watchlist, &risk.level);
+    let impact = assess_local_impact(repo, context_markers, &risk.level, &relevance.level);
     let watch_reason = watchlist
         .iter()
         .find(|item| item.repo == repo)
@@ -24,6 +27,8 @@ pub fn assess_release(repo: &str, notes: &str, watchlist_text: &str) -> ReleaseA
         risk_signals: risk.signals,
         relevance_level: relevance.level,
         relevance_signals: relevance.signals,
+        impact_level: impact.level,
+        impact_signals: impact.signals,
         watch_reason,
     }
 }
@@ -152,6 +157,45 @@ fn assess_local_relevance(repo: &str, notes: &str, watchlist: &[WatchEntry], ris
     }
 }
 
+fn assess_local_impact(repo: &str, context_markers: &[String], risk_level: &str, relevance_level: &str) -> LevelSignals {
+    let repo_markers: &[&str] = match repo {
+        "openai/openai-python" => &["provider:openai", "runtime:python"],
+        "openai/openai-agents-python" => &["runtime:python", "capability:agent"],
+        "n8n-io/n8n" => &["workflow:n8n", "integration:webhook"],
+        "modelcontextprotocol/servers" => &["integration:mcp", "capability:tooling"],
+        _ => &[],
+    };
+
+    let matched: Vec<String> = repo_markers
+        .iter()
+        .filter(|marker| context_markers.iter().any(|item| item == **marker))
+        .map(|marker| marker.to_string())
+        .collect();
+
+    if !matched.is_empty() && (risk_level == "high" || relevance_level == "high") {
+        return LevelSignals {
+            level: "high".to_string(),
+            signals: matched,
+        };
+    }
+    if !matched.is_empty() {
+        return LevelSignals {
+            level: "medium".to_string(),
+            signals: matched,
+        };
+    }
+    if relevance_level == "high" {
+        return LevelSignals {
+            level: "medium".to_string(),
+            signals: vec!["release is relevant by watchlist reasoning but local context markers are weaker".to_string()],
+        };
+    }
+    LevelSignals {
+        level: "low".to_string(),
+        signals: vec!["no strong local usage markers matched this upstream surface".to_string()],
+    }
+}
+
 fn match_keywords(lowered: &str, keywords: &[&str]) -> Vec<String> {
     keywords
         .iter()
@@ -177,20 +221,23 @@ mod tests {
             "openai/openai-python",
             "Breaking migration removes the old client construction path.",
             WATCHLIST,
+            &["provider:openai".to_string(), "runtime:python".to_string()],
         );
 
         assert!(assessment.watched);
         assert_eq!(assessment.risk_level, "high");
         assert_eq!(assessment.relevance_level, "high");
+        assert_eq!(assessment.impact_level, "high");
         assert!(assessment.risk_signals.iter().any(|item| item == "breaking"));
         assert!(assessment.watch_reason.contains("Python SDK changes are relevant"));
     }
 
     #[test]
     fn assigns_low_relevance_to_unwatched_repo() {
-        let assessment = assess_release("example/repo", "Minor docs update.", WATCHLIST);
+        let assessment = assess_release("example/repo", "Minor docs update.", WATCHLIST, &[]);
 
         assert!(!assessment.watched);
         assert_eq!(assessment.relevance_level, "low");
+        assert_eq!(assessment.impact_level, "low");
     }
 }

@@ -3,7 +3,31 @@ from __future__ import annotations
 from typing import Any
 
 from .agents import SequentialPipeline
+from .config import load_config
 from .rust_bridge import analyze_release_payload
+
+
+def local_context_markers() -> list[str]:
+    cfg = load_config()
+    markers: list[str] = ["runtime:python"]
+    primary_provider = str(cfg.get("providers", {}).get("primary", "")).strip()
+    if primary_provider and primary_provider != "<required>":
+        markers.append(f"provider:{primary_provider}")
+    deployment_target = str(cfg.get("deployment", {}).get("target", "")).strip()
+    if deployment_target and deployment_target != "<required>":
+        markers.append(f"deployment:{deployment_target}")
+
+    integrations = cfg.get("integrations", {})
+    for name, enabled in integrations.items():
+        if enabled:
+            markers.append(f"integration:{name}")
+
+    if cfg.get("repo_watch", {}).get("watchlist_path"):
+        markers.append("capability:repo-watch")
+    markers.append("workflow:n8n")
+    markers.append("capability:tooling")
+    markers.append("capability:agent")
+    return sorted(set(markers))
 
 
 def analyze_release(packet: dict[str, Any], watchlist_text: str) -> dict[str, Any]:
@@ -12,6 +36,7 @@ def analyze_release(packet: dict[str, Any], watchlist_text: str) -> dict[str, An
         str(packet.get("version", "unknown")),
         str(packet.get("notes", "No release notes provided.")),
         watchlist_text,
+        local_context_markers(),
     )
 
 
@@ -55,4 +80,5 @@ def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> 
         "risk": assessment["risk"],
         "relevance": assessment["relevance"],
         "watched": assessment["watched"],
+        "local_impact": assessment["local_impact"],
     }
