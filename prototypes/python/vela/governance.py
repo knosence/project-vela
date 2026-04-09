@@ -116,7 +116,19 @@ def backup_protected_file(target: str, content: str) -> str:
 
 
 def write_text(target: str, content: str, actor: str, endpoint: str, reason: str, approval_id: str | None = None) -> dict[str, Any]:
-    findings = validate_target(target, content, approval_id=approval_id)
+    path = REPO_ROOT / target
+    previous = path.read_text(encoding="utf-8") if path.exists() else ""
+    local_findings: list[ValidationFinding] = []
+    if previous and subject_declaration_changed(previous, content) and approval_status(approval_id) != "approved":
+        local_findings.append(
+            annotate_finding(
+                ValidationFinding(
+                    "SUBJECT_DECLARATION_APPROVAL_REQUIRED",
+                    "Subject Declaration changes require explicit human approval",
+                )
+            )
+        )
+    findings = local_findings + validate_target(target, content, approval_id=approval_id)
     blocking = [item for item in findings if item.severity == "error"]
     approval_required = any(item.code == "SOVEREIGN_APPROVAL_REQUIRED" for item in findings)
     if blocking:
@@ -136,9 +148,7 @@ def write_text(target: str, content: str, actor: str, endpoint: str, reason: str
     lock = acquire_write_lock(target, actor)
     artifacts = [target]
     try:
-        path = REPO_ROOT / target
         path.parent.mkdir(parents=True, exist_ok=True)
-        previous = path.read_text(encoding="utf-8") if path.exists() else ""
         zone = classify_change_zone(previous, content) if previous else "protected"
         if previous and zone == "protected":
             artifacts.append(backup_protected_file(target, previous))
@@ -208,7 +218,7 @@ def archive_dimension_entry(
     inactive_section = inactive_section.replace("### Inactive\n\n(No inactive entries.)", f"### Inactive\n\n{archived_entry}")
     if archived_entry not in inactive_section:
         inactive_section = inactive_section.rstrip() + f"\n\n{archived_entry}\n"
-    new_dimension_section = updated_active + "\n\n" + inactive_section.lstrip("\n")
+    new_dimension_section = dimension_heading + "\n\n" + updated_active.lstrip("\n") + "\n\n" + inactive_section.lstrip("\n")
     new_content = content[:section_start] + new_dimension_section + content[next_section if next_section != -1 else len(content):]
 
     archive_heading = "## 700.Archive"
@@ -227,6 +237,17 @@ def archive_dimension_entry(
 
     result = write_text(target, new_content, actor=actor, endpoint=endpoint, reason=reason, approval_id=approval_id)
     if result["ok"]:
+        postcondition_failure = _archive_postcondition_failure(
+            (REPO_ROOT / target).read_text(encoding="utf-8"),
+            entry_value=entry_value,
+            archived_reason=archived_reason,
+            dimension_heading=dimension_heading,
+        )
+        if postcondition_failure:
+            finding = annotate_finding(
+                ValidationFinding("ARCHIVE_POSTCONDITION_FAILED", postcondition_failure)
+            )
+            return {"ok": False, "findings": [finding.as_dict()]}
         append_event(
             EventRecord(
                 source="vela",
@@ -336,6 +357,28 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
         ))
         return {"ok": False, "findings": [finding.as_dict()]}
 
+    if stage == "spawn" and approval_status(approval_id) != "approved":
+        finding = annotate_finding(
+            ValidationFinding(
+                "SPAWN_APPROVAL_REQUIRED",
+                "Spawn proposals require explicit human approval before a new SoT can be created",
+            )
+        )
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="growth-apply",
+                actor=actor,
+                target=proposal_target,
+                status="blocked",
+                reason="spawn execution requires explicit human approval",
+                artifacts=[proposal_target],
+                approval_required=True,
+                validation_summary={"assessed_target": assessed_target, "stage": stage, "route": route},
+            )
+        )
+        return {"ok": False, "findings": [finding.as_dict()], "approval_required": True}
+
     if is_sovereign_target(assessed_target) and approval_status(approval_id) != "approved":
         finding = annotate_finding(ValidationFinding(
             "SOVEREIGN_APPROVAL_REQUIRED",
@@ -430,6 +473,26 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
     }
 
 
+def route_inbox_entry(text: str) -> str | None:
+    lowered = text.lower()
+    rules = [
+        ("100", ("joined", "manages", "role", "team", "person", "owner", "assistant", "profile", "human")),
+        ("200", ("definition", "scope", "deliverable", "component", "framework", "what is", "capabilities")),
+        ("300", ("platform", "tool", "environment", "repository", "repo", "account", "deployed", "nixos", "obsidian")),
+        ("400", ("deadline", "milestone", "quarterly", "cadence", "timeline", "started", "schedule", "date")),
+        ("500", ("process", "procedure", "protocol", "method", "workflow", "convention", "how", "result types")),
+        ("600", ("because", "reason", "rationale", "trade-off", "tradeoff", "why", "chose", "risk")),
+    ]
+    for dimension, markers in rules:
+        if any(marker in lowered for marker in markers):
+            return dimension
+    return None
+
+
+def build_pointer_entry(description: str, primary_target: str, dimension_heading: str, date: str) -> str:
+    return f"- {description}. See: [[{primary_target}#{dimension_heading}]] ({date})"
+
+
 def _build_growth_execution(stage: str, assessed_target: str, proposal_target: str) -> dict[str, str]:
     target_path = Path(assessed_target)
     created = datetime.now(timezone.utc).date().isoformat()
@@ -479,6 +542,49 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
         "- direct canonical mutation was deferred in favor of a governed structural action artifact\n"
     )
     return {"target": execution_target, "content": content, "kind": "applied-action"}
+
+
+def subject_declaration_changed(before: str, after: str) -> bool:
+    return _subject_declaration_block(before) != _subject_declaration_block(after)
+
+
+def _subject_declaration_block(text: str) -> str:
+    lines = text.splitlines()
+    inside = False
+    block: list[str] = []
+    for line in lines:
+        if line.strip() == "### Subject Declaration":
+            inside = True
+            block.append(line)
+            continue
+        if inside and line.startswith("### "):
+            break
+        if inside and line.startswith("## ") and line.strip() != "## 000.Index":
+            break
+        if inside:
+            block.append(line)
+    return "\n".join(block).strip()
+
+
+def _archive_postcondition_failure(content: str, entry_value: str, archived_reason: str, dimension_heading: str) -> str | None:
+    section_start = content.find(dimension_heading)
+    if section_start == -1:
+        return f"Archived dimension is missing after archive transaction: {dimension_heading}"
+    next_section = content.find("\n## ", section_start + 1)
+    section = content[section_start: next_section if next_section != -1 else len(content)]
+    active_start = section.find("### Active")
+    inactive_start = section.find("### Inactive")
+    active = section[active_start:inactive_start] if active_start != -1 and inactive_start != -1 else ""
+    inactive = section[inactive_start:] if inactive_start != -1 else ""
+    if f"- {entry_value}" in active:
+        return "Entry still appears in Active after archive transaction"
+    if f"- {entry_value}" not in inactive or f"Archived Reason: {archived_reason}" not in inactive:
+        return "Entry does not appear in Inactive with archived metadata after archive transaction"
+    archive_section_start = content.find("## 700.Archive")
+    archive_section = content[archive_section_start:] if archive_section_start != -1 else ""
+    if f"FROM: {dimension_heading}" not in archive_section or f"- {entry_value}" not in archive_section:
+        return "Entry does not appear in 700.Archive with timestamp and source after archive transaction"
+    return None
 
 
 def _render_spawned_sot(execution_target: str, assessed_target: str, proposal_target: str, created: str) -> str:

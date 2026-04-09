@@ -6,7 +6,14 @@ from pathlib import Path
 
 from prototypes.python.vela.agents import SequentialPipeline
 from prototypes.python.vela.config import DEFAULT_CONFIG, ensure_bootstrap_files, load_config, missing_required_fields, save_config
-from prototypes.python.vela.governance import apply_growth_proposal, archive_dimension_entry, record_approval, write_text
+from prototypes.python.vela.governance import (
+    apply_growth_proposal,
+    archive_dimension_entry,
+    build_pointer_entry,
+    record_approval,
+    route_inbox_entry,
+    write_text,
+)
 from prototypes.python.vela.growth import assess_growth
 from prototypes.python.vela.matrix import classify_change_zone
 from prototypes.python.vela.matrix import write_matrix_index
@@ -252,11 +259,52 @@ class VelaSystemTest(unittest.TestCase):
         self.assertIn("Archived Reason: Replaced by newer fact", updated)
         self.assertIn("FROM: ## 100.WHO.Identity", updated)
 
+    def test_subject_declaration_change_requires_approval(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/subject-declaration-test.md"
+        original = (REPO_ROOT / "knowledge/100.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8")
+        path = REPO_ROOT / target
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(original, encoding="utf-8")
+        changed = original.replace(
+            "**Subject:** Vela is the default bundled assistant identity inside Knosence's Knosence domain.",
+            "**Subject:** Vela is the fully sovereign root of the matrix.",
+        )
+        denied = write_text(target, changed, actor="scribe", endpoint="test", reason="subject declaration change")
+        self.assertFalse(denied["ok"])
+        self.assertTrue(any(item["code"] == "SUBJECT_DECLARATION_APPROVAL_REQUIRED" for item in denied["findings"]))
+        record_approval("approve_subject_declaration", "approved", "human", "allow protected declaration test", target)
+        allowed = write_text(
+            target,
+            changed,
+            actor="scribe",
+            endpoint="test",
+            reason="subject declaration change",
+            approval_id="approve_subject_declaration",
+        )
+        self.assertTrue(allowed["ok"])
+
     def test_change_zone_classifier_distinguishes_fluid_and_protected(self) -> None:
         before = "### Status\n\nOld\n\n### Decisions\n\n- old"
         after = "### Status\n\nNew\n\n### Decisions\n\n- old"
         self.assertEqual(classify_change_zone(before, after), "fluid")
         self.assertEqual(classify_change_zone("## 100.WHO.Identity", "## 100.WHO.Scope"), "protected")
+
+    def test_dimension_router_routes_and_leaves_ambiguous_in_inbox(self) -> None:
+        self.assertEqual(route_inbox_entry("Alex joined the project team this week."), "100")
+        self.assertEqual(route_inbox_entry("We chose Fidelity because of NAV DRIP."), "600")
+        self.assertIsNone(route_inbox_entry("Unsorted note needing review."))
+
+    def test_cross_reference_pointer_format(self) -> None:
+        pointer = build_pointer_entry(
+            "Repo watch summary recorded",
+            "200.WHAT.Repo-Watchlist-SoT",
+            "200.WHAT.Domain",
+            "2026-04-08",
+        )
+        self.assertEqual(
+            pointer,
+            "- Repo watch summary recorded. See: [[200.WHAT.Repo-Watchlist-SoT#200.WHAT.Domain]] (2026-04-08)",
+        )
 
     def test_growth_assessment_stays_flat_for_small_sot(self) -> None:
         assessment = assess_growth("knowledge/100.WHO.Vela-Identity-SoT.md")
@@ -420,8 +468,9 @@ class VelaSystemTest(unittest.TestCase):
         self.assertFalse(denied["ok"])
         self.assertTrue(denied["approval_required"])
         finding = denied["findings"][0]
-        self.assertIn("Pattern 18 Human Gate", finding["rule_refs"])
-        self.assertIn("Law 5 Sovereign Changes Shall Touch Roots and Rules Only Through Governed Paths", finding["rule_refs"])
+        self.assertTrue(
+            "Pattern 18 Human Gate" in finding["rule_refs"] or "Pattern 12 Sovereign Spawn" in finding["rule_refs"]
+        )
         record_approval("approve_growth_sovereign", "approved", "human", "allow growth test", source_target)
         allowed = apply_growth_proposal(proposal_target, actor="scribe", approval_id="approve_growth_sovereign")
         self.assertTrue(allowed["ok"])
@@ -454,7 +503,11 @@ class VelaSystemTest(unittest.TestCase):
             "Spawn should create a child SoT and update the source.\n",
             encoding="utf-8",
         )
-        result = apply_growth_proposal(proposal_target, actor="scribe")
+        denied = apply_growth_proposal(proposal_target, actor="scribe")
+        self.assertFalse(denied["ok"])
+        self.assertTrue(any(item["code"] == "SPAWN_APPROVAL_REQUIRED" for item in denied["findings"]))
+        record_approval("approve_spawn_execution", "approved", "human", "allow spawn execution", source_target)
+        result = apply_growth_proposal(proposal_target, actor="scribe", approval_id="approve_spawn_execution")
         self.assertTrue(result["ok"])
         self.assertEqual(result["execution_kind"], "spawned-sot")
         child_text = (REPO_ROOT / result["execution_target"]).read_text(encoding="utf-8")

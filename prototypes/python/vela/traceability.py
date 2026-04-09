@@ -8,6 +8,15 @@ RULE_MAP: dict[str, list[str]] = {
         "Pattern 18 Human Gate",
         "Law 5 Sovereign Changes Shall Touch Roots and Rules Only Through Governed Paths",
     ],
+    "SPAWN_APPROVAL_REQUIRED": [
+        "Pattern 12 Sovereign Spawn",
+        "Pattern 18 Human Gate",
+    ],
+    "SUBJECT_DECLARATION_APPROVAL_REQUIRED": [
+        "Pattern 6 Protected/Fluid Zones",
+        "Pattern 9 Declaration Anchor",
+        "Pattern 18 Human Gate",
+    ],
     "MATRIX_SINGLE_CORNERSTONE_REQUIRED": [
         "Pattern 3 Single Parent",
         "Law 1 The Matrix Shall Have Exactly One Cornerstone",
@@ -60,6 +69,10 @@ RULE_MAP: dict[str, list[str]] = {
     ],
     "ARCHIVE_BLOCK_MISSING": [
         "Pattern 10 Dual Archive",
+    ],
+    "ARCHIVE_POSTCONDITION_FAILED": [
+        "Pattern 10 Dual Archive",
+        "Pattern 13 Extraction Before Deletion",
     ],
     "GROWTH_PROPOSAL_NOT_FOUND": [
         "Pattern 11 Lightest Intervention",
