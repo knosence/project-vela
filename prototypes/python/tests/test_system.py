@@ -117,6 +117,7 @@ class VelaSystemTest(unittest.TestCase):
         proposal_text = (REPO_ROOT / result.growth_proposal["target"]).read_text(encoding="utf-8")
         self.assertIn("Recommended stage:", proposal_text)
         self.assertIn("target: `knowledge/refs/safe-note.md`", proposal_text)
+        self.assertIn("inventory role:", proposal_text)
 
     def test_sovereign_guardrail(self) -> None:
         service = VelaService()
@@ -260,6 +261,44 @@ class VelaSystemTest(unittest.TestCase):
     def test_growth_assessment_stays_flat_for_small_sot(self) -> None:
         assessment = assess_growth("knowledge/agents/vela/WHO.Vela-Identity-SoT.md")
         self.assertEqual(assessment.stage, "flat")
+        self.assertEqual(assessment.inventory_role, "agent-identity")
+
+    def test_growth_assessment_prefers_spawn_for_dense_dimension_hub(self) -> None:
+        target = "knowledge/proposals/200.WHAT.Domain-SoT.md"
+        path = REPO_ROOT / target
+        path.parent.mkdir(parents=True, exist_ok=True)
+        base = (REPO_ROOT / "knowledge/dimensions/200.WHAT.Domain-SoT.md").read_text(encoding="utf-8")
+        repeated_entries = "\n".join(
+            f"- Dense hub entry {idx}. (2026-04-08)\n  - Context {idx}. [AGENT:gpt-5]"
+            for idx in range(1, 12)
+        )
+        path.write_text(
+            base + "\n\n## 210.Domain-Pressure\n\n### Active\n\n" + repeated_entries + "\n\n### Inactive\n\n(No inactive entries.)\n",
+            encoding="utf-8",
+        )
+        assessment = assess_growth(target)
+        self.assertEqual(assessment.inventory_role, "dimension-hub")
+        self.assertEqual(assessment.stage, "spawn")
+
+    def test_growth_assessment_prefers_reference_for_dense_identity_branch(self) -> None:
+        target = "knowledge/proposals/Synthetic-Identity-SoT.md"
+        path = REPO_ROOT / target
+        path.parent.mkdir(parents=True, exist_ok=True)
+        base = (REPO_ROOT / "knowledge/agents/vela/WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8")
+        repeated_entries = "\n".join(
+            f"- Identity entry {idx}. (2026-04-08)\n  - Context {idx}. [AGENT:gpt-5]"
+            for idx in range(1, 12)
+        )
+        path.write_text(
+            base.replace(
+                "- Vela is the default installed assistant profile. (2026-04-08)\n  - The system ships with Vela while still allowing replacement and customization. [AGENT:gpt-5]",
+                repeated_entries,
+            ) + ("\nInterpretive note.\n" * 260),
+            encoding="utf-8",
+        )
+        assessment = assess_growth(target)
+        self.assertEqual(assessment.inventory_role, "agent-identity")
+        self.assertEqual(assessment.stage, "reference-note")
 
     def test_growth_assessment_detects_fractal_signal(self) -> None:
         target = "knowledge/proposals/growth-fractal-test.md"

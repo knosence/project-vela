@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .paths import REPO_ROOT
+from .rust_bridge import matrix_inventory_payload
 
 
 @dataclass
@@ -14,18 +15,26 @@ class GrowthAssessment:
     stage: str
     reason: str
     signals: dict[str, Any]
+    inventory_role: str = "branch-sot"
 
     def as_dict(self) -> dict[str, Any]:
-        return {"stage": self.stage, "reason": self.reason, "signals": self.signals}
+        return {
+            "stage": self.stage,
+            "reason": self.reason,
+            "signals": self.signals,
+            "inventory_role": self.inventory_role,
+        }
 
 
 def assess_growth(target: str) -> GrowthAssessment:
+    inventory_role = _inventory_role_for_target(target)
     path = REPO_ROOT / target
     if not path.exists():
         return GrowthAssessment(
             stage="flat",
             reason="Target does not exist yet, so no growth signal can be assessed.",
             signals={"exists": False},
+            inventory_role=inventory_role,
         )
 
     text = path.read_text(encoding="utf-8")
@@ -34,6 +43,72 @@ def assess_growth(target: str) -> GrowthAssessment:
     densest_dimension = max(dimension_entry_counts.values(), default=0)
     has_subgroups = bool(re.search(r"##\s[12-6][1-9]0\.", text))
     living_record_mentions = sum(text.count(marker) for marker in ["### Status", "### Decisions", "### Open Questions", "### Next Actions"])
+
+    if inventory_role == "cornerstone":
+        if line_count > 260 or densest_dimension >= 10:
+            return GrowthAssessment(
+                stage="spawn",
+                reason="The cornerstone should shed heavy branch detail into governed child SoTs rather than continue accumulating root complexity.",
+                signals={
+                    "line_count": line_count,
+                    "densest_dimension_entries": densest_dimension,
+                    "has_subgroups": has_subgroups,
+                },
+                inventory_role=inventory_role,
+            )
+        return GrowthAssessment(
+            stage="flat",
+            reason="The cornerstone should stay as stable as possible until branch pressure clearly warrants a governed spawn.",
+            signals={
+                "line_count": line_count,
+                "densest_dimension_entries": densest_dimension,
+            },
+            inventory_role=inventory_role,
+        )
+
+    if inventory_role == "dimension-hub":
+        if has_subgroups or densest_dimension >= 8 or line_count > 220:
+            return GrowthAssessment(
+                stage="spawn",
+                reason="A dimension hub should branch outward into child SoTs once one concern becomes dense enough to deserve its own governed home.",
+                signals={
+                    "line_count": line_count,
+                    "densest_dimension_entries": densest_dimension,
+                    "has_subgroups": has_subgroups,
+                },
+                inventory_role=inventory_role,
+            )
+        return GrowthAssessment(
+            stage="flat",
+            reason="The hub remains light enough to keep collecting branch pointers without further structural change.",
+            signals={
+                "line_count": line_count,
+                "densest_dimension_entries": densest_dimension,
+            },
+            inventory_role=inventory_role,
+        )
+
+    if inventory_role == "agent-identity":
+        if has_subgroups or densest_dimension >= 10 or line_count > 240:
+            return GrowthAssessment(
+                stage="reference-note",
+                reason="Identity branches should prefer clarifying companion references before spawning new structure, unless sovereignty explicitly requires a branch split.",
+                signals={
+                    "line_count": line_count,
+                    "densest_dimension_entries": densest_dimension,
+                    "has_subgroups": has_subgroups,
+                },
+                inventory_role=inventory_role,
+            )
+        return GrowthAssessment(
+            stage="flat",
+            reason="The identity branch should remain compact until interpretation pressure justifies a governed reference note.",
+            signals={
+                "line_count": line_count,
+                "densest_dimension_entries": densest_dimension,
+            },
+            inventory_role=inventory_role,
+        )
 
     if has_subgroups and (line_count > 220 or densest_dimension >= 10):
         return GrowthAssessment(
@@ -44,6 +119,7 @@ def assess_growth(target: str) -> GrowthAssessment:
                 "densest_dimension_entries": densest_dimension,
                 "has_subgroups": has_subgroups,
             },
+            inventory_role=inventory_role,
         )
 
     if line_count > 320 or (densest_dimension >= 12 and living_record_mentions >= 4):
@@ -55,6 +131,7 @@ def assess_growth(target: str) -> GrowthAssessment:
                 "densest_dimension_entries": densest_dimension,
                 "living_record_markers": living_record_mentions,
             },
+            inventory_role=inventory_role,
         )
 
     if densest_dimension >= 8:
@@ -65,6 +142,7 @@ def assess_growth(target: str) -> GrowthAssessment:
                 "line_count": line_count,
                 "densest_dimension_entries": densest_dimension,
             },
+            inventory_role=inventory_role,
         )
 
     return GrowthAssessment(
@@ -74,6 +152,7 @@ def assess_growth(target: str) -> GrowthAssessment:
             "line_count": line_count,
             "densest_dimension_entries": densest_dimension,
         },
+        inventory_role=inventory_role,
     )
 
 
@@ -119,7 +198,24 @@ def render_growth_proposal(route: str, target: str, assessment: GrowthAssessment
         f"Reason: {assessment.reason}\n\n"
         "## This Proposal Records the Signals That Triggered the Recommendation\n"
         f"- signals: `{assessment.signals}`\n\n"
+        "## This Proposal Records the Matrix Role of the Target Under Review\n"
+        f"- inventory role: `{assessment.inventory_role}`\n\n"
         "## This Proposal Identifies the Artifact That Would Be Affected If Approved\n"
         f"- target: `{target}`\n"
         f"- parent: `{parent_link}`\n"
     )
+
+
+def _inventory_role_for_target(target: str) -> str:
+    payload = matrix_inventory_payload()
+    for item in payload.get("entries", []):
+        if str(item.get("path", "")) == target:
+            return str(item.get("inventory_role", "branch-sot"))
+    name = Path(target).name
+    if name == "Cornerstone.Project-Vela-SoT.md":
+        return "cornerstone"
+    if name.startswith("WHO.") or "Identity-SoT" in name:
+        return "agent-identity"
+    if re.match(r"^\d{3}\.[A-Z]+\..+-SoT\.md$", name):
+        return "dimension-hub"
+    return "branch-sot"
