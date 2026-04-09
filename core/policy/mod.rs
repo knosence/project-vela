@@ -1,10 +1,11 @@
+use crate::inventory::inferred_inventory_role_for_path;
 use crate::models::ValidationFinding;
 
 pub fn is_sovereign_target(path: &str) -> bool {
-    path == "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md"
+    matches!(inferred_inventory_role_for_path(path), Some("cornerstone" | "agent-identity"))
+        || path == "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md"
         || path == "knowledge/proposals/TEST.Sovereign-Guardrail-Fixture.md"
         || path == "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md"
-        || path.contains("Identity-SoT")
 }
 
 pub fn requires_human_approval(path: &str) -> bool {

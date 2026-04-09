@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::inventory::discover_matrix_inventory;
+use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_path, inventory_area_for_path, inventory_role_for_path};
 use crate::models::{GovernedReference, MatrixSoT, Severity, ValidationFinding};
 
 const REQUIRED_FRONTMATTER_FIELDS: [&str; 7] = [
@@ -116,7 +116,24 @@ pub fn validate_parent_consistency(path: &str, text: &str) -> Vec<ValidationFind
             .to_string(),
     );
     let declaration_parent = normalize_parent(extract_declaration_parent(text));
-    let is_cornerstone = path.ends_with("Cornerstone.Project-Vela-SoT.md");
+    let domain = frontmatter_value(&frontmatter, "domain").unwrap_or_default().trim();
+    let inventory_role = inventory_role_for_path(path)
+        .or_else(|| match domain {
+            "agents"
+                if path.rsplit('/').next().unwrap_or(path).contains("Identity-SoT")
+                    || text.contains("## 100.WHO.")
+                    || text.contains("## 100.WHO.Identity") =>
+            {
+                Some("agent-identity")
+            }
+            "agents" => Some("branch-sot"),
+            "dimensions" if inferred_inventory_role_for_path(path) == Some("dimension-hub") => Some("dimension-hub"),
+            "dimensions" => Some("branch-sot"),
+            _ => inferred_inventory_role_for_path(path),
+        })
+        .unwrap_or("branch-sot");
+    let area = inventory_area_for_path(path).unwrap_or(domain);
+    let is_cornerstone = inventory_role == "cornerstone";
 
     let mut findings = Vec::new();
 
@@ -137,7 +154,7 @@ pub fn validate_parent_consistency(path: &str, text: &str) -> Vec<ValidationFind
         ));
     }
 
-    if requires_hub_parent(path, frontmatter_value(&frontmatter, "domain").unwrap_or_default())
+    if requires_hub_parent(inventory_role, area)
         && fm_parent.contains("cornerstone.project-vela-sot#")
     {
         findings.push(ValidationFinding::error(
@@ -186,25 +203,13 @@ fn normalize_parent(value: String) -> String {
     value.trim().trim_matches('"').trim_matches('\'').to_lowercase()
 }
 
-fn requires_hub_parent(path: &str, domain: &str) -> bool {
-    if domain.trim() == "agents" {
-        return true;
+fn requires_hub_parent(inventory_role: &str, area: &str) -> bool {
+    match (inventory_role, area) {
+        ("cornerstone", _) | ("dimension-hub", _) => false,
+        ("agent-identity", _) => true,
+        ("branch-sot", "dimensions") => true,
+        _ => false,
     }
-    if domain.trim() == "dimensions" {
-        return !is_dimension_hub(path);
-    }
-    false
-}
-
-fn is_dimension_hub(path: &str) -> bool {
-    let name = path.rsplit('/').next().unwrap_or(path);
-    let bytes = name.as_bytes();
-    bytes.len() >= 12
-        && bytes[0].is_ascii_digit()
-        && bytes[1].is_ascii_digit()
-        && bytes[2].is_ascii_digit()
-        && bytes[3] == b'.'
-        && name.ends_with("-SoT.md")
 }
 
 fn section_for_dimension<'a>(text: &'a str, dimension: &str) -> Option<&'a str> {

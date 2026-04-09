@@ -10,6 +10,41 @@ pub fn discover_matrix_inventory(root: &Path) -> (Vec<MatrixSoT>, Vec<GovernedRe
     (entries, references, findings)
 }
 
+pub fn inventory_area_for_path(path: &str) -> Option<&'static str> {
+    let normalized = path.replace('\\', "/");
+    if normalized.starts_with("knowledge/cornerstone/") {
+        Some("cornerstone")
+    } else if normalized.starts_with("knowledge/dimensions/") {
+        Some("dimensions")
+    } else if normalized.starts_with("knowledge/agents/") {
+        Some("agents")
+    } else {
+        None
+    }
+}
+
+pub fn inventory_role_for_path(path: &str) -> Option<&'static str> {
+    let area = inventory_area_for_path(path)?;
+    Some(classify_sot_role(path, area))
+}
+
+pub fn inferred_inventory_role_for_path(path: &str) -> Option<&'static str> {
+    inventory_role_for_path(path).or_else(|| {
+        let name = path.rsplit('/').next().unwrap_or(path);
+        if name == "Cornerstone.Project-Vela-SoT.md" {
+            Some("cornerstone")
+        } else if (name.starts_with("WHO.") || name.contains("Identity-SoT")) && name.ends_with(".md") {
+            Some("agent-identity")
+        } else if is_dimension_hub(path) {
+            Some("dimension-hub")
+        } else if name.ends_with("-SoT.md") {
+            Some("branch-sot")
+        } else {
+            None
+        }
+    })
+}
+
 fn discover_sots(root: &Path) -> Vec<MatrixSoT> {
     let mut paths = Vec::new();
     collect_files(&root.join("knowledge"), &mut paths);
@@ -33,7 +68,7 @@ fn discover_sots(root: &Path) -> Vec<MatrixSoT> {
             continue;
         };
         let frontmatter = parse_frontmatter(&text);
-        let inventory_role = classify_sot_role(&rel, &area);
+        let inventory_role = classify_sot_role(&rel, &area).to_string();
         entries.push(MatrixSoT {
             path: rel.clone(),
             title: extract_title(&text, "Untitled SoT"),
@@ -75,14 +110,17 @@ fn discover_references(root: &Path) -> (Vec<GovernedReference>, Vec<ValidationFi
     (references, findings)
 }
 
-fn classify_sot_role(path: &str, area: &str) -> String {
+fn classify_sot_role(path: &str, area: &str) -> &'static str {
     if path.ends_with("Cornerstone.Project-Vela-SoT.md") {
-        return "cornerstone".to_string();
+        return "cornerstone";
     }
     if area == "dimensions" && is_dimension_hub(path) {
-        return "dimension-hub".to_string();
+        return "dimension-hub";
     }
-    "branch-sot".to_string()
+    if area == "agents" && path.rsplit('/').next().unwrap_or(path).starts_with("WHO.") {
+        return "agent-identity";
+    }
+    "branch-sot"
 }
 
 fn is_dimension_hub(path: &str) -> bool {
@@ -164,6 +202,7 @@ mod tests {
         assert!(entries.iter().any(|item| item.is_cornerstone));
         assert!(entries.iter().any(|item| item.inventory_role == "cornerstone"));
         assert!(entries.iter().any(|item| item.inventory_role == "dimension-hub"));
+        assert!(entries.iter().any(|item| item.inventory_role == "agent-identity"));
         assert!(entries.iter().any(|item| item.inventory_role == "branch-sot"));
         assert!(references.iter().all(|item| item.inventory_role == "governed-reference"));
         assert!(findings.is_empty() || findings.iter().all(|item| !item.code.is_empty()));

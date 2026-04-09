@@ -541,6 +541,7 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(any(item["is_cornerstone"] for item in payload["entries"]))
         self.assertTrue(any(item["inventory_role"] == "cornerstone" for item in payload["entries"]))
         self.assertTrue(any(item["inventory_role"] == "dimension-hub" for item in payload["entries"]))
+        self.assertTrue(any(item["inventory_role"] == "agent-identity" for item in payload["entries"]))
         self.assertTrue(any(item["inventory_role"] == "branch-sot" for item in payload["entries"]))
         self.assertTrue(all(item["inventory_role"] == "governed-reference" for item in payload["references"]))
         self.assertTrue(all("path" in item for item in payload["references"]))
