@@ -117,6 +117,7 @@ def scenario_repo_watch() -> list[dict[str, Any]]:
     return [
         _result("release-summary-committed", result["committed"], "Release summary should be written"),
         _result("release-summary-target-exists", (REPO_ROOT / target).exists(), "Release target artifact should exist"),
+        _result("release-packet-target-exists", (REPO_ROOT / result["packet_target"]).exists(), "Structured packet artifact should exist"),
         _result("release-assessment-target-exists", (REPO_ROOT / result["assessment_target"]).exists(), "Structured assessment artifact should exist"),
         _result("release-reflection-target-exists", (REPO_ROOT / result["reflection_target"]).exists(), "Structured reflection artifact should exist"),
         _result("release-validation-target-exists", (REPO_ROOT / result["validation_target"]).exists(), "Structured validation artifact should exist"),

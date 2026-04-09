@@ -66,14 +66,30 @@ def build_release_body(packet: dict[str, Any], watchlist_text: str) -> str:
 
 def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> dict[str, Any]:
     assessment = analyze_release(packet, watchlist_text)
+    packet_target = _derived_target_for(target, "packet")
+    normalized_packet = {
+        "repo": packet.get("repo", "unknown/repo"),
+        "version": packet.get("version", "unknown"),
+        "notes": packet.get("notes", "No release notes provided."),
+        "target": target,
+        "watchlist_target": "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md",
+        "context_markers": local_context_markers(),
+    }
+    packet_result = write_text(
+        packet_target,
+        json.dumps(normalized_packet, indent=2),
+        actor="repo-watch",
+        endpoint="repo-release-packet",
+        reason="write normalized repo release packet",
+    )
     assessment_target = _derived_target_for(target, "assessment")
     assessment_result = write_text(
         assessment_target,
         json.dumps(
             {
-                "repo": packet.get("repo", "unknown/repo"),
-                "version": packet.get("version", "unknown"),
-                "notes": packet.get("notes", "No release notes provided."),
+                "repo": normalized_packet["repo"],
+                "version": normalized_packet["version"],
+                "notes": normalized_packet["notes"],
                 "watched": assessment["watched"],
                 "risk": assessment["risk"],
                 "relevance": assessment["relevance"],
@@ -97,8 +113,8 @@ def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> 
         reflection_target,
         json.dumps(
             {
-                "repo": packet.get("repo", "unknown/repo"),
-                "version": packet.get("version", "unknown"),
+                "repo": normalized_packet["repo"],
+                "version": normalized_packet["version"],
                 "route": result.route,
                 "critique": result.critique,
             },
@@ -113,8 +129,8 @@ def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> 
         validation_target,
         json.dumps(
             {
-                "repo": packet.get("repo", "unknown/repo"),
-                "version": packet.get("version", "unknown"),
+                "repo": normalized_packet["repo"],
+                "version": normalized_packet["version"],
                 "route": result.route,
                 "findings": result.findings,
                 "committed": result.committed,
@@ -129,12 +145,20 @@ def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> 
         "route": result.route,
         "plan": result.plan,
         "critique": result.critique,
-        "findings": assessment_result.get("findings", []) + reflection_result.get("findings", []) + validation_result.get("findings", []) + result.findings,
-        "committed": result.committed and assessment_result["ok"] and reflection_result["ok"] and validation_result["ok"],
+        "findings": packet_result.get("findings", []) + assessment_result.get("findings", []) + reflection_result.get("findings", []) + validation_result.get("findings", []) + result.findings,
+        "committed": result.committed and packet_result["ok"] and assessment_result["ok"] and reflection_result["ok"] and validation_result["ok"],
         "target": result.target,
+        "packet_target": packet_target,
         "assessment_target": assessment_target,
         "reflection_target": reflection_target,
         "validation_target": validation_target,
+        "artifacts": [
+            packet_target,
+            assessment_target,
+            reflection_target,
+            validation_target,
+            result.target,
+        ],
         "risk": assessment["risk"],
         "relevance": assessment["relevance"],
         "watched": assessment["watched"],
