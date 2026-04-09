@@ -8,11 +8,13 @@ from typing import Any
 from .config import load_config, missing_required_fields, setup_complete
 from .matrix import validate_matrix_rules
 from .governance import apply_growth_proposal, record_approval
+from .models import ValidationFinding
 from .models import new_id
 from .paths import REPO_ROOT, VERIFICATION_STATUS_PATH
 from .profiles import activate_profile, list_profiles
 from .repo_watch import ingest_release
 from .rust_bridge import validate_config_payload
+from .traceability import annotate_findings
 from .verification import run_scenario, write_verification_report
 
 
@@ -65,13 +67,16 @@ class VelaService:
         scope = payload.get("scope", "repo")
         requested_checks = payload.get("checks", ["narrative", "policy"])
         mode = payload.get("mode", "report")
-        findings = []
+        findings: list[dict[str, Any]] = []
         if scope == "repo":
             cfg = load_config()
-            findings.extend(validate_config_payload(cfg)["findings"])
+            config_findings = annotate_findings(
+                [ValidationFinding(item["code"], item["detail"], item["severity"]) for item in validate_config_payload(cfg)["findings"]]
+            )
+            findings.extend(item.as_dict() for item in config_findings)
             findings.extend(item.as_dict() for item in validate_matrix_rules())
         if "narrative" in requested_checks:
-            findings.append({"code": "NARRATIVE_VALIDATOR_ACTIVE", "detail": "Narrative validator executed", "severity": "info"})
+            findings.append({"code": "NARRATIVE_VALIDATOR_ACTIVE", "detail": "Narrative validator executed", "severity": "info", "rule_refs": []})
         ok = not any(item["code"] == "CONFIG_REQUIRED" for item in findings) or mode == "report"
         status = "accepted" if ok else "rejected"
         return envelope(ok, "validate", status, "Validation finished", data={"scope": scope, "mode": mode, "findings": findings}, errors=[] if ok else findings)

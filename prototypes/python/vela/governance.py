@@ -15,6 +15,7 @@ from .rust_bridge import route_for_target as rust_route_for_target
 from .rust_bridge import validate_event_payload
 from .rust_bridge import validate_target as rust_validate_target
 from .simple_yaml import loads
+from .traceability import annotate_finding, annotate_findings
 
 
 DIRECTIVES = [
@@ -59,12 +60,12 @@ def record_approval(approval_id: str, decision: str, actor: str, reason: str, ta
 
 def narrative_findings(text: str) -> list[ValidationFinding]:
     payload = rust_validate_target("knowledge/refs/narrative-check.md", text, "approved")
-    return [ValidationFinding(item["code"], item["detail"], item["severity"]) for item in payload["findings"]]
+    return annotate_findings([ValidationFinding(item["code"], item["detail"], item["severity"]) for item in payload["findings"]])
 
 
 def validate_target(target: str, content: str, approval_id: str | None = None) -> list[ValidationFinding]:
     payload = rust_validate_target(target, content, approval_status(approval_id) or "missing")
-    return [ValidationFinding(item["code"], item["detail"], item["severity"]) for item in payload["findings"]]
+    return annotate_findings([ValidationFinding(item["code"], item["detail"], item["severity"]) for item in payload["findings"]])
 
 
 def append_event(record: EventRecord) -> None:
@@ -161,12 +162,12 @@ def archive_dimension_entry(
     content = path.read_text(encoding="utf-8")
     entry_marker = f"- {entry_value}"
     if entry_marker not in content:
-        finding = ValidationFinding("ARCHIVE_ENTRY_NOT_FOUND", f"Entry not found for archive: {entry_value}")
+        finding = annotate_finding(ValidationFinding("ARCHIVE_ENTRY_NOT_FOUND", f"Entry not found for archive: {entry_value}"))
         return {"ok": False, "findings": [finding.as_dict()]}
 
     section_start = content.find(dimension_heading)
     if section_start == -1:
-        finding = ValidationFinding("ARCHIVE_DIMENSION_NOT_FOUND", f"Dimension not found: {dimension_heading}")
+        finding = annotate_finding(ValidationFinding("ARCHIVE_DIMENSION_NOT_FOUND", f"Dimension not found: {dimension_heading}"))
         return {"ok": False, "findings": [finding.as_dict()]}
 
     next_section = content.find("\n## ", section_start + 1)
@@ -174,13 +175,13 @@ def archive_dimension_entry(
     active_start = dimension_section.find("### Active")
     inactive_start = dimension_section.find("### Inactive")
     if active_start == -1 or inactive_start == -1:
-        finding = ValidationFinding("ARCHIVE_STRUCTURE_INVALID", f"Dimension missing Active/Inactive sections: {dimension_heading}")
+        finding = annotate_finding(ValidationFinding("ARCHIVE_STRUCTURE_INVALID", f"Dimension missing Active/Inactive sections: {dimension_heading}"))
         return {"ok": False, "findings": [finding.as_dict()]}
 
     active_section = dimension_section[active_start:inactive_start]
     entry_block = _extract_entry_block(active_section, entry_value)
     if not entry_block:
-        finding = ValidationFinding("ARCHIVE_ACTIVE_ENTRY_NOT_FOUND", f"Active entry not found for archive: {entry_value}")
+        finding = annotate_finding(ValidationFinding("ARCHIVE_ACTIVE_ENTRY_NOT_FOUND", f"Active entry not found for archive: {entry_value}"))
         return {"ok": False, "findings": [finding.as_dict()]}
     archived_entry = (
         f"{entry_block}\n"
@@ -200,7 +201,7 @@ def archive_dimension_entry(
     archive_heading = "## 700.Archive"
     archive_pos = new_content.find(archive_heading)
     if archive_pos == -1:
-        finding = ValidationFinding("ARCHIVE_BLOCK_MISSING", "700.Archive is missing from target SoT")
+        finding = annotate_finding(ValidationFinding("ARCHIVE_BLOCK_MISSING", "700.Archive is missing from target SoT"))
         return {"ok": False, "findings": [finding.as_dict()]}
     archive_entry = (
         f"[{re.sub(r'[^0-9]', '', EventRecord(source='vela', endpoint='archive', actor=actor, target=target, status='archived', reason=reason).timestamp)[:12]}] "
@@ -306,7 +307,7 @@ def _proposal_name(route: str, target: str) -> str:
 def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | None = None) -> dict[str, Any]:
     proposal_path = REPO_ROOT / proposal_target
     if not proposal_path.exists():
-        finding = ValidationFinding("GROWTH_PROPOSAL_NOT_FOUND", f"Growth proposal not found: {proposal_target}")
+        finding = annotate_finding(ValidationFinding("GROWTH_PROPOSAL_NOT_FOUND", f"Growth proposal not found: {proposal_target}"))
         return {"ok": False, "findings": [finding.as_dict()]}
 
     proposal_text = proposal_path.read_text(encoding="utf-8")
@@ -316,17 +317,17 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
     route = str(frontmatter.get("route", "")).strip().strip('"')
 
     if not assessed_target or not stage:
-        finding = ValidationFinding(
+        finding = annotate_finding(ValidationFinding(
             "GROWTH_PROPOSAL_METADATA_INVALID",
             f"{proposal_target} is missing required growth metadata",
-        )
+        ))
         return {"ok": False, "findings": [finding.as_dict()]}
 
     if is_sovereign_target(assessed_target) and approval_status(approval_id) != "approved":
-        finding = ValidationFinding(
+        finding = annotate_finding(ValidationFinding(
             "SOVEREIGN_APPROVAL_REQUIRED",
             "Growth execution targets a sovereign artifact and requires approval",
-        )
+        ))
         append_event(
             EventRecord(
                 source="vela",

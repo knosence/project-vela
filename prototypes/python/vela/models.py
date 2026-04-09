@@ -19,9 +19,10 @@ class ValidationFinding:
     code: str
     detail: str
     severity: str = "error"
+    rule_refs: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
-        return {"code": self.code, "detail": self.detail, "severity": self.severity}
+        return {"code": self.code, "detail": self.detail, "severity": self.severity, "rule_refs": self.rule_refs}
 
 
 @dataclass
@@ -52,4 +53,3 @@ class EventRecord:
             "approval_required": self.approval_required,
             "validation_summary": self.validation_summary,
         }
-

@@ -117,6 +117,11 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertTrue(any(item["code"] == "NARRATIVE_VALIDATOR_ACTIVE" for item in result["data"]["findings"]))
 
+    def test_validation_findings_include_rule_refs(self) -> None:
+        result = VelaService().validate({"scope": "repo", "checks": ["policy"], "mode": "report"})
+        config_finding = next(item for item in result["data"]["findings"] if item["code"] == "CONFIG_REQUIRED")
+        self.assertIn("Vela Setup Rule: Setup Mode Honesty", config_finding["rule_refs"])
+
     def test_event_log(self) -> None:
         pipeline = SequentialPipeline()
         pipeline.run(
@@ -277,6 +282,9 @@ class VelaSystemTest(unittest.TestCase):
         denied = apply_growth_proposal(proposal_target, actor="scribe")
         self.assertFalse(denied["ok"])
         self.assertTrue(denied["approval_required"])
+        finding = denied["findings"][0]
+        self.assertIn("Pattern 18 Human Gate", finding["rule_refs"])
+        self.assertIn("Law 5 Sovereign Changes Shall Touch Roots and Rules Only Through Governed Paths", finding["rule_refs"])
         record_approval("approve_growth_sovereign", "approved", "human", "allow growth test", "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md")
         allowed = apply_growth_proposal(proposal_target, actor="scribe", approval_id="approve_growth_sovereign")
         self.assertTrue(allowed["ok"])

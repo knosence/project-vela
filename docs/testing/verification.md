@@ -6,3 +6,5 @@ The repository includes unit verification, integration verification, scenario ve
 ## This Verification Stack Proves Governance Behavior Rather Than Surface Wording
 The tests check setup-mode honesty, default and replacement profiles, routing, guardrails, sequential pipeline behavior, repo-watch ingestion, narrative validation, event logging, and dry boot outcomes.
 
+## This Verification Stack Also Checks Constitutional Traceability
+Validation and governance failures should cite the Matrix pattern or Vela local law they violate so blocked actions are explainable in constitutional terms rather than only technical terms.

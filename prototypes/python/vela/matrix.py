@@ -9,6 +9,7 @@ from typing import Any
 from .models import ValidationFinding
 from .paths import MATRIX_INDEX_JSON_PATH, MATRIX_INDEX_PATH, REPO_ROOT
 from .simple_yaml import loads
+from .traceability import annotate_finding, annotate_findings
 
 
 @dataclass
@@ -83,21 +84,21 @@ def validate_matrix_rules(entries: list[MatrixSoT] | None = None) -> list[Valida
 
     if cornerstone_count != 1:
         findings.append(
-            ValidationFinding(
+            annotate_finding(ValidationFinding(
                 "MATRIX_SINGLE_CORNERSTONE_REQUIRED",
                 f"Expected exactly one cornerstone, found {cornerstone_count}",
                 "error",
-            )
+            ))
         )
 
     for item in sots:
         if not item.is_cornerstone and not item.parent:
             findings.append(
-                ValidationFinding(
+                annotate_finding(ValidationFinding(
                     "MATRIX_PARENT_REQUIRED",
                     f"{item.path} is missing a parent link",
                     "error",
-                )
+                ))
             )
 
     return findings
@@ -112,29 +113,29 @@ def validate_sot_structure(path: Path) -> list[ValidationFinding]:
     for field in required_fields:
         if field not in frontmatter:
             findings.append(
-                ValidationFinding(
+                annotate_finding(ValidationFinding(
                     "MATRIX_FRONTMATTER_REQUIRED",
                     f"{path.name} is missing required frontmatter field `{field}`",
                     "error",
-                )
+                ))
             )
 
     is_cornerstone = path.name == "Cornerstone.Project-Vela-SoT.md"
     if is_cornerstone and str(frontmatter.get("parent", None)) not in {"", "None", "none"}:
         findings.append(
-            ValidationFinding(
+            annotate_finding(ValidationFinding(
                 "MATRIX_CORNERSTONE_PARENT_MUST_BE_EMPTY",
                 f"{path.name} must declare an empty parent because the cornerstone is the root",
                 "error",
-            )
+            ))
         )
     if not is_cornerstone and not str(frontmatter.get("parent", "")).strip():
         findings.append(
-            ValidationFinding(
+            annotate_finding(ValidationFinding(
                 "MATRIX_PARENT_REQUIRED",
                 f"{path.name} must declare exactly one non-empty parent",
                 "error",
-            )
+            ))
         )
 
     required_headings = [
@@ -158,11 +159,11 @@ def validate_sot_structure(path: Path) -> list[ValidationFinding]:
     for heading in required_headings:
         if heading not in text:
             findings.append(
-                ValidationFinding(
+                annotate_finding(ValidationFinding(
                     "MATRIX_HEADING_REQUIRED",
                     f"{path.name} is missing required heading `{heading}`",
                     "error",
-                )
+                ))
             )
 
     for dimension in ["100", "200", "300", "400", "500", "600"]:
@@ -177,19 +178,19 @@ def validate_sot_structure(path: Path) -> list[ValidationFinding]:
         section = text[start:next_start]
         if "### Active" not in section:
             findings.append(
-                ValidationFinding(
+                annotate_finding(ValidationFinding(
                     "MATRIX_ACTIVE_SECTION_REQUIRED",
                     f"{path.name} is missing `### Active` in dimension {dimension}",
                     "error",
-                )
+                ))
             )
         if "### Inactive" not in section:
             findings.append(
-                ValidationFinding(
+                annotate_finding(ValidationFinding(
                     "MATRIX_INACTIVE_SECTION_REQUIRED",
                     f"{path.name} is missing `### Inactive` in dimension {dimension}",
                     "error",
-                )
+                ))
             )
 
     return findings
@@ -222,23 +223,23 @@ def validate_parent_consistency(path: Path) -> list[ValidationFinding]:
     if is_cornerstone:
         if declaration_parent.lower() not in {"none", ""}:
             findings.append(
-                ValidationFinding(
+                annotate_finding(ValidationFinding(
                     "MATRIX_CORNERSTONE_DECLARATION_PARENT_INVALID",
                     f"{path.name} must declare `Parent: None` in the Subject Declaration",
                     "error",
-                )
+                ))
             )
         return findings
 
     if fm_parent and declaration_parent and fm_parent != declaration_parent:
         findings.append(
-            ValidationFinding(
+            annotate_finding(ValidationFinding(
                 "MATRIX_PARENT_DECLARATION_MISMATCH",
                 f"{path.name} frontmatter parent does not match Subject Declaration parent",
                 "error",
-            )
+            ))
         )
-    return findings
+    return annotate_findings(findings)
 
 
 def _normalize_parent(value: str) -> str:
