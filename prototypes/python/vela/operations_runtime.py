@@ -64,8 +64,9 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
     blocked_items = _blocked_items()
     dreamer_patterns = _dreamer_patterns(blocked_items)
     stamp = _stamp()
+    dreamer_proposals = _write_dreamer_proposals(stamp, requested_by, dreamer_patterns, blocked_items)
     dreamer_report_target = f"knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-{stamp}.md"
-    dreamer_report = _render_dreamer_report(stamp, requested_by, dreamer_patterns, blocked_items)
+    dreamer_report = _render_dreamer_report(stamp, requested_by, dreamer_patterns, blocked_items, dreamer_proposals)
     dreamer_result = write_text(
         dreamer_report_target,
         dreamer_report,
@@ -74,7 +75,7 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
         reason="dreamer pattern report",
     )
     report_target = f"knowledge/ARTIFACTS/refs/DC-Night-Report-{stamp}.md"
-    report = _render_night_report(stamp, requested_by, patrol, growth_candidates, dreamer_patterns, blocked_items, dreamer_report_target)
+    report = _render_night_report(stamp, requested_by, patrol, growth_candidates, dreamer_patterns, blocked_items, dreamer_report_target, dreamer_proposals)
     result = write_text(report_target, report, actor="system", endpoint="night-cycle", reason="dc night cycle report")
     append_event(
         EventRecord(
@@ -97,6 +98,7 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
                 "blocked_items": len(blocked_items),
                 "patrol_report": patrol.get("report_target", ""),
                 "dreamer_report": dreamer_report_target,
+                "dreamer_proposals": [item["target"] for item in dreamer_proposals],
             },
         )
     )
@@ -108,6 +110,7 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
         "growth_candidates": growth_candidates,
         "dreamer_patterns": dreamer_patterns,
         "blocked_items": blocked_items,
+        "dreamer_proposals": dreamer_proposals,
     }
 
 
@@ -175,6 +178,31 @@ def _dreamer_patterns(blocked_items: list[dict[str, str]]) -> dict[str, int]:
     return dict(counts)
 
 
+def _write_dreamer_proposals(
+    stamp: str,
+    requested_by: str,
+    dreamer_patterns: dict[str, int],
+    blocked_items: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    proposals: list[dict[str, Any]] = []
+    for reason, count in sorted(dreamer_patterns.items()):
+        if count < 3:
+            continue
+        slug = _slug(reason)
+        target = f"knowledge/ARTIFACTS/proposals/Dreamer-Proposal.{stamp}.{slug}.md"
+        content = _render_dreamer_proposal(stamp, requested_by, reason, count, blocked_items)
+        result = write_text(target, content, actor="reflector", endpoint="night-cycle", reason="dreamer proposal")
+        proposals.append(
+            {
+                "target": target,
+                "reason": reason,
+                "count": count,
+                "ok": result["ok"],
+            }
+        )
+    return proposals
+
+
 def _render_patrol_report(
     stamp: str,
     requested_by: str,
@@ -204,6 +232,7 @@ def _render_night_report(
     dreamer_patterns: dict[str, int],
     blocked_items: list[dict[str, str]],
     dreamer_report_target: str,
+    dreamer_proposals: list[dict[str, Any]],
 ) -> str:
     growth_lines = "\n".join(
         f"- `{item['target']}` -> `{item['stage']}` ({item['inventory_role']})"
@@ -217,6 +246,10 @@ def _render_night_report(
         f"- `{item['target']}`\n  Attempted: `{item['endpoint']}` by `{item['actor']}`\n  Blocked because: {item['reason']}"
         for item in blocked_items[:5]
     ) or "- Spawn recommendations and constitutional rule changes remain human-gated."
+    proposal_lines = "\n".join(
+        f"- `[[{Path(item['target']).stem}]]` for `{item['reason']}` ({item['count']} strikes)"
+        for item in dreamer_proposals
+    ) or "- No Dreamer proposals opened this cycle."
     return (
         "# DC Night Report\n\n"
         "## This Report Records the Coordinated Night Cycle Across Patrol, Growth Review, and Pattern Review\n"
@@ -230,6 +263,8 @@ def _render_night_report(
         "## Dreamer Activity\n\n"
         f"- Pattern report: `[[{Path(dreamer_report_target).stem}]]`\n"
         f"{pattern_lines}\n\n"
+        "## Dreamer Proposals\n\n"
+        f"{proposal_lines}\n\n"
         "## Blocked (Needs Dario)\n\n"
         f"{blocked_lines}\n"
     )
@@ -240,6 +275,7 @@ def _render_dreamer_report(
     requested_by: str,
     dreamer_patterns: dict[str, int],
     blocked_items: list[dict[str, str]],
+    dreamer_proposals: list[dict[str, Any]],
 ) -> str:
     strike_lines = "\n".join(
         f"- `{reason}` -> {count} strikes"
@@ -250,15 +286,61 @@ def _render_dreamer_report(
         f"- `{item['reason']}` on `{item['target']}` via `{item['endpoint']}`"
         for item in blocked_items[:5]
     ) or "- No blocked items recorded."
+    proposal_lines = "\n".join(
+        f"- `[[{Path(item['target']).stem}]]` for `{item['reason']}`"
+        for item in dreamer_proposals
+    ) or "- No Dreamer proposals were created."
     return (
         "# Dreamer Pattern Report\n\n"
         "## This Report Records Repeated Blocked Patterns Worth Further Review\n"
         f"Dreamer review `{stamp}` was requested by `{requested_by}` and scanned recent blocked events.\n\n"
         "## Three Strike Patterns\n\n"
         f"{strike_lines}\n\n"
+        "## Proposed Responses\n\n"
+        f"{proposal_lines}\n\n"
         "## Recent Blocked Items\n\n"
         f"{recent_lines}\n"
     )
+
+
+def _render_dreamer_proposal(
+    stamp: str,
+    requested_by: str,
+    reason: str,
+    count: int,
+    blocked_items: list[dict[str, str]],
+) -> str:
+    matching = [item for item in blocked_items if item["reason"] == reason][:5]
+    evidence_lines = "\n".join(
+        f"- `{item['target']}` via `{item['endpoint']}` by `{item['actor']}`"
+        for item in matching
+    ) or "- No matching blocked items remained available."
+    return (
+        "---\n"
+        "sot-type: proposal\n"
+        f"created: {datetime.now(timezone.utc).date().isoformat()}\n"
+        f"last-rewritten: {datetime.now(timezone.utc).date().isoformat()}\n"
+        'parent: "[[100.WHO.Circle-SoT]]"\n'
+        "domain: operations\n"
+        "status: proposed\n"
+        'tags: ["dreamer","proposal","night-cycle"]\n'
+        "---\n\n"
+        "# Dreamer Proposal\n\n"
+        "## This Proposal Records a Repeated Night Cycle Failure Pattern That Merits Follow Up\n"
+        f"Dreamer opened this proposal during `{stamp}` for `{requested_by}` after observing `{count}` repeated blocks.\n\n"
+        "## Pattern\n\n"
+        f"- reason: `{reason}`\n"
+        f"- strikes: `{count}`\n\n"
+        "## Evidence\n\n"
+        f"{evidence_lines}\n\n"
+        "## Proposed Response\n\n"
+        f"- Review the validator or workflow path that is producing `{reason}`.\n"
+        "- Decide whether the correct next step is a rule change, a workflow change, or a stricter refusal.\n"
+    )
+
+
+def _slug(value: str) -> str:
+    return "-".join(part for part in "".join(ch.lower() if ch.isalnum() else "-" for ch in value).split("-") if part) or "pattern"
 
 
 def _stamp() -> str:
