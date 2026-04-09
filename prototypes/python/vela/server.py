@@ -8,6 +8,7 @@ from typing import Any
 from .config import load_config, missing_required_fields, setup_complete
 from .matrix import validate_matrix_rules
 from .governance import apply_growth_proposal, record_approval
+from .inbox import triage_inbox
 from .models import ValidationFinding
 from .models import new_id
 from .paths import REPO_ROOT, VERIFICATION_STATUS_PATH
@@ -137,6 +138,12 @@ class VelaService:
             errors=result.get("findings", []),
         )
 
+    def inbox_triage(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = triage_inbox(file_name=payload.get("file"), actor=payload.get("actor", "vela"))
+        if result["ok"]:
+            return envelope(True, "inbox-triage", "accepted", "Inbox triage completed", data=result)
+        return envelope(False, "inbox-triage", "rejected", "Inbox triage flagged items for review", data=result, errors=result["results"])
+
     def profiles(self) -> dict[str, Any]:
         return envelope(True, "profiles", "accepted", "Profiles listed", data=list_profiles())
 
@@ -181,6 +188,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             "/api/n8n/approval": self.service.approval,
             "/api/n8n/verify": self.service.verify,
             "/api/n8n/growth/apply": self.service.growth_apply,
+            "/api/n8n/inbox/triage": self.service.inbox_triage,
             "/api/n8n/profiles/use": self.service.profiles_use,
         }
         handler = routes.get(self.path)

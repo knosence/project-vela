@@ -14,12 +14,13 @@ from prototypes.python.vela.governance import (
     route_inbox_entry,
     write_text,
 )
+from prototypes.python.vela.inbox import triage_inbox
 from prototypes.python.vela.growth import assess_growth
 from prototypes.python.vela.matrix import classify_change_zone
 from prototypes.python.vela.matrix import validate_canonical_graph_targets
 from prototypes.python.vela.matrix import write_matrix_index
 from prototypes.python.vela.matrix import validate_parent_consistency
-from prototypes.python.vela.paths import EVENT_LOG_PATH, REPO_ROOT, STARTER_PATH
+from prototypes.python.vela.paths import EVENT_LOG_PATH, PATCH_LOG_PATH, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
 from prototypes.python.vela.repo_watch import analyze_release
 from prototypes.python.vela.rust_bridge import (
@@ -81,10 +82,20 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/ARTIFACTS/refs/indexed-release-summary.assessment.json",
             "knowledge/ARTIFACTS/refs/indexed-release-summary.reflection.json",
             "knowledge/ARTIFACTS/refs/indexed-release-summary.validation.json",
+            "knowledge/ARTIFACTS/proposals/inbox-triage-target.md",
         ]:
             path = REPO_ROOT / target
             if path.exists():
                 path.unlink()
+        for target in [
+            "knowledge/INBOX/test-inbox-item.md",
+            "knowledge/INBOX/test-inbox-missing-target.md",
+        ]:
+            path = REPO_ROOT / target
+            if path.exists():
+                path.unlink()
+        if PATCH_LOG_PATH.exists():
+            PATCH_LOG_PATH.unlink()
 
     def test_config_boot(self) -> None:
         cfg = load_config()
@@ -598,6 +609,56 @@ class VelaSystemTest(unittest.TestCase):
         self.assertEqual(result["endpoint"], "growth-apply")
         self.assertEqual(result["status"], "accepted")
         self.assertTrue((REPO_ROOT / result["data"]["execution_target"]).exists())
+
+    def test_inbox_triage_extracts_markdown_into_declared_target(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
+        target_path = REPO_ROOT / target
+        target_path.write_text((REPO_ROOT / "knowledge/200.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-item.md"
+        inbox_path.write_text(
+            "# Inbox Item\n\n"
+            f"Target: [[{Path(target).name}]]\n\n"
+            "Capability update\n\n"
+            "The inbox item captures a component-level change that belongs in WHAT.\n",
+            encoding="utf-8",
+        )
+        result = triage_inbox(file_name="test-inbox-item.md", actor="vela")
+        self.assertTrue(result["ok"])
+        self.assertFalse(inbox_path.exists())
+        updated = target_path.read_text(encoding="utf-8")
+        self.assertIn("- Capability update. (", updated)
+        self.assertIn("The inbox item captures a component-level change", updated)
+        self.assertTrue(PATCH_LOG_PATH.exists())
+        self.assertIn("STATUS: applied", PATCH_LOG_PATH.read_text(encoding="utf-8"))
+
+    def test_inbox_triage_flags_missing_target_for_review(self) -> None:
+        inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-missing-target.md"
+        inbox_path.write_text(
+            "# Inbox Item\n\n"
+            "Capability update\n\n"
+            "The inbox item captures a component-level change that belongs in WHAT.\n",
+            encoding="utf-8",
+        )
+        result = triage_inbox(file_name="test-inbox-missing-target.md", actor="vela")
+        self.assertFalse(result["ok"])
+        self.assertTrue(inbox_path.exists())
+        self.assertEqual(result["results"][0]["reason"], "missing-target")
+
+    def test_inbox_triage_service_endpoint(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
+        target_path = REPO_ROOT / target
+        target_path.write_text((REPO_ROOT / "knowledge/200.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-item.md"
+        inbox_path.write_text(
+            "# Inbox Item\n\n"
+            f"Target: [[{Path(target).name}]]\n\n"
+            "Capability update\n\n"
+            "The inbox item captures a component-level change that belongs in WHAT.\n",
+            encoding="utf-8",
+        )
+        result = VelaService().inbox_triage({"file": "test-inbox-item.md", "actor": "n8n"})
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["endpoint"], "inbox-triage")
 
     def test_dry_boot_prompt(self) -> None:
         health = VelaService().health()

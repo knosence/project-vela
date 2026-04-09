@@ -6,6 +6,7 @@ import sys
 
 from .config import ensure_bootstrap_files, load_config, missing_required_fields, save_config, setup_complete
 from .governance import apply_growth_proposal
+from .inbox import triage_inbox
 from .matrix import write_matrix_index
 from .profiles import activate_profile, list_profiles
 from .server import VelaService, serve
@@ -75,6 +76,12 @@ def cmd_growth_apply(args: argparse.Namespace) -> int:
     return 0 if result["ok"] else 1
 
 
+def cmd_inbox_triage(args: argparse.Namespace) -> int:
+    result = triage_inbox(file_name=args.file, actor="vela")
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     serve(host=args.host, port=args.port)
     return 0
@@ -120,6 +127,13 @@ def build_parser() -> argparse.ArgumentParser:
     growth_apply_parser.add_argument("proposal")
     growth_apply_parser.add_argument("--approval-id")
     growth_apply_parser.set_defaults(func=cmd_growth_apply)
+
+    inbox_parser = sub.add_parser("inbox")
+    inbox_sub = inbox_parser.add_subparsers(dest="inbox_command", required=True)
+
+    inbox_triage_parser = inbox_sub.add_parser("triage")
+    inbox_triage_parser.add_argument("--file")
+    inbox_triage_parser.set_defaults(func=cmd_inbox_triage)
 
     serve_parser = sub.add_parser("serve")
     serve_parser.add_argument("--host", default="127.0.0.1")
