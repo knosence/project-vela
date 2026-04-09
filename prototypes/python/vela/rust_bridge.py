@@ -65,3 +65,7 @@ def validate_event_payload(event: dict[str, Any]) -> dict[str, Any]:
             str(event.get("reason", "")),
         ]
     )
+
+
+def analyze_release_payload(repo: str, version: str, notes: str, watchlist_text: str) -> dict[str, Any]:
+    return _run(["analyze-release", repo, version, notes], stdin=watchlist_text)

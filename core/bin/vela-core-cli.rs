@@ -5,6 +5,7 @@ use vela_core::events::{validate_event_record, EventRecord, ValidationSummary};
 use vela_core::models::{OnboardingConfig, Severity, ValidationFinding};
 use vela_core::parser::{build_runtime_config, parse_system_identity};
 use vela_core::policy::{route_for_target, validate_commit_policy};
+use vela_core::repo_watch::assess_release;
 use vela_core::validator::{
     has_blocking_findings, missing_required_fields, validate_narrative_document, validate_runtime_config,
 };
@@ -126,6 +127,37 @@ fn run() -> Result<(), String> {
                 "{{\"ok\":{},\"findings\":[{}]}}",
                 if !has_blocking_findings(&findings) { "true" } else { "false" },
                 findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+            );
+        }
+        "analyze-release" => {
+            let repo = args.next().ok_or_else(|| "missing repo".to_string())?;
+            let version = args.next().ok_or_else(|| "missing version".to_string())?;
+            let notes = args.next().ok_or_else(|| "missing notes".to_string())?;
+            let mut watchlist = String::new();
+            io::stdin()
+                .read_to_string(&mut watchlist)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let assessment = assess_release(&repo, &notes, &watchlist);
+            println!(
+                "{{\"ok\":true,\"repo\":\"{}\",\"version\":\"{}\",\"watched\":{},\"risk\":{{\"level\":\"{}\",\"signals\":[{}]}},\"relevance\":{{\"level\":\"{}\",\"signals\":[{}],\"watch_reason\":\"{}\"}}}}",
+                escape_json(&repo),
+                escape_json(&version),
+                if assessment.watched { "true" } else { "false" },
+                escape_json(&assessment.risk_level),
+                assessment
+                    .risk_signals
+                    .iter()
+                    .map(|item| format!("\"{}\"", escape_json(item)))
+                    .collect::<Vec<String>>()
+                    .join(","),
+                escape_json(&assessment.relevance_level),
+                assessment
+                    .relevance_signals
+                    .iter()
+                    .map(|item| format!("\"{}\"", escape_json(item)))
+                    .collect::<Vec<String>>()
+                    .join(","),
+                escape_json(&assessment.watch_reason)
             );
         }
         other => return Err(format!("unknown command: {other}")),
