@@ -124,9 +124,12 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(result["ok"])
         self.assertTrue((REPO_ROOT / "knowledge/refs/repo-watch-test.md").exists())
+        self.assertTrue((REPO_ROOT / result["data"]["assessment_target"]).exists())
         self.assertEqual(result["data"]["risk"]["level"], "high")
         self.assertEqual(result["data"]["relevance"]["level"], "high")
         self.assertEqual(result["data"]["local_impact"]["level"], "high")
+        assessment_record = json.loads((REPO_ROOT / result["data"]["assessment_target"]).read_text(encoding="utf-8"))
+        self.assertEqual(assessment_record["risk"]["level"], "high")
 
     def test_repo_watch_analysis_uses_watchlist_reasoning(self) -> None:
         watchlist = (REPO_ROOT / "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8")

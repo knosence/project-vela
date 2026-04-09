@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 from .agents import SequentialPipeline
 from .config import load_config
+from .governance import write_text
 from .rust_bridge import analyze_release_payload
 
 
@@ -63,6 +66,25 @@ def build_release_body(packet: dict[str, Any], watchlist_text: str) -> str:
 
 def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> dict[str, Any]:
     assessment = analyze_release(packet, watchlist_text)
+    assessment_target = _assessment_target_for(target)
+    assessment_result = write_text(
+        assessment_target,
+        json.dumps(
+            {
+                "repo": packet.get("repo", "unknown/repo"),
+                "version": packet.get("version", "unknown"),
+                "notes": packet.get("notes", "No release notes provided."),
+                "watched": assessment["watched"],
+                "risk": assessment["risk"],
+                "relevance": assessment["relevance"],
+                "local_impact": assessment["local_impact"],
+            },
+            indent=2,
+        ),
+        actor="repo-watch",
+        endpoint="repo-release-assessment",
+        reason="write structured repo release assessment",
+    )
     pipeline = SequentialPipeline()
     result = pipeline.run(
         task_type="repo-release",
@@ -74,11 +96,17 @@ def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> 
         "route": result.route,
         "plan": result.plan,
         "critique": result.critique,
-        "findings": result.findings,
-        "committed": result.committed,
+        "findings": assessment_result.get("findings", []) + result.findings,
+        "committed": result.committed and assessment_result["ok"],
         "target": result.target,
+        "assessment_target": assessment_target,
         "risk": assessment["risk"],
         "relevance": assessment["relevance"],
         "watched": assessment["watched"],
         "local_impact": assessment["local_impact"],
     }
+
+
+def _assessment_target_for(target: str) -> str:
+    path = Path(target)
+    return str(path.with_name(f"{path.stem}.assessment.json"))

@@ -12,8 +12,10 @@ knowledge/archive/backups/*.md
 knowledge/proposals/Growth-Proposal.*.md
 knowledge/proposals/proposal-*.md
 knowledge/proposals/*-test.md
+knowledge/proposals/*.assessment.json
 knowledge/refs/event-log.md
 knowledge/refs/mock-release-summary.md
+knowledge/refs/*.assessment.json
 knowledge/refs/operational-note.md
 knowledge/refs/repo-watch-test.md
 knowledge/refs/safe-note.md

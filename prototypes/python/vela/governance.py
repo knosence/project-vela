@@ -66,6 +66,15 @@ def narrative_findings(text: str) -> list[ValidationFinding]:
 
 
 def validate_target(target: str, content: str, approval_id: str | None = None) -> list[ValidationFinding]:
+    if target.endswith(".json"):
+        payload = rust_validate_target(
+            target,
+            "# Structured Artifact\n\n## This Artifact Records Machine Readable Data\nStructured validation is governed while narrative validation is skipped for JSON artifacts.\n",
+            approval_status(approval_id) or "missing",
+        )
+        return annotate_findings(
+            [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
+        )
     payload = rust_validate_target(target, content, approval_status(approval_id) or "missing")
     return annotate_findings(
         [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
