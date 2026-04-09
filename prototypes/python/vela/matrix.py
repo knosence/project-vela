@@ -324,11 +324,13 @@ def _requires_hub_parent(path: Path, frontmatter: dict[str, Any]) -> bool:
     domain = str(frontmatter.get("domain", "")).strip()
     if domain == "agents":
         return True
-    rel = path.relative_to(REPO_ROOT)
-    area = rel.parts[1] if len(rel.parts) > 1 else ""
-    if area == "dimensions" and path.name != "WHAT.Repo-Watchlist-SoT.md":
-        return False
+    if domain == "dimensions":
+        return not _is_dimension_hub(path)
     return False
+
+
+def _is_dimension_hub(path: Path) -> bool:
+    return bool(re.match(r"^\d{3}\.[A-Z]+\..+-SoT\.md$", path.name))
 
 
 def classify_change_zone(before: str, after: str) -> str:

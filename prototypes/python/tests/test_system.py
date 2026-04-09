@@ -55,6 +55,7 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/proposals/Synthetic-Identity-SoT.md",
             "knowledge/proposals/Synthetic-Identity.Spawned-Child-SoT.md",
             "knowledge/proposals/direct-root-agent-branch-test.md",
+            "knowledge/proposals/direct-root-dimension-branch-test.md",
             "knowledge/proposals/repo-watch-test.md",
             "knowledge/proposals/Ref.repo-watch-test.Release-Intelligence.md",
             "knowledge/proposals/repo-watch-test.packet.json",
@@ -543,6 +544,22 @@ class VelaSystemTest(unittest.TestCase):
                 .replace("**Parent:** [[100.WHO.Circle-SoT#100.WHO.Identity]]", "**Parent:** [[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]")
                 .replace("- Parent: [[100.WHO.Circle-SoT#100.WHO.Identity]]", "- Parent: [[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]")
                 .replace("- WHO hub: [[100.WHO.Circle-SoT]]\n", "")
+            ),
+            encoding="utf-8",
+        )
+        findings = validate_parent_consistency(target)
+        self.assertTrue(any(item.code == "MATRIX_HUB_PARENT_REQUIRED" for item in findings))
+
+    def test_matrix_parent_rule_rejects_direct_root_attachment_for_dimension_branch(self) -> None:
+        target = REPO_ROOT / "knowledge/proposals/direct-root-dimension-branch-test.md"
+        target.write_text(
+            (
+                (REPO_ROOT / "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md")
+                .read_text(encoding="utf-8")
+                .replace('parent: "[[200.WHAT.Domain-SoT#200.WHAT.Domain]]"', 'parent: "[[Cornerstone.Project-Vela-SoT#200.WHAT.Domain]]"')
+                .replace("**Parent:** [[200.WHAT.Domain-SoT#200.WHAT.Domain]]", "**Parent:** [[Cornerstone.Project-Vela-SoT#200.WHAT.Domain]]")
+                .replace("- Parent: [[200.WHAT.Domain-SoT#200.WHAT.Domain]]", "- Parent: [[Cornerstone.Project-Vela-SoT#200.WHAT.Domain]]")
+                .replace("- Dimension hub: [[200.WHAT.Domain-SoT]]\n", "")
             ),
             encoding="utf-8",
         )
