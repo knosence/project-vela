@@ -89,7 +89,7 @@ def cmd_cross_reference(args: argparse.Namespace) -> int:
         description=args.description,
         primary_target=args.primary_target,
         primary_dimension_heading=args.primary_dimension_heading,
-        actor="scribe",
+        actor="vela",
         endpoint="cross-reference",
         reason=args.reason,
         approval_id=args.approval_id,

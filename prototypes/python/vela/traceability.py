@@ -89,6 +89,10 @@ RULE_MAP: dict[str, list[str]] = {
     "CONFIG_INCONSISTENT_SETUP_STATE": [
         "Vela Setup Rule: Setup Mode Honesty",
     ],
+    "ROLE_ACTION_NOT_ALLOWED": [
+        "Role Purity",
+        "SoT Operations Reference: Agent Boundary Table",
+    ],
 }
 
 

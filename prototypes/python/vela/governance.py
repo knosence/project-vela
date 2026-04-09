@@ -37,9 +37,55 @@ DIRECTIVES = [
     "sequential interplay over parallel chaos",
 ]
 
+ROLE_RULES: dict[str, set[str]] = {
+    "vela": {"inbox-triage", "cross-reference"},
+    "warden": {"validate", "write-artifact"},
+    "scribe": {"write-text", "archive", "growth-apply", "cross-reference"},
+    "grower": {"growth-proposal", "growth-apply", "write-artifact"},
+    "reflector": {"reflect", "write-artifact"},
+    "repo-watch": {"repo-release", "write-artifact"},
+    "n8n": {"inbox-triage", "cross-reference", "growth-apply", "approval-record", "validate", "reflect", "repo-release"},
+    "human": {"*"},
+    "system": {"*"},
+}
+
 
 def is_sovereign_target(target: str) -> bool:
     return rust_route_for_target("write", target) == "sovereign-change"
+
+
+def enforce_actor_operation(
+    actor: str,
+    operation: str,
+    *,
+    target: str | None = None,
+    endpoint: str | None = None,
+    stage: str | None = None,
+) -> ValidationFinding | None:
+    permissions = ROLE_RULES.get(actor, set())
+    if "*" in permissions:
+        return None
+    if operation in permissions:
+        if operation == "growth-apply" and stage == "spawn" and actor not in {"scribe", "human", "system", "n8n"}:
+            return annotate_finding(
+                ValidationFinding(
+                    "ROLE_ACTION_NOT_ALLOWED",
+                    f"Actor `{actor}` may recommend spawn but may not execute it.",
+                )
+            )
+        return None
+    if operation == "write-text" and "write-artifact" in permissions and target and target.startswith("knowledge/ARTIFACTS/"):
+        return None
+    if actor == "n8n" and endpoint in {"inbox-triage", "cross-reference", "growth-apply", "repo-release"}:
+        return None
+    if actor == "vela" and endpoint in {"inbox-triage", "cross-reference"}:
+        return None
+    return annotate_finding(
+        ValidationFinding(
+            "ROLE_ACTION_NOT_ALLOWED",
+            f"Actor `{actor}` is not permitted to perform `{operation}`.",
+        )
+    )
 
 
 def approval_status(approval_id: str | None) -> str | None:
@@ -51,6 +97,9 @@ def approval_status(approval_id: str | None) -> str | None:
 
 
 def record_approval(approval_id: str, decision: str, actor: str, reason: str, target: str) -> dict[str, Any]:
+    role_failure = enforce_actor_operation(actor, "approval-record", target=target)
+    if role_failure:
+        raise PermissionError(role_failure.detail)
     data = json.loads(APPROVALS_PATH.read_text(encoding="utf-8"))
     data.setdefault("approvals", {})[approval_id] = {
         "decision": decision,
@@ -123,6 +172,9 @@ def write_text(target: str, content: str, actor: str, endpoint: str, reason: str
     path = REPO_ROOT / target
     previous = path.read_text(encoding="utf-8") if path.exists() else ""
     local_findings: list[ValidationFinding] = []
+    role_failure = enforce_actor_operation(actor, "write-text", target=target, endpoint=endpoint)
+    if role_failure:
+        local_findings.append(role_failure)
     if previous:
         subject_payload = validate_subject_declaration_payload(previous, content, approval_status(approval_id) or "missing")
         local_findings.extend(
@@ -183,6 +235,9 @@ def archive_dimension_entry(
     reason: str,
     approval_id: str | None = None,
 ) -> dict[str, Any]:
+    role_failure = enforce_actor_operation(actor, "archive", target=target, endpoint=endpoint)
+    if role_failure:
+        return {"ok": False, "findings": [role_failure.as_dict()]}
     path = REPO_ROOT / target
     content = path.read_text(encoding="utf-8")
     entry_marker = f"- {entry_value}"
@@ -296,6 +351,16 @@ def governance_snapshot() -> dict[str, Any]:
 
 
 def propose_growth(route: str, target: str, body: str, critique: list[str], findings: list[dict[str, Any]]) -> dict[str, Any]:
+    role_failure = enforce_actor_operation("grower", "growth-proposal", target=target, endpoint="growth-proposal")
+    if role_failure:
+        return {
+            "ok": False,
+            "target": "",
+            "critique": critique,
+            "findings": [role_failure.as_dict()],
+            "approval_required": is_sovereign_target(target),
+            "artifacts": [],
+        }
     PROPOSALS_DIR.mkdir(parents=True, exist_ok=True)
     proposal = PROPOSALS_DIR / _proposal_name(route, target)
     proposal_target = str(proposal.relative_to(REPO_ROOT))
@@ -355,6 +420,23 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
             f"{proposal_target} is missing required growth metadata",
         ))
         return {"ok": False, "findings": [finding.as_dict()]}
+
+    role_failure = enforce_actor_operation(actor, "growth-apply", target=proposal_target, endpoint="growth-apply", stage=stage)
+    if role_failure:
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="growth-apply",
+                actor=actor,
+                target=proposal_target,
+                status="blocked",
+                reason=role_failure.detail,
+                artifacts=[proposal_target],
+                approval_required=stage == "spawn",
+                validation_summary={"assessed_target": assessed_target, "stage": stage, "route": route},
+            )
+        )
+        return {"ok": False, "findings": [role_failure.as_dict()], "approval_required": stage == "spawn"}
 
     growth_payload = validate_growth_stage_payload(stage, approval_status(approval_id) or "missing")
     growth_findings = annotate_findings(
@@ -497,6 +579,9 @@ def create_cross_reference(
     reason: str,
     approval_id: str | None = None,
 ) -> dict[str, Any]:
+    role_failure = enforce_actor_operation(actor, "cross-reference", target=claimant_target, endpoint=endpoint)
+    if role_failure:
+        return {"ok": False, "findings": [role_failure.as_dict()]}
     claimant_path = REPO_ROOT / claimant_target
     if not claimant_path.exists():
         finding = annotate_finding(

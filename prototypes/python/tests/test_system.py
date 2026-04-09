@@ -290,6 +290,27 @@ class VelaSystemTest(unittest.TestCase):
         self.assertIn("Archived Reason: Replaced by newer fact", updated)
         self.assertIn("FROM: ## 100.WHO.Identity", updated)
 
+    def test_vela_cannot_archive_directly(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/archive-transaction-test.md"
+        content = (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8").replace(
+            "- Vela is the default installed assistant profile under Knosence. (2026-04-08)\n  - The profile is close to the human root without replacing it. [HUMAN]",
+            "- Sample archived value. (2026-04-08)\n  - Exists to verify archive movement. [AGENT:gpt-5]",
+        )
+        path = REPO_ROOT / target
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        result = archive_dimension_entry(
+            target=target,
+            dimension_heading="## 100.WHO.Identity",
+            entry_value="Sample archived value. (2026-04-08)",
+            archived_reason="Replaced by newer fact",
+            actor="vela",
+            endpoint="test-archive",
+            reason="archive entry",
+        )
+        self.assertFalse(result["ok"])
+        self.assertTrue(any(item["code"] == "ROLE_ACTION_NOT_ALLOWED" for item in result["findings"]))
+
     def test_subject_declaration_change_requires_approval(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/subject-declaration-test.md"
         original = (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8")
@@ -313,6 +334,17 @@ class VelaSystemTest(unittest.TestCase):
             approval_id="approve_subject_declaration",
         )
         self.assertTrue(allowed["ok"])
+
+    def test_warden_cannot_write_canonical_sot(self) -> None:
+        target = "knowledge/210.WHAT.Vela-Capabilities-SoT.md"
+        original = (REPO_ROOT / target).read_text(encoding="utf-8")
+        changed = original.replace(
+            "Vela routes, plans, drafts, critiques, validates, documents, and proposes growth under governed workflows.",
+            "Vela routes, plans, drafts, critiques, validates, documents, proposes growth, and patrols canonical writes.",
+        )
+        result = write_text(target, changed, actor="warden", endpoint="test", reason="warden canonical write")
+        self.assertFalse(result["ok"])
+        self.assertTrue(any(item["code"] == "ROLE_ACTION_NOT_ALLOWED" for item in result["findings"]))
 
     def test_change_zone_classifier_distinguishes_fluid_and_protected(self) -> None:
         before = "### Status\n\nOld\n\n### Decisions\n\n- old"
@@ -586,6 +618,38 @@ class VelaSystemTest(unittest.TestCase):
         self.assertIn("Spawned Child: [[spawn-source.Spawned-Child-SoT]]", updated_source)
         self.assertIn("created a spawned child SoT `[[spawn-source.Spawned-Child-SoT]]`", updated_source)
         self.assertIn("Branch-specific detail now continues in `[[spawn-source.Spawned-Child-SoT]]`", updated_source)
+
+    def test_grower_cannot_execute_spawn_stage(self) -> None:
+        proposal_target = "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md"
+        source_target = "knowledge/ARTIFACTS/proposals/spawn-source-SoT.md"
+        (REPO_ROOT / source_target).write_text(
+            (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        proposal_path = REPO_ROOT / proposal_target
+        proposal_path.parent.mkdir(parents=True, exist_ok=True)
+        proposal_path.write_text(
+            "---\n"
+            "sot-type: proposal\n"
+            "created: 2026-04-09\n"
+            "last-rewritten: 2026-04-09\n"
+            'parent: "[[spawn-source-SoT]]"\n'
+            "domain: governance\n"
+            "status: proposed\n"
+            f'target: "{source_target}"\n'
+            'route: "standard"\n'
+            'recommended-stage: "spawn"\n'
+            'tags: ["growth","proposal"]\n'
+            "---\n\n"
+            "# Growth Proposal\n\n"
+            "## This Proposal Records the Matrix Growth Assessment After the Main Task\n"
+            "Spawn should not execute under Grower.\n",
+            encoding="utf-8",
+        )
+        record_approval("approve_spawn_for_role_test", "approved", "human", "allow spawn test", source_target)
+        result = apply_growth_proposal(proposal_target, actor="grower", approval_id="approve_spawn_for_role_test")
+        self.assertFalse(result["ok"])
+        self.assertTrue(any(item["code"] == "ROLE_ACTION_NOT_ALLOWED" for item in result["findings"]))
 
     def test_apply_growth_proposal_fractalizes_source(self) -> None:
         proposal_target = "knowledge/ARTIFACTS/proposals/growth-apply-fractal-test.md"
