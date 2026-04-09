@@ -16,6 +16,7 @@ from prototypes.python.vela.profiles import activate_profile, list_profiles, reg
 from prototypes.python.vela.repo_watch import analyze_release
 from prototypes.python.vela.rust_bridge import (
     inspect_reference_payload,
+    matrix_inventory_payload,
     route_for_target,
     validate_config_payload,
     validate_target as validate_target_payload,
@@ -533,6 +534,12 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["reference"]["domain"], "repo-watch")
+
+    def test_rust_inventory_bridge(self) -> None:
+        payload = matrix_inventory_payload()
+        self.assertTrue(payload["ok"])
+        self.assertTrue(any(item["is_cornerstone"] for item in payload["entries"]))
+        self.assertTrue(all("path" in item for item in payload["references"]))
 
     def test_matrix_parent_rule_rejects_direct_root_attachment_for_agent_branch(self) -> None:
         target = REPO_ROOT / "knowledge/proposals/direct-root-agent-branch-test.md"

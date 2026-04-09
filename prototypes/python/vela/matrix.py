@@ -9,6 +9,7 @@ from typing import Any
 from .models import ValidationFinding
 from .paths import MATRIX_INDEX_JSON_PATH, MATRIX_INDEX_PATH, REPO_ROOT
 from .rust_bridge import inspect_reference_payload
+from .rust_bridge import matrix_inventory_payload
 from .rust_bridge import render_matrix_index_payload
 from .rust_bridge import validate_parent_payload
 from .rust_bridge import validate_sot_payload
@@ -89,46 +90,35 @@ def _extract_title(text: str) -> str:
 
 
 def discover_sots() -> list[MatrixSoT]:
-    entries: list[MatrixSoT] = []
-    for path in sorted((REPO_ROOT / "knowledge").rglob("*-SoT.md")):
-        rel = str(path.relative_to(REPO_ROOT))
-        area = Path(rel).parts[1]
-        if area not in {"cornerstone", "dimensions", "agents"}:
-            continue
-        text = path.read_text(encoding="utf-8")
-        frontmatter = _parse_frontmatter(text)
-        entries.append(
-            MatrixSoT(
-                path=rel,
-                title=_extract_title(text),
-                sot_type=str(frontmatter.get("sot-type", "unknown")),
-                parent=str(frontmatter.get("parent", "")),
-                domain=str(frontmatter.get("domain", "unknown")),
-                status=str(frontmatter.get("status", "unknown")),
-                area=area,
-                is_cornerstone=Path(rel).name == "Cornerstone.Project-Vela-SoT.md",
-            )
+    payload = matrix_inventory_payload()
+    return [
+        MatrixSoT(
+            path=str(item["path"]),
+            title=str(item["title"]),
+            sot_type=str(item["sot_type"]),
+            parent=str(item["parent"]),
+            domain=str(item["domain"]),
+            status=str(item["status"]),
+            area=str(item["area"]),
+            is_cornerstone=bool(item["is_cornerstone"]),
         )
-    return entries
+        for item in payload["entries"]
+    ]
 
 
 def discover_references() -> list[MatrixReference]:
-    entries: list[MatrixReference] = []
-    for payload in _reference_payloads():
-        reference = payload.get("reference")
-        if not reference:
-            continue
-        entries.append(
-            MatrixReference(
-                path=str(reference.get("path", "")),
-                title=str(reference.get("title", "Untitled Reference")),
-                ref_type=str(reference.get("ref_type", "reference")),
-                parent=str(reference.get("parent", "")),
-                domain=str(reference.get("domain", "unknown")),
-                status=str(reference.get("status", "unknown")),
-            )
+    payload = matrix_inventory_payload()
+    return [
+        MatrixReference(
+            path=str(item["path"]),
+            title=str(item["title"]),
+            ref_type=str(item["ref_type"]),
+            parent=str(item["parent"]),
+            domain=str(item["domain"]),
+            status=str(item["status"]),
         )
-    return entries
+        for item in payload["references"]
+    ]
 
 
 def validate_matrix_rules(entries: list[MatrixSoT] | None = None) -> list[ValidationFinding]:

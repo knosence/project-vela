@@ -85,3 +85,7 @@ def validate_sot_payload(path: str, content: str) -> dict[str, Any]:
 
 def render_matrix_index_payload() -> dict[str, Any]:
     return _run(["render-matrix-index", str(REPO_ROOT)])
+
+
+def matrix_inventory_payload() -> dict[str, Any]:
+    return _run(["inventory", str(REPO_ROOT)])

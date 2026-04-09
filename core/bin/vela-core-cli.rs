@@ -2,6 +2,7 @@ use std::env;
 use std::io::{self, Read};
 
 use vela_core::events::{validate_event_record, EventRecord, ValidationSummary};
+use vela_core::inventory::discover_matrix_inventory;
 use vela_core::matrix::{
     build_matrix_index,
     validate_parent_consistency as validate_matrix_parent_consistency,
@@ -250,6 +251,18 @@ fn run() -> Result<(), String> {
                 findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
             );
         }
+        "inventory" => {
+            let root = args.next().ok_or_else(|| "missing repo root".to_string())?;
+            let root = std::path::Path::new(&root);
+            let (entries, references, findings) = discover_matrix_inventory(root);
+            println!(
+                "{{\"ok\":{},\"entries\":[{}],\"references\":[{}],\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) { "true" } else { "false" },
+                entries.iter().map(render_matrix_sot).collect::<Vec<String>>().join(","),
+                references.iter().map(render_reference).collect::<Vec<String>>().join(","),
+                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+            );
+        }
         other => return Err(format!("unknown command: {other}")),
     }
 
@@ -288,6 +301,32 @@ fn render_finding(finding: &ValidationFinding) -> String {
             .map(|item| format!("\"{}\"", escape_json(item)))
             .collect::<Vec<String>>()
             .join(",")
+    )
+}
+
+fn render_matrix_sot(item: &vela_core::models::MatrixSoT) -> String {
+    format!(
+        "{{\"path\":\"{}\",\"title\":\"{}\",\"sot_type\":\"{}\",\"parent\":\"{}\",\"domain\":\"{}\",\"status\":\"{}\",\"area\":\"{}\",\"is_cornerstone\":{}}}",
+        escape_json(&item.path),
+        escape_json(&item.title),
+        escape_json(&item.sot_type),
+        escape_json(&item.parent),
+        escape_json(&item.domain),
+        escape_json(&item.status),
+        escape_json(&item.area),
+        if item.is_cornerstone { "true" } else { "false" },
+    )
+}
+
+fn render_reference(item: &vela_core::models::GovernedReference) -> String {
+    format!(
+        "{{\"path\":\"{}\",\"title\":\"{}\",\"ref_type\":\"{}\",\"parent\":\"{}\",\"domain\":\"{}\",\"status\":\"{}\"}}",
+        escape_json(&item.path),
+        escape_json(&item.title),
+        escape_json(&item.ref_type),
+        escape_json(&item.parent),
+        escape_json(&item.domain),
+        escape_json(&item.status),
     )
 }
 
