@@ -117,6 +117,8 @@ class VelaSystemTest(unittest.TestCase):
             path.unlink()
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("DC-Night-Report-*.md"):
             path.unlink()
+        for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("Dreamer-Pattern-Report-*.md"):
+            path.unlink()
         if PATCH_LOG_PATH.exists():
             PATCH_LOG_PATH.unlink()
 
@@ -806,12 +808,27 @@ class VelaSystemTest(unittest.TestCase):
         self.assertIn("inbox-triage-target.md", report_text)
 
     def test_night_cycle_writes_dc_report(self) -> None:
+        write_text(
+            "knowledge/210.WHAT.Vela-Capabilities-SoT.md",
+            (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8").replace(
+                "Vela routes, plans, drafts, critiques, validates, documents, and proposes growth under governed workflows.",
+                "Vela routes, plans, drafts, critiques, validates, documents, proposes growth, and patrols canonical writes.",
+            ),
+            actor="warden",
+            endpoint="test",
+            reason="force blocked pattern for night report",
+        )
         result = run_night_cycle(requested_by="human")
         self.assertTrue(result["ok"])
         report_text = (REPO_ROOT / result["report_target"]).read_text(encoding="utf-8")
+        dreamer_text = (REPO_ROOT / result["dreamer_report_target"]).read_text(encoding="utf-8")
         self.assertIn("## Warden Patrol Summary", report_text)
         self.assertIn("## Grower Activity", report_text)
         self.assertIn("## Dreamer Activity", report_text)
+        self.assertIn("## Blocked (Needs Dario)", report_text)
+        self.assertIn("Dreamer-Pattern-Report-", report_text)
+        self.assertIn("## Three Strike Patterns", dreamer_text)
+        self.assertIn("## Recent Blocked Items", dreamer_text)
 
     def test_patrol_and_night_cycle_service_endpoints(self) -> None:
         patrol = VelaService().patrol_run({"actor": "n8n"})

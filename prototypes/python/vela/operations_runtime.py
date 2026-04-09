@@ -61,10 +61,20 @@ def run_warden_patrol(requested_by: str = "system") -> dict[str, Any]:
 def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
     patrol = run_warden_patrol(requested_by=requested_by)
     growth_candidates = _growth_candidates()
-    dreamer_patterns = _dreamer_patterns()
+    blocked_items = _blocked_items()
+    dreamer_patterns = _dreamer_patterns(blocked_items)
     stamp = _stamp()
+    dreamer_report_target = f"knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-{stamp}.md"
+    dreamer_report = _render_dreamer_report(stamp, requested_by, dreamer_patterns, blocked_items)
+    dreamer_result = write_text(
+        dreamer_report_target,
+        dreamer_report,
+        actor="reflector",
+        endpoint="night-cycle",
+        reason="dreamer pattern report",
+    )
     report_target = f"knowledge/ARTIFACTS/refs/DC-Night-Report-{stamp}.md"
-    report = _render_night_report(stamp, requested_by, patrol, growth_candidates, dreamer_patterns)
+    report = _render_night_report(stamp, requested_by, patrol, growth_candidates, dreamer_patterns, blocked_items, dreamer_report_target)
     result = write_text(report_target, report, actor="system", endpoint="night-cycle", reason="dc night cycle report")
     append_event(
         EventRecord(
@@ -74,21 +84,30 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
             target=report_target,
             status="committed" if result["ok"] else "blocked",
             reason="dc night cycle executed",
-            artifacts=result.get("artifacts", [report_target]),
+            artifacts=[
+                dreamer_report_target,
+                report_target,
+                *dreamer_result.get("artifacts", [dreamer_report_target]),
+                *result.get("artifacts", [report_target]),
+            ],
             validation_summary={
                 "requested_by": requested_by,
                 "growth_candidates": len(growth_candidates),
                 "dreamer_patterns": dreamer_patterns,
+                "blocked_items": len(blocked_items),
                 "patrol_report": patrol.get("report_target", ""),
+                "dreamer_report": dreamer_report_target,
             },
         )
     )
     return {
-        "ok": result["ok"],
+        "ok": result["ok"] and dreamer_result["ok"],
         "report_target": report_target,
+        "dreamer_report_target": dreamer_report_target,
         "patrol": patrol,
         "growth_candidates": growth_candidates,
         "dreamer_patterns": dreamer_patterns,
+        "blocked_items": blocked_items,
     }
 
 
@@ -129,16 +148,30 @@ def _growth_candidates() -> list[dict[str, Any]]:
     return candidates
 
 
-def _dreamer_patterns() -> dict[str, int]:
+def _blocked_items() -> list[dict[str, str]]:
     if not EVENT_LOG_PATH.exists():
-        return {}
-    counts: Counter[str] = Counter()
+        return []
+    items: list[dict[str, str]] = []
     for line in EVENT_LOG_PATH.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         record = json.loads(line)
         if record.get("status") == "blocked":
-            counts[str(record.get("reason", "blocked"))] += 1
+            items.append(
+                {
+                    "target": str(record.get("target", "")),
+                    "reason": str(record.get("reason", "blocked")),
+                    "actor": str(record.get("actor", "")),
+                    "endpoint": str(record.get("endpoint", "")),
+                }
+            )
+    return items
+
+
+def _dreamer_patterns(blocked_items: list[dict[str, str]]) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for item in blocked_items:
+        counts[item["reason"]] += 1
     return dict(counts)
 
 
@@ -169,6 +202,8 @@ def _render_night_report(
     patrol: dict[str, Any],
     growth_candidates: list[dict[str, Any]],
     dreamer_patterns: dict[str, int],
+    blocked_items: list[dict[str, str]],
+    dreamer_report_target: str,
 ) -> str:
     growth_lines = "\n".join(
         f"- `{item['target']}` -> `{item['stage']}` ({item['inventory_role']})"
@@ -178,6 +213,10 @@ def _render_night_report(
         f"- `{reason}` -> {count}"
         for reason, count in sorted(dreamer_patterns.items())
     ) or "- No blocked-pattern signals recorded."
+    blocked_lines = "\n".join(
+        f"- `{item['target']}`\n  Attempted: `{item['endpoint']}` by `{item['actor']}`\n  Blocked because: {item['reason']}"
+        for item in blocked_items[:5]
+    ) or "- Spawn recommendations and constitutional rule changes remain human-gated."
     return (
         "# DC Night Report\n\n"
         "## This Report Records the Coordinated Night Cycle Across Patrol, Growth Review, and Pattern Review\n"
@@ -189,9 +228,36 @@ def _render_night_report(
         "## Grower Activity\n\n"
         f"{growth_lines}\n\n"
         "## Dreamer Activity\n\n"
+        f"- Pattern report: `[[{Path(dreamer_report_target).stem}]]`\n"
         f"{pattern_lines}\n\n"
         "## Blocked (Needs Dario)\n\n"
-        "- Spawn recommendations and constitutional rule changes remain human-gated.\n"
+        f"{blocked_lines}\n"
+    )
+
+
+def _render_dreamer_report(
+    stamp: str,
+    requested_by: str,
+    dreamer_patterns: dict[str, int],
+    blocked_items: list[dict[str, str]],
+) -> str:
+    strike_lines = "\n".join(
+        f"- `{reason}` -> {count} strikes"
+        for reason, count in sorted(dreamer_patterns.items())
+        if count >= 3
+    ) or "- No 3-strike patterns detected."
+    recent_lines = "\n".join(
+        f"- `{item['reason']}` on `{item['target']}` via `{item['endpoint']}`"
+        for item in blocked_items[:5]
+    ) or "- No blocked items recorded."
+    return (
+        "# Dreamer Pattern Report\n\n"
+        "## This Report Records Repeated Blocked Patterns Worth Further Review\n"
+        f"Dreamer review `{stamp}` was requested by `{requested_by}` and scanned recent blocked events.\n\n"
+        "## Three Strike Patterns\n\n"
+        f"{strike_lines}\n\n"
+        "## Recent Blocked Items\n\n"
+        f"{recent_lines}\n"
     )
 
 
