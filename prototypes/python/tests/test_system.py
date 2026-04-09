@@ -50,6 +50,9 @@ class VelaSystemTest(unittest.TestCase):
         EVENT_LOG_PATH.write_text("", encoding="utf-8")
         self._cleanup_generated_artifacts()
 
+    def tearDown(self) -> None:
+        self._cleanup_generated_artifacts()
+
     def _cleanup_generated_artifacts(self) -> None:
         for target in [
             "knowledge/Cornerstone.Knosence-SoT.Spawned-Child-SoT.md",
