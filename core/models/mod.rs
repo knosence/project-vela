@@ -101,6 +101,15 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
             "Pattern 18 Human Gate".to_string(),
             "Law 5 Sovereign Changes Shall Touch Roots and Rules Only Through Governed Paths".to_string(),
         ],
+        "SPAWN_APPROVAL_REQUIRED" => vec![
+            "Pattern 12 Sovereign Spawn".to_string(),
+            "Pattern 18 Human Gate".to_string(),
+        ],
+        "SUBJECT_DECLARATION_APPROVAL_REQUIRED" => vec![
+            "Pattern 6 Protected/Fluid Zones".to_string(),
+            "Pattern 9 Declaration Anchor".to_string(),
+            "Pattern 18 Human Gate".to_string(),
+        ],
         "CONFIG_REQUIRED" | "SETUP_STATE_INCONSISTENT" => {
             vec!["Vela Setup Rule: Setup Mode Honesty".to_string()]
         }
@@ -128,6 +137,14 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
         | "MATRIX_INACTIVE_SECTION_REQUIRED" => vec![
             "Pattern 17 SoT-Native Output".to_string(),
             "Pattern 7 Single Source Block Map".to_string(),
+        ],
+        "ARCHIVE_POSTCONDITION_FAILED" => vec![
+            "Pattern 10 Dual Archive".to_string(),
+            "Pattern 13 Extraction Before Deletion".to_string(),
+        ],
+        "GRAPH_EMPTY_FILE" | "GRAPH_MISSING_TARGET" => vec![
+            "Pattern 14 One Home, Many Pointers".to_string(),
+            "Pattern 17 SoT-Native Output".to_string(),
         ],
         "MATRIX_REFERENCE_FRONTMATTER_REQUIRED" | "MATRIX_REFERENCE_TYPE_REQUIRED" => vec![
             "Pattern 16 Frontmatter Contract".to_string(),

@@ -29,6 +29,30 @@ def route_for_target(task_type: str, target: str) -> str:
     return str(payload["route"])
 
 
+def route_inbox_payload(content: str) -> dict[str, Any]:
+    return _run(["route-inbox"], stdin=content)
+
+
+def validate_subject_declaration_payload(before: str, after: str, approval_status: str) -> dict[str, Any]:
+    return _run(["validate-subject-declaration", approval_status], stdin=f"{before}\n===AFTER===\n{after}")
+
+
+def validate_growth_stage_payload(stage: str, approval_status: str) -> dict[str, Any]:
+    return _run(["validate-growth-stage", stage, approval_status])
+
+
+def validate_archive_postconditions_payload(
+    content: str,
+    entry_value: str,
+    archived_reason: str,
+    dimension_heading: str,
+) -> dict[str, Any]:
+    return _run(
+        ["validate-archive-postconditions", entry_value, archived_reason, dimension_heading],
+        stdin=content,
+    )
+
+
 def validate_config_payload(config: dict[str, Any]) -> dict[str, Any]:
     return _run(
         [

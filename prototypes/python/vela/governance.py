@@ -12,7 +12,11 @@ from .matrix import classify_change_zone
 from .models import EventRecord, ValidationFinding
 from .paths import APPROVALS_PATH, BACKUP_DIR, EVENT_LOG_PATH, PROPOSALS_DIR, QUEUE_DIR, REPO_ROOT
 from .rust_bridge import route_for_target as rust_route_for_target
+from .rust_bridge import route_inbox_payload
+from .rust_bridge import validate_archive_postconditions_payload
 from .rust_bridge import validate_event_payload
+from .rust_bridge import validate_growth_stage_payload
+from .rust_bridge import validate_subject_declaration_payload
 from .rust_bridge import validate_target as rust_validate_target
 from .simple_yaml import loads
 from .traceability import annotate_finding, annotate_findings
@@ -119,13 +123,11 @@ def write_text(target: str, content: str, actor: str, endpoint: str, reason: str
     path = REPO_ROOT / target
     previous = path.read_text(encoding="utf-8") if path.exists() else ""
     local_findings: list[ValidationFinding] = []
-    if previous and subject_declaration_changed(previous, content) and approval_status(approval_id) != "approved":
-        local_findings.append(
-            annotate_finding(
-                ValidationFinding(
-                    "SUBJECT_DECLARATION_APPROVAL_REQUIRED",
-                    "Subject Declaration changes require explicit human approval",
-                )
+    if previous:
+        subject_payload = validate_subject_declaration_payload(previous, content, approval_status(approval_id) or "missing")
+        local_findings.extend(
+            annotate_findings(
+                [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in subject_payload["findings"]]
             )
         )
     findings = local_findings + validate_target(target, content, approval_id=approval_id)
@@ -244,10 +246,7 @@ def archive_dimension_entry(
             dimension_heading=dimension_heading,
         )
         if postcondition_failure:
-            finding = annotate_finding(
-                ValidationFinding("ARCHIVE_POSTCONDITION_FAILED", postcondition_failure)
-            )
-            return {"ok": False, "findings": [finding.as_dict()]}
+            return {"ok": False, "findings": [postcondition_failure.as_dict()]}
         append_event(
             EventRecord(
                 source="vela",
@@ -357,13 +356,12 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
         ))
         return {"ok": False, "findings": [finding.as_dict()]}
 
-    if stage == "spawn" and approval_status(approval_id) != "approved":
-        finding = annotate_finding(
-            ValidationFinding(
-                "SPAWN_APPROVAL_REQUIRED",
-                "Spawn proposals require explicit human approval before a new SoT can be created",
-            )
-        )
+    growth_payload = validate_growth_stage_payload(stage, approval_status(approval_id) or "missing")
+    growth_findings = annotate_findings(
+        [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in growth_payload["findings"]]
+    )
+    if growth_findings:
+        finding = growth_findings[0]
         append_event(
             EventRecord(
                 source="vela",
@@ -474,19 +472,9 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
 
 
 def route_inbox_entry(text: str) -> str | None:
-    lowered = text.lower()
-    rules = [
-        ("100", ("joined", "manages", "role", "team", "person", "owner", "assistant", "profile", "human")),
-        ("200", ("definition", "scope", "deliverable", "component", "framework", "what is", "capabilities")),
-        ("300", ("platform", "tool", "environment", "repository", "repo", "account", "deployed", "nixos", "obsidian")),
-        ("400", ("deadline", "milestone", "quarterly", "cadence", "timeline", "started", "schedule", "date")),
-        ("500", ("process", "procedure", "protocol", "method", "workflow", "convention", "how", "result types")),
-        ("600", ("because", "reason", "rationale", "trade-off", "tradeoff", "why", "chose", "risk")),
-    ]
-    for dimension, markers in rules:
-        if any(marker in lowered for marker in markers):
-            return dimension
-    return None
+    payload = route_inbox_payload(text)
+    dimension = payload.get("dimension")
+    return str(dimension) if dimension is not None else None
 
 
 def build_pointer_entry(description: str, primary_target: str, dimension_heading: str, date: str) -> str:
@@ -544,47 +532,12 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
     return {"target": execution_target, "content": content, "kind": "applied-action"}
 
 
-def subject_declaration_changed(before: str, after: str) -> bool:
-    return _subject_declaration_block(before) != _subject_declaration_block(after)
-
-
-def _subject_declaration_block(text: str) -> str:
-    lines = text.splitlines()
-    inside = False
-    block: list[str] = []
-    for line in lines:
-        if line.strip() == "### Subject Declaration":
-            inside = True
-            block.append(line)
-            continue
-        if inside and line.startswith("### "):
-            break
-        if inside and line.startswith("## ") and line.strip() != "## 000.Index":
-            break
-        if inside:
-            block.append(line)
-    return "\n".join(block).strip()
-
-
-def _archive_postcondition_failure(content: str, entry_value: str, archived_reason: str, dimension_heading: str) -> str | None:
-    section_start = content.find(dimension_heading)
-    if section_start == -1:
-        return f"Archived dimension is missing after archive transaction: {dimension_heading}"
-    next_section = content.find("\n## ", section_start + 1)
-    section = content[section_start: next_section if next_section != -1 else len(content)]
-    active_start = section.find("### Active")
-    inactive_start = section.find("### Inactive")
-    active = section[active_start:inactive_start] if active_start != -1 and inactive_start != -1 else ""
-    inactive = section[inactive_start:] if inactive_start != -1 else ""
-    if f"- {entry_value}" in active:
-        return "Entry still appears in Active after archive transaction"
-    if f"- {entry_value}" not in inactive or f"Archived Reason: {archived_reason}" not in inactive:
-        return "Entry does not appear in Inactive with archived metadata after archive transaction"
-    archive_section_start = content.find("## 700.Archive")
-    archive_section = content[archive_section_start:] if archive_section_start != -1 else ""
-    if f"FROM: {dimension_heading}" not in archive_section or f"- {entry_value}" not in archive_section:
-        return "Entry does not appear in 700.Archive with timestamp and source after archive transaction"
-    return None
+def _archive_postcondition_failure(content: str, entry_value: str, archived_reason: str, dimension_heading: str) -> ValidationFinding | None:
+    payload = validate_archive_postconditions_payload(content, entry_value, archived_reason, dimension_heading)
+    findings = annotate_findings(
+        [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
+    )
+    return findings[0] if findings else None
 
 
 def _render_spawned_sot(execution_target: str, assessed_target: str, proposal_target: str, created: str) -> str:

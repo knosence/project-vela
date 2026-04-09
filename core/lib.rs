@@ -3,6 +3,7 @@ pub mod inventory;
 pub mod lineage;
 pub mod matrix;
 pub mod models;
+pub mod operations;
 pub mod parser;
 pub mod policy;
 pub mod references;

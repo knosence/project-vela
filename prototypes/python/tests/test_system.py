@@ -26,7 +26,11 @@ from prototypes.python.vela.rust_bridge import (
     inspect_reference_payload,
     matrix_inventory_payload,
     route_for_target,
+    route_inbox_payload,
+    validate_archive_postconditions_payload,
     validate_config_payload,
+    validate_growth_stage_payload,
+    validate_subject_declaration_payload,
     validate_target as validate_target_payload,
 )
 from prototypes.python.vela.server import VelaService
@@ -638,6 +642,28 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(any(item["inventory_role"] == "branch-sot" for item in payload["entries"]))
         self.assertTrue(all(item["inventory_role"] == "governed-reference" for item in payload["references"]))
         self.assertTrue(all("path" in item for item in payload["references"]))
+
+    def test_rust_operations_bridge(self) -> None:
+        route_payload = route_inbox_payload("Alex joined the project team this week.")
+        self.assertEqual(route_payload["dimension"], "100")
+
+        growth_payload = validate_growth_stage_payload("spawn", "missing")
+        self.assertTrue(any(item["code"] == "SPAWN_APPROVAL_REQUIRED" for item in growth_payload["findings"]))
+
+        subject_payload = validate_subject_declaration_payload(
+            "## 000.Index\n\n### Subject Declaration\n\n**Subject:** Before\n\n### Links\n",
+            "## 000.Index\n\n### Subject Declaration\n\n**Subject:** After\n\n### Links\n",
+            "missing",
+        )
+        self.assertTrue(any(item["code"] == "SUBJECT_DECLARATION_APPROVAL_REQUIRED" for item in subject_payload["findings"]))
+
+        archive_payload = validate_archive_postconditions_payload(
+            "## 100.WHO.Identity\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n- Sample archived value. (2026-04-08)\n  - Exists to verify archive movement. [AGENT:gpt-5]\n  - Archived: 2026-04-09\n  - Archived Reason: Replaced by newer fact\n\n## 700.Archive\n\n[202604090352] FROM: ## 100.WHO.Identity\n- Sample archived value. (2026-04-08)\n  - Exists to verify archive movement. [AGENT:gpt-5]\n  - Archived: 2026-04-09\n  - Archived Reason: Replaced by newer fact\n",
+            "Sample archived value. (2026-04-08)",
+            "Replaced by newer fact",
+            "## 100.WHO.Identity",
+        )
+        self.assertTrue(archive_payload["ok"])
 
     def test_matrix_parent_rule_rejects_direct_root_attachment_for_agent_branch(self) -> None:
         target = REPO_ROOT / "knowledge/ARTIFACTS/proposals/direct-root-agent-branch-test.md"

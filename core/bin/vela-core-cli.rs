@@ -9,6 +9,12 @@ use vela_core::matrix::{
     validate_sot_structure as validate_matrix_sot_structure,
 };
 use vela_core::models::{OnboardingConfig, Severity, ValidationFinding};
+use vela_core::operations::{
+    route_inbox_entry as route_inbox_dimension,
+    validate_archive_postconditions as validate_archive_outcome,
+    validate_growth_stage as validate_growth_stage_policy,
+    validate_subject_declaration_change as validate_subject_declaration_policy,
+};
 use vela_core::parser::{build_runtime_config, parse_system_identity};
 use vela_core::policy::{route_for_target, validate_commit_policy};
 use vela_core::references::inspect_reference;
@@ -48,6 +54,45 @@ fn run() -> Result<(), String> {
                 "{{\"ok\":true,\"route\":\"{}\"}}",
                 escape_json(route_for_target(&task_type, &target))
             );
+        }
+        "route-inbox" => {
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let route = route_inbox_dimension(&content)
+                .map(|item| format!("\"{}\"", escape_json(item)))
+                .unwrap_or_else(|| "null".to_string());
+            println!("{{\"ok\":true,\"dimension\":{route}}}");
+        }
+        "validate-subject-declaration" => {
+            let approval_status = args.next().ok_or_else(|| "missing approval status".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (before, after) = content
+                .split_once("\n===AFTER===\n")
+                .ok_or_else(|| "missing subject declaration split marker".to_string())?;
+            let findings = validate_subject_declaration_policy(before, after, approval_status == "approved");
+            print_findings(&findings, None);
+        }
+        "validate-growth-stage" => {
+            let stage = args.next().ok_or_else(|| "missing stage".to_string())?;
+            let approval_status = args.next().ok_or_else(|| "missing approval status".to_string())?;
+            let findings = validate_growth_stage_policy(&stage, approval_status == "approved");
+            print_findings(&findings, None);
+        }
+        "validate-archive-postconditions" => {
+            let entry_value = args.next().ok_or_else(|| "missing entry value".to_string())?;
+            let archived_reason = args.next().ok_or_else(|| "missing archived reason".to_string())?;
+            let dimension_heading = args.next().ok_or_else(|| "missing dimension heading".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let findings = validate_archive_outcome(&content, &entry_value, &archived_reason, &dimension_heading);
+            print_findings(&findings, None);
         }
         "validate-config" => {
             let owner_name = args.next().ok_or_else(|| "missing owner name".to_string())?;
