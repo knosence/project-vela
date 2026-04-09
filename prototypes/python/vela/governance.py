@@ -359,6 +359,22 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
     if not result["ok"]:
         return {"ok": False, "findings": result["findings"], "execution_target": execution["target"]}
 
+    source_update = _apply_growth_to_source(
+        stage=stage,
+        assessed_target=assessed_target,
+        execution_target=execution["target"],
+        proposal_target=proposal_target,
+        actor=actor,
+        approval_id=approval_id,
+    )
+    if not source_update["ok"]:
+        return {
+            "ok": False,
+            "findings": source_update["findings"],
+            "execution_target": execution["target"],
+            "source_target": assessed_target,
+        }
+
     proposal_update = _mark_proposal_applied(proposal_text, execution["target"], stage)
     proposal_result = write_text(
         proposal_target,
@@ -376,7 +392,13 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
             target=proposal_target,
             status="applied" if proposal_result["ok"] else "partially-applied",
             reason=f"applied growth proposal stage {stage}",
-            artifacts=[proposal_target, execution["target"], *result.get("artifacts", [])],
+            artifacts=[
+                proposal_target,
+                execution["target"],
+                assessed_target,
+                *result.get("artifacts", []),
+                *source_update.get("artifacts", []),
+            ],
             approval_required=is_sovereign_target(assessed_target),
             validation_summary={
                 "assessed_target": assessed_target,
@@ -388,12 +410,13 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
         )
     )
     return {
-        "ok": result["ok"] and proposal_result["ok"],
+        "ok": result["ok"] and proposal_result["ok"] and source_update["ok"],
         "proposal_target": proposal_target,
         "execution_target": execution["target"],
+        "source_target": assessed_target,
         "execution_kind": execution["kind"],
         "stage": stage,
-        "findings": result["findings"] + proposal_result.get("findings", []),
+        "findings": result["findings"] + source_update.get("findings", []) + proposal_result.get("findings", []),
     }
 
 
@@ -402,6 +425,12 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
     created = datetime.now(timezone.utc).date().isoformat()
     stem = re.sub(r"[^A-Za-z0-9.-]+", "-", target_path.stem).strip("-") or "target"
     proposal_name = Path(proposal_target).stem
+
+    if stage == "fractal":
+        source_text = (REPO_ROOT / assessed_target).read_text(encoding="utf-8")
+        execution_target = assessed_target
+        content = _fractalize_source(source_text, assessed_target, proposal_target, created)
+        return {"target": execution_target, "content": content, "kind": "fractalized-source"}
 
     if stage == "reference-note":
         ref_stem = stem[:-4] if stem.endswith("-SoT") else stem
@@ -418,7 +447,8 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
         return {"target": execution_target, "content": content, "kind": "reference-note"}
 
     if stage == "spawn" and assessed_target.endswith("-SoT.md"):
-        execution_target = str(target_path.with_name(f"{stem}.Spawned-Child-SoT.md"))
+        child_stem = stem[:-4] if stem.endswith("-SoT") else stem
+        execution_target = str(target_path.with_name(f"{child_stem}.Spawned-Child-SoT.md"))
         content = _render_spawned_sot(execution_target, assessed_target, proposal_target, created)
         return {"target": execution_target, "content": content, "kind": "spawned-sot"}
 
@@ -493,6 +523,138 @@ def _render_spawned_sot(execution_target: str, assessed_target: str, proposal_ta
         "## 600.WHY.Compass\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
         "## 700.Archive\n\n(No archived entries.)\n"
     )
+
+
+def _apply_growth_to_source(
+    *,
+    stage: str,
+    assessed_target: str,
+    execution_target: str,
+    proposal_target: str,
+    actor: str,
+    approval_id: str | None,
+) -> dict[str, Any]:
+    if stage not in {"reference-note", "spawn"}:
+        return {"ok": True, "findings": [], "artifacts": [assessed_target]}
+
+    path = REPO_ROOT / assessed_target
+    source_text = path.read_text(encoding="utf-8")
+    updated = _inject_growth_source_updates(
+        source_text=source_text,
+        assessed_target=assessed_target,
+        execution_target=execution_target,
+        proposal_target=proposal_target,
+        stage=stage,
+    )
+    return write_text(
+        assessed_target,
+        updated,
+        actor=actor,
+        endpoint="growth-apply",
+        reason=f"update source after growth proposal {proposal_target}",
+        approval_id=approval_id,
+    )
+
+
+def _inject_growth_source_updates(
+    *,
+    source_text: str,
+    assessed_target: str,
+    execution_target: str,
+    proposal_target: str,
+    stage: str,
+) -> str:
+    created = datetime.now(timezone.utc).date().isoformat()
+    execution_name = Path(execution_target).stem
+    parent_name = Path(assessed_target).stem
+    stage_label = "reference note" if stage == "reference-note" else "spawned child SoT"
+    link_line = (
+        f"- Reference Note: [[{execution_name}]]"
+        if stage == "reference-note"
+        else f"- Spawned Child: [[{execution_name}]]"
+    )
+    decision_line = (
+        f"- [{created}] Growth proposal `{proposal_target}` created a {stage_label} `[[{execution_name}]]`."
+    )
+    next_action_line = (
+        f"- Route detailed branch material through `[[{execution_name}]]` before adding more weight to `{parent_name}`. ({created})\n"
+        "  - Growth should redirect future detail toward the lighter-weight structural outcome. [AGENT:gpt-5]"
+    )
+    status_line = (
+        f"- A governed growth step created `[[{execution_name}]]` as the next structural home. ({created})\n"
+        "  - The parent remains canonical for its scope while redirecting deeper material through the new structure. [AGENT:gpt-5]"
+    )
+
+    updated = _append_line_to_section(source_text, "### Links", link_line)
+    updated = _append_line_to_section(updated, "### Status", status_line)
+    updated = _append_line_to_section(updated, "### Next Actions", next_action_line)
+    updated = _append_line_to_section(updated, "### Decisions", decision_line)
+    return updated
+
+
+def _append_line_to_section(text: str, heading: str, addition: str) -> str:
+    start = text.find(heading)
+    if start == -1:
+        return text
+    rest = text[start + len(heading):]
+    next_heading_match = re.search(r"\n### |\n## ", rest)
+    end = start + len(heading) + next_heading_match.start() if next_heading_match else len(text)
+    section = text[start:end].rstrip("\n")
+    if addition in section:
+        return text
+    section = f"{section}\n\n{addition}\n"
+    return text[:start] + section + text[end:]
+
+
+def _fractalize_source(source_text: str, assessed_target: str, proposal_target: str, created: str) -> str:
+    if "## 210.Grouping" in source_text or "## 110.Grouping" in source_text:
+        return source_text
+
+    counts = _dimension_entry_counts(source_text)
+    if not counts:
+        return source_text
+    densest = max(counts, key=counts.get)
+    subgroup_heading = f"## {int(densest) + 10:03d}.Grouping"
+    subgroup = (
+        f"{subgroup_heading}\n\n"
+        "### Active\n\n"
+        f"- Grouping scaffold created from `{proposal_target}`. ({created})\n"
+        "  - This subgroup marks the first structural split inside the densest dimension. [AGENT:gpt-5]\n\n"
+        "### Inactive\n\n"
+        "(No inactive entries.)\n\n"
+    )
+    anchor = _next_top_level_heading_for_dimension(source_text, densest)
+    if anchor:
+        return source_text.replace(anchor, subgroup + anchor, 1)
+    return source_text.rstrip() + "\n\n" + subgroup
+
+
+def _dimension_entry_counts(text: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    current_dimension = ""
+    for line in text.splitlines():
+        match = re.match(r"^##\s(\d{3})\.", line.strip())
+        if match:
+            current_dimension = match.group(1)
+            if current_dimension in {"100", "200", "300", "400", "500", "600"}:
+                counts.setdefault(current_dimension, 0)
+            else:
+                current_dimension = ""
+            continue
+        if current_dimension and line.startswith("- "):
+            counts[current_dimension] += 1
+    return counts
+
+
+def _next_top_level_heading_for_dimension(text: str, dimension: str) -> str:
+    current = int(dimension)
+    for candidate in range(current + 100, 701, 100):
+        marker = f"## {candidate:03d}."
+        if marker in text:
+            start = text.find(marker)
+            end = text.find("\n", start)
+            return text[start:end] if end != -1 else text[start:]
+    return ""
 
 
 def _mark_proposal_applied(proposal_text: str, execution_target: str, stage: str) -> str:

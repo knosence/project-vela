@@ -30,11 +30,23 @@ class VelaSystemTest(unittest.TestCase):
     def _cleanup_generated_artifacts(self) -> None:
         for target in [
             "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.Spawned-Child-SoT.md",
+            "knowledge/cornerstone/Cornerstone.Project-Vela.Spawned-Child-SoT.md",
             "knowledge/refs/Ref.WHAT.Vela-Capabilities.md",
             "knowledge/refs/Ref.WHAT.Vela-Capabilities-SoT.md",
+            "knowledge/refs/Ref.reference-source.md",
+            "knowledge/refs/Ref.service-source.md",
             "knowledge/proposals/growth-apply-reference-test.md",
             "knowledge/proposals/growth-apply-service-test.md",
             "knowledge/proposals/growth-apply-sovereign-test.md",
+            "knowledge/proposals/reference-source-SoT.md",
+            "knowledge/proposals/service-source-SoT.md",
+            "knowledge/proposals/spawn-source-SoT.md",
+            "knowledge/proposals/spawn-source.Spawned-Child-SoT.md",
+            "knowledge/proposals/fractal-source-SoT.md",
+            "knowledge/proposals/growth-apply-fractal-test.md",
+            "knowledge/proposals/growth-apply-spawn-test.md",
+            "knowledge/proposals/Synthetic-Identity-SoT.md",
+            "knowledge/proposals/Synthetic-Identity.Spawned-Child-SoT.md",
         ]:
             path = REPO_ROOT / target
             if path.exists():
@@ -231,6 +243,11 @@ class VelaSystemTest(unittest.TestCase):
 
     def test_apply_growth_proposal_creates_execution_artifact(self) -> None:
         proposal_target = "knowledge/proposals/growth-apply-reference-test.md"
+        source_target = "knowledge/proposals/reference-source-SoT.md"
+        (REPO_ROOT / source_target).write_text(
+            (REPO_ROOT / "knowledge/agents/vela/WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
         proposal_path = REPO_ROOT / proposal_target
         proposal_path.parent.mkdir(parents=True, exist_ok=True)
         proposal_path.write_text(
@@ -238,10 +255,10 @@ class VelaSystemTest(unittest.TestCase):
             "sot-type: proposal\n"
             "created: 2026-04-09\n"
             "last-rewritten: 2026-04-09\n"
-            'parent: "[[WHAT.Vela-Capabilities-SoT]]"\n'
+            'parent: "[[reference-source-SoT]]"\n'
             "domain: governance\n"
             "status: proposed\n"
-            'target: "knowledge/agents/vela/WHAT.Vela-Capabilities-SoT.md"\n'
+            f'target: "{source_target}"\n'
             'route: "standard"\n'
             'recommended-stage: "reference-note"\n'
             'tags: ["growth","proposal"]\n'
@@ -262,9 +279,17 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["execution_kind"], "reference-note")
         self.assertTrue((REPO_ROOT / result["execution_target"]).exists())
+        updated_source = (REPO_ROOT / source_target).read_text(encoding="utf-8")
+        self.assertIn("Reference Note: [[Ref.reference-source]]", updated_source)
+        self.assertIn("created a reference note `[[Ref.reference-source]]`", updated_source)
 
     def test_apply_growth_proposal_blocks_sovereign_without_approval(self) -> None:
         proposal_target = "knowledge/proposals/growth-apply-sovereign-test.md"
+        source_target = "knowledge/proposals/Synthetic-Identity-SoT.md"
+        (REPO_ROOT / source_target).write_text(
+            (REPO_ROOT / "knowledge/agents/vela/WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
         proposal_path = REPO_ROOT / proposal_target
         proposal_path.parent.mkdir(parents=True, exist_ok=True)
         proposal_path.write_text(
@@ -272,10 +297,10 @@ class VelaSystemTest(unittest.TestCase):
             "sot-type: proposal\n"
             "created: 2026-04-09\n"
             "last-rewritten: 2026-04-09\n"
-            'parent: "[[Cornerstone.Project-Vela-SoT]]"\n'
+            'parent: "[[Synthetic-Identity-SoT]]"\n'
             "domain: governance\n"
             "status: proposed\n"
-            'target: "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md"\n'
+            f'target: "{source_target}"\n'
             'route: "sovereign-change"\n'
             'recommended-stage: "spawn"\n'
             'tags: ["growth","proposal"]\n'
@@ -294,12 +319,18 @@ class VelaSystemTest(unittest.TestCase):
         finding = denied["findings"][0]
         self.assertIn("Pattern 18 Human Gate", finding["rule_refs"])
         self.assertIn("Law 5 Sovereign Changes Shall Touch Roots and Rules Only Through Governed Paths", finding["rule_refs"])
-        record_approval("approve_growth_sovereign", "approved", "human", "allow growth test", "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md")
+        record_approval("approve_growth_sovereign", "approved", "human", "allow growth test", source_target)
         allowed = apply_growth_proposal(proposal_target, actor="scribe", approval_id="approve_growth_sovereign")
         self.assertTrue(allowed["ok"])
 
-    def test_growth_apply_service_endpoint(self) -> None:
-        proposal_target = "knowledge/proposals/growth-apply-service-test.md"
+    def test_apply_growth_proposal_updates_source_for_spawn(self) -> None:
+        proposal_target = "knowledge/proposals/growth-apply-spawn-test.md"
+        source_target = "knowledge/proposals/spawn-source-SoT.md"
+        source_path = REPO_ROOT / source_target
+        source_path.write_text(
+            (REPO_ROOT / "knowledge/agents/vela/WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
         proposal_path = REPO_ROOT / proposal_target
         proposal_path.parent.mkdir(parents=True, exist_ok=True)
         proposal_path.write_text(
@@ -307,10 +338,88 @@ class VelaSystemTest(unittest.TestCase):
             "sot-type: proposal\n"
             "created: 2026-04-09\n"
             "last-rewritten: 2026-04-09\n"
-            'parent: "[[WHAT.Vela-Capabilities-SoT]]"\n'
+            'parent: "[[spawn-source-SoT]]"\n'
             "domain: governance\n"
             "status: proposed\n"
-            'target: "knowledge/agents/vela/WHAT.Vela-Capabilities-SoT.md"\n'
+            f'target: "{source_target}"\n'
+            'route: "standard"\n'
+            'recommended-stage: "spawn"\n'
+            'tags: ["growth","proposal"]\n'
+            "---\n\n"
+            "# Growth Proposal\n\n"
+            "## This Proposal Records the Matrix Growth Assessment After the Main Task\n"
+            "Spawn should create a child SoT and update the source.\n",
+            encoding="utf-8",
+        )
+        result = apply_growth_proposal(proposal_target, actor="scribe")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["execution_kind"], "spawned-sot")
+        self.assertTrue((REPO_ROOT / result["execution_target"]).exists())
+        updated_source = source_path.read_text(encoding="utf-8")
+        self.assertIn("Spawned Child: [[spawn-source.Spawned-Child-SoT]]", updated_source)
+        self.assertIn("created a spawned child SoT `[[spawn-source.Spawned-Child-SoT]]`", updated_source)
+
+    def test_apply_growth_proposal_fractalizes_source(self) -> None:
+        proposal_target = "knowledge/proposals/growth-apply-fractal-test.md"
+        source_target = "knowledge/proposals/fractal-source-SoT.md"
+        source_path = REPO_ROOT / source_target
+        entries = "\n".join(
+            f"- Entry {idx}. (2026-04-08)\n  - Context {idx}. [AGENT:gpt-5]"
+            for idx in range(1, 10)
+        )
+        source_path.write_text(
+            (REPO_ROOT / "knowledge/agents/vela/WHO.Vela-Identity-SoT.md")
+            .read_text(encoding="utf-8")
+            .replace(
+                "- Vela is the default installed assistant profile. (2026-04-08)\n  - The system ships with Vela while still allowing replacement and customization. [AGENT:gpt-5]",
+                entries,
+            ),
+            encoding="utf-8",
+        )
+        proposal_path = REPO_ROOT / proposal_target
+        proposal_path.parent.mkdir(parents=True, exist_ok=True)
+        proposal_path.write_text(
+            "---\n"
+            "sot-type: proposal\n"
+            "created: 2026-04-09\n"
+            "last-rewritten: 2026-04-09\n"
+            'parent: "[[fractal-source-SoT]]"\n'
+            "domain: governance\n"
+            "status: proposed\n"
+            f'target: "{source_target}"\n'
+            'route: "standard"\n'
+            'recommended-stage: "fractal"\n'
+            'tags: ["growth","proposal"]\n'
+            "---\n\n"
+            "# Growth Proposal\n\n"
+            "## This Proposal Records the Matrix Growth Assessment After the Main Task\n"
+            "Fractalization should scaffold a subgroup.\n",
+            encoding="utf-8",
+        )
+        result = apply_growth_proposal(proposal_target, actor="scribe")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["execution_kind"], "fractalized-source")
+        updated_source = source_path.read_text(encoding="utf-8")
+        self.assertIn("## 110.Grouping", updated_source)
+
+    def test_growth_apply_service_endpoint(self) -> None:
+        proposal_target = "knowledge/proposals/growth-apply-service-test.md"
+        source_target = "knowledge/proposals/service-source-SoT.md"
+        (REPO_ROOT / source_target).write_text(
+            (REPO_ROOT / "knowledge/agents/vela/WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        proposal_path = REPO_ROOT / proposal_target
+        proposal_path.parent.mkdir(parents=True, exist_ok=True)
+        proposal_path.write_text(
+            "---\n"
+            "sot-type: proposal\n"
+            "created: 2026-04-09\n"
+            "last-rewritten: 2026-04-09\n"
+            'parent: "[[service-source-SoT]]"\n'
+            "domain: governance\n"
+            "status: proposed\n"
+            f'target: "{source_target}"\n'
             'route: "standard"\n'
             'recommended-stage: "reference-note"\n'
             'tags: ["growth","proposal"]\n'
