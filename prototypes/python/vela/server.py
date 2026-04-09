@@ -7,7 +7,7 @@ from typing import Any
 
 from .config import load_config, missing_required_fields, setup_complete
 from .matrix import validate_matrix_rules
-from .governance import apply_growth_proposal, record_approval
+from .governance import apply_growth_proposal, create_cross_reference, record_approval
 from .inbox import triage_inbox
 from .models import ValidationFinding
 from .models import new_id
@@ -144,6 +144,22 @@ class VelaService:
             return envelope(True, "inbox-triage", "accepted", "Inbox triage completed", data=result)
         return envelope(False, "inbox-triage", "rejected", "Inbox triage flagged items for review", data=result, errors=result["results"])
 
+    def cross_reference(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = create_cross_reference(
+            claimant_target=payload["claimant_target"],
+            claimant_dimension_heading=payload["claimant_dimension_heading"],
+            description=payload["description"],
+            primary_target=payload["primary_target"],
+            primary_dimension_heading=payload["primary_dimension_heading"],
+            actor=payload.get("actor", "vela"),
+            endpoint="cross-reference",
+            reason=payload.get("reason", "create governed pointer entry"),
+            approval_id=payload.get("approval_id"),
+        )
+        if result["ok"]:
+            return envelope(True, "cross-reference", "accepted", "Cross reference created", data=result)
+        return envelope(False, "cross-reference", "rejected", "Cross reference creation blocked", data=result, errors=result.get("findings", []))
+
     def profiles(self) -> dict[str, Any]:
         return envelope(True, "profiles", "accepted", "Profiles listed", data=list_profiles())
 
@@ -189,6 +205,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             "/api/n8n/verify": self.service.verify,
             "/api/n8n/growth/apply": self.service.growth_apply,
             "/api/n8n/inbox/triage": self.service.inbox_triage,
+            "/api/n8n/cross-reference": self.service.cross_reference,
             "/api/n8n/profiles/use": self.service.profiles_use,
         }
         handler = routes.get(self.path)

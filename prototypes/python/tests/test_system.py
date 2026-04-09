@@ -10,6 +10,7 @@ from prototypes.python.vela.governance import (
     apply_growth_proposal,
     archive_dimension_entry,
     build_pointer_entry,
+    create_cross_reference,
     record_approval,
     route_inbox_entry,
     write_text,
@@ -83,6 +84,7 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/ARTIFACTS/refs/indexed-release-summary.reflection.json",
             "knowledge/ARTIFACTS/refs/indexed-release-summary.validation.json",
             "knowledge/ARTIFACTS/proposals/inbox-triage-target.md",
+            "knowledge/ARTIFACTS/proposals/cross-reference-target.md",
         ]:
             path = REPO_ROOT / target
             if path.exists():
@@ -330,6 +332,44 @@ class VelaSystemTest(unittest.TestCase):
             pointer,
             "- Repo watch summary recorded. See: [[220.WHAT.Repo-Watchlist-SoT#200.WHAT.Domain]] (2026-04-08)",
         )
+
+    def test_cross_reference_operation_creates_pointer_entry(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/cross-reference-target.md"
+        target_path = REPO_ROOT / target
+        target_path.write_text((REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        result = create_cross_reference(
+            claimant_target=target,
+            claimant_dimension_heading="## 200.WHAT.Capabilities",
+            description="Repo watch summary recorded",
+            primary_target="knowledge/220.WHAT.Repo-Watchlist-SoT.md",
+            primary_dimension_heading="200.WHAT.Watch Scope",
+            actor="scribe",
+            endpoint="test-cross-reference",
+            reason="pointer operation test",
+        )
+        self.assertTrue(result["ok"])
+        updated = target_path.read_text(encoding="utf-8")
+        self.assertIn(
+            "- Repo watch summary recorded. See: [[220.WHAT.Repo-Watchlist-SoT#200.WHAT.Watch Scope]] (",
+            updated,
+        )
+
+    def test_cross_reference_service_endpoint(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/cross-reference-target.md"
+        target_path = REPO_ROOT / target
+        target_path.write_text((REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        result = VelaService().cross_reference(
+            {
+                "claimant_target": target,
+                "claimant_dimension_heading": "## 200.WHAT.Capabilities",
+                "description": "Repo watch summary recorded",
+                "primary_target": "knowledge/220.WHAT.Repo-Watchlist-SoT.md",
+                "primary_dimension_heading": "200.WHAT.Watch Scope",
+                "actor": "n8n",
+            }
+        )
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["endpoint"], "cross-reference")
 
     def test_growth_assessment_stays_flat_for_small_sot(self) -> None:
         assessment = assess_growth("knowledge/110.WHO.Vela-Identity-SoT.md")

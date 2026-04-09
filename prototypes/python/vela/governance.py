@@ -481,6 +481,91 @@ def build_pointer_entry(description: str, primary_target: str, dimension_heading
     return f"- {description}. See: [[{primary_target}#{dimension_heading}]] ({date})"
 
 
+def _today() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def create_cross_reference(
+    *,
+    claimant_target: str,
+    claimant_dimension_heading: str,
+    description: str,
+    primary_target: str,
+    primary_dimension_heading: str,
+    actor: str,
+    endpoint: str,
+    reason: str,
+    approval_id: str | None = None,
+) -> dict[str, Any]:
+    claimant_path = REPO_ROOT / claimant_target
+    if not claimant_path.exists():
+        finding = annotate_finding(
+            ValidationFinding("CROSS_REFERENCE_TARGET_MISSING", f"Claimant SoT does not exist: {claimant_target}")
+        )
+        return {"ok": False, "findings": [finding.as_dict()]}
+
+    content = claimant_path.read_text(encoding="utf-8")
+    section = _section_by_heading(content, claimant_dimension_heading)
+    if not section:
+        finding = annotate_finding(
+            ValidationFinding("CROSS_REFERENCE_DIMENSION_MISSING", f"Claimant dimension not found: {claimant_dimension_heading}")
+        )
+        return {"ok": False, "findings": [finding.as_dict()]}
+
+    active = _subsection(section, "### Active")
+    if not active:
+        finding = annotate_finding(
+            ValidationFinding("CROSS_REFERENCE_ACTIVE_SECTION_MISSING", f"Claimant Active section not found: {claimant_dimension_heading}")
+        )
+        return {"ok": False, "findings": [finding.as_dict()]}
+
+    pointer = build_pointer_entry(description, Path(primary_target).stem, primary_dimension_heading, _today())
+    if pointer not in active:
+        if "(No active entries.)" in active:
+            updated_active = active.replace("(No active entries.)", pointer)
+        else:
+            updated_active = active.rstrip() + f"\n\n{pointer}\n"
+    else:
+        updated_active = active
+
+    updated_section = section.replace(active, updated_active, 1)
+    updated_content = content.replace(section, updated_section, 1)
+    result = write_text(
+        claimant_target,
+        updated_content,
+        actor=actor,
+        endpoint=endpoint,
+        reason=reason,
+        approval_id=approval_id,
+    )
+    if result["ok"]:
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint=endpoint,
+                actor=actor,
+                target=claimant_target,
+                status="committed",
+                reason=reason,
+                artifacts=result.get("artifacts", [claimant_target]),
+                approval_required=bool(approval_id),
+                validation_summary={
+                    "pointer": pointer,
+                    "primary_target": primary_target,
+                    "primary_dimension_heading": primary_dimension_heading,
+                    "claimant_dimension_heading": claimant_dimension_heading,
+                },
+            )
+        )
+    return {
+        "ok": result["ok"],
+        "pointer": pointer,
+        "target": claimant_target,
+        "findings": result.get("findings", []),
+        "artifacts": result.get("artifacts", [claimant_target]),
+    }
+
+
 def _build_growth_execution(stage: str, assessed_target: str, proposal_target: str) -> dict[str, str]:
     target_path = Path(assessed_target)
     created = datetime.now(timezone.utc).date().isoformat()

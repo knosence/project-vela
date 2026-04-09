@@ -5,7 +5,7 @@ import json
 import sys
 
 from .config import ensure_bootstrap_files, load_config, missing_required_fields, save_config, setup_complete
-from .governance import apply_growth_proposal
+from .governance import apply_growth_proposal, create_cross_reference
 from .inbox import triage_inbox
 from .matrix import write_matrix_index
 from .profiles import activate_profile, list_profiles
@@ -82,6 +82,22 @@ def cmd_inbox_triage(args: argparse.Namespace) -> int:
     return 0 if result["ok"] else 1
 
 
+def cmd_cross_reference(args: argparse.Namespace) -> int:
+    result = create_cross_reference(
+        claimant_target=args.claimant_target,
+        claimant_dimension_heading=args.claimant_dimension_heading,
+        description=args.description,
+        primary_target=args.primary_target,
+        primary_dimension_heading=args.primary_dimension_heading,
+        actor="scribe",
+        endpoint="cross-reference",
+        reason=args.reason,
+        approval_id=args.approval_id,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     serve(host=args.host, port=args.port)
     return 0
@@ -134,6 +150,16 @@ def build_parser() -> argparse.ArgumentParser:
     inbox_triage_parser = inbox_sub.add_parser("triage")
     inbox_triage_parser.add_argument("--file")
     inbox_triage_parser.set_defaults(func=cmd_inbox_triage)
+
+    cross_reference_parser = sub.add_parser("cross-reference")
+    cross_reference_parser.add_argument("claimant_target")
+    cross_reference_parser.add_argument("claimant_dimension_heading")
+    cross_reference_parser.add_argument("description")
+    cross_reference_parser.add_argument("primary_target")
+    cross_reference_parser.add_argument("primary_dimension_heading")
+    cross_reference_parser.add_argument("--reason", default="create governed pointer entry")
+    cross_reference_parser.add_argument("--approval-id")
+    cross_reference_parser.set_defaults(func=cmd_cross_reference)
 
     serve_parser = sub.add_parser("serve")
     serve_parser.add_argument("--host", default="127.0.0.1")
