@@ -304,11 +304,31 @@ def validate_parent_consistency(path: Path) -> list[ValidationFinding]:
                 "error",
             ))
         )
+
+    if _requires_hub_parent(path, frontmatter) and "Cornerstone.Project-Vela-SoT#" in fm_parent:
+        findings.append(
+            annotate_finding(ValidationFinding(
+                "MATRIX_HUB_PARENT_REQUIRED",
+                f"{path.name} should attach to a dimension hub or governed local parent instead of directly to the cornerstone",
+                "error",
+            ))
+        )
     return annotate_findings(findings)
 
 
 def _normalize_parent(value: str) -> str:
     return value.strip().strip('"').strip("'")
+
+
+def _requires_hub_parent(path: Path, frontmatter: dict[str, Any]) -> bool:
+    domain = str(frontmatter.get("domain", "")).strip()
+    if domain == "agents":
+        return True
+    rel = path.relative_to(REPO_ROOT)
+    area = rel.parts[1] if len(rel.parts) > 1 else ""
+    if area == "dimensions" and path.name != "WHAT.Repo-Watchlist-SoT.md":
+        return False
+    return False
 
 
 def classify_change_zone(before: str, after: str) -> str:

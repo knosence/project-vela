@@ -10,6 +10,7 @@ from prototypes.python.vela.governance import apply_growth_proposal, archive_dim
 from prototypes.python.vela.growth import assess_growth
 from prototypes.python.vela.matrix import classify_change_zone
 from prototypes.python.vela.matrix import write_matrix_index
+from prototypes.python.vela.matrix import validate_parent_consistency
 from prototypes.python.vela.paths import EVENT_LOG_PATH, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
 from prototypes.python.vela.repo_watch import analyze_release
@@ -53,6 +54,7 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/proposals/growth-apply-spawn-test.md",
             "knowledge/proposals/Synthetic-Identity-SoT.md",
             "knowledge/proposals/Synthetic-Identity.Spawned-Child-SoT.md",
+            "knowledge/proposals/direct-root-agent-branch-test.md",
             "knowledge/proposals/repo-watch-test.md",
             "knowledge/proposals/Ref.repo-watch-test.Release-Intelligence.md",
             "knowledge/proposals/repo-watch-test.packet.json",
@@ -530,6 +532,22 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["reference"]["domain"], "repo-watch")
+
+    def test_matrix_parent_rule_rejects_direct_root_attachment_for_agent_branch(self) -> None:
+        target = REPO_ROOT / "knowledge/proposals/direct-root-agent-branch-test.md"
+        target.write_text(
+            (
+                (REPO_ROOT / "knowledge/agents/vela/WHO.Vela-Identity-SoT.md")
+                .read_text(encoding="utf-8")
+                .replace('parent: "[[100.WHO.Circle-SoT#100.WHO.Identity]]"', 'parent: "[[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]"')
+                .replace("**Parent:** [[100.WHO.Circle-SoT#100.WHO.Identity]]", "**Parent:** [[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]")
+                .replace("- Parent: [[100.WHO.Circle-SoT#100.WHO.Identity]]", "- Parent: [[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]")
+                .replace("- WHO hub: [[100.WHO.Circle-SoT]]\n", "")
+            ),
+            encoding="utf-8",
+        )
+        findings = validate_parent_consistency(target)
+        self.assertTrue(any(item.code == "MATRIX_HUB_PARENT_REQUIRED" for item in findings))
 
     def test_matrix_index_layer(self) -> None:
         result = write_matrix_index()

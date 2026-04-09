@@ -36,6 +36,9 @@ Pattern 17 SoT-Native Output means Vela agents should produce matrix-native stru
 Pattern 18 Human Gate means identity-level or sovereign changes require explicit approval.
 Pattern 19 Day Night Cycle means operational agents can work continuously, but governance still separates production, validation, maintenance, and improvement roles.
 
+## This Constitution Applies the Three Hop Rule Through Explicit Dimension Hubs
+Dimension hubs are the only ordinary SoTs that should attach directly to the cornerstone. Branch SoTs should prefer the relevant dimension hub or a governed local parent so the tree stays legible as Cornerstone → hub → parent → child.
+
 ## This Constitution Defines the Vela Runtime Roles in Matrix Terms
 The Router and Planner prepare pathing.
 The Worker acts as a matrix-aware Scribe for draft production.

@@ -18,3 +18,5 @@ Canonical content belongs in one home. Every other place that needs awareness of
 ## Law 5 Sovereign Changes Shall Touch Roots and Rules Only Through Governed Paths
 Changes to the cornerstone, identity SoTs, watchlist sovereignty, and matrix laws require explicit approval and validation before commit.
 
+## Law 6 Branch Sources of Truth Shall Prefer Hub Lineage Over Direct Root Attachment
+Dimension hubs may attach directly to the cornerstone because they are the branch points. Ordinary branch SoTs should attach to the relevant dimension hub or governed local parent instead of pointing straight to the cornerstone when a hub-level parent exists.
