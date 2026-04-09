@@ -324,10 +324,11 @@ fn render_matrix_snapshot_json(
         .iter()
         .map(|item| {
             format!(
-                "{{\"path\":\"{}\",\"title\":\"{}\",\"sot_type\":\"{}\",\"parent\":\"{}\",\"domain\":\"{}\",\"status\":\"{}\",\"area\":\"{}\",\"is_cornerstone\":{}}}",
+                "{{\"path\":\"{}\",\"title\":\"{}\",\"sot_type\":\"{}\",\"inventory_role\":\"{}\",\"parent\":\"{}\",\"domain\":\"{}\",\"status\":\"{}\",\"area\":\"{}\",\"is_cornerstone\":{}}}",
                 json_escape(&item.path),
                 json_escape(&item.title),
                 json_escape(&item.sot_type),
+                json_escape(&item.inventory_role),
                 json_escape(&item.parent),
                 json_escape(&item.domain),
                 json_escape(&item.status),
@@ -341,10 +342,11 @@ fn render_matrix_snapshot_json(
         .iter()
         .map(|item| {
             format!(
-                "{{\"path\":\"{}\",\"title\":\"{}\",\"ref_type\":\"{}\",\"parent\":\"{}\",\"domain\":\"{}\",\"status\":\"{}\"}}",
+                "{{\"path\":\"{}\",\"title\":\"{}\",\"ref_type\":\"{}\",\"inventory_role\":\"{}\",\"parent\":\"{}\",\"domain\":\"{}\",\"status\":\"{}\"}}",
                 json_escape(&item.path),
                 json_escape(&item.title),
                 json_escape(&item.ref_type),
+                json_escape(&item.inventory_role),
                 json_escape(&item.parent),
                 json_escape(&item.domain),
                 json_escape(&item.status),

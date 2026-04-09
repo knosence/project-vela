@@ -33,10 +33,12 @@ fn discover_sots(root: &Path) -> Vec<MatrixSoT> {
             continue;
         };
         let frontmatter = parse_frontmatter(&text);
+        let inventory_role = classify_sot_role(&rel, &area);
         entries.push(MatrixSoT {
             path: rel.clone(),
             title: extract_title(&text, "Untitled SoT"),
             sot_type: frontmatter_value(&frontmatter, "sot-type").unwrap_or("unknown").to_string(),
+            inventory_role,
             parent: frontmatter_value(&frontmatter, "parent").unwrap_or_default().to_string(),
             domain: frontmatter_value(&frontmatter, "domain").unwrap_or("unknown").to_string(),
             status: frontmatter_value(&frontmatter, "status").unwrap_or("unknown").to_string(),
@@ -71,6 +73,27 @@ fn discover_references(root: &Path) -> (Vec<GovernedReference>, Vec<ValidationFi
     }
 
     (references, findings)
+}
+
+fn classify_sot_role(path: &str, area: &str) -> String {
+    if path.ends_with("Cornerstone.Project-Vela-SoT.md") {
+        return "cornerstone".to_string();
+    }
+    if area == "dimensions" && is_dimension_hub(path) {
+        return "dimension-hub".to_string();
+    }
+    "branch-sot".to_string()
+}
+
+fn is_dimension_hub(path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    let bytes = name.as_bytes();
+    bytes.len() >= 12
+        && bytes[0].is_ascii_digit()
+        && bytes[1].is_ascii_digit()
+        && bytes[2].is_ascii_digit()
+        && bytes[3] == b'.'
+        && name.ends_with("-SoT.md")
 }
 
 fn parse_frontmatter(text: &str) -> Vec<(String, String)> {
@@ -139,7 +162,10 @@ mod tests {
 
         assert!(!entries.is_empty());
         assert!(entries.iter().any(|item| item.is_cornerstone));
+        assert!(entries.iter().any(|item| item.inventory_role == "cornerstone"));
+        assert!(entries.iter().any(|item| item.inventory_role == "dimension-hub"));
+        assert!(entries.iter().any(|item| item.inventory_role == "branch-sot"));
+        assert!(references.iter().all(|item| item.inventory_role == "governed-reference"));
         assert!(findings.is_empty() || findings.iter().all(|item| !item.code.is_empty()));
-        let _ = references;
     }
 }

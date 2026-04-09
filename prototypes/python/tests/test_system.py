@@ -539,6 +539,10 @@ class VelaSystemTest(unittest.TestCase):
         payload = matrix_inventory_payload()
         self.assertTrue(payload["ok"])
         self.assertTrue(any(item["is_cornerstone"] for item in payload["entries"]))
+        self.assertTrue(any(item["inventory_role"] == "cornerstone" for item in payload["entries"]))
+        self.assertTrue(any(item["inventory_role"] == "dimension-hub" for item in payload["entries"]))
+        self.assertTrue(any(item["inventory_role"] == "branch-sot" for item in payload["entries"]))
+        self.assertTrue(all(item["inventory_role"] == "governed-reference" for item in payload["references"]))
         self.assertTrue(all("path" in item for item in payload["references"]))
 
     def test_matrix_parent_rule_rejects_direct_root_attachment_for_agent_branch(self) -> None:

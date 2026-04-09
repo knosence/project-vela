@@ -22,6 +22,7 @@ class MatrixSoT:
     path: str
     title: str
     sot_type: str
+    inventory_role: str
     parent: str
     domain: str
     status: str
@@ -33,6 +34,7 @@ class MatrixSoT:
             "path": self.path,
             "title": self.title,
             "sot_type": self.sot_type,
+            "inventory_role": self.inventory_role,
             "parent": self.parent,
             "domain": self.domain,
             "status": self.status,
@@ -46,6 +48,7 @@ class MatrixReference:
     path: str
     title: str
     ref_type: str
+    inventory_role: str
     parent: str
     domain: str
     status: str
@@ -55,6 +58,7 @@ class MatrixReference:
             "path": self.path,
             "title": self.title,
             "ref_type": self.ref_type,
+            "inventory_role": self.inventory_role,
             "parent": self.parent,
             "domain": self.domain,
             "status": self.status,
@@ -96,6 +100,7 @@ def discover_sots() -> list[MatrixSoT]:
             path=str(item["path"]),
             title=str(item["title"]),
             sot_type=str(item["sot_type"]),
+            inventory_role=str(item["inventory_role"]),
             parent=str(item["parent"]),
             domain=str(item["domain"]),
             status=str(item["status"]),
@@ -113,6 +118,7 @@ def discover_references() -> list[MatrixReference]:
             path=str(item["path"]),
             title=str(item["title"]),
             ref_type=str(item["ref_type"]),
+            inventory_role=str(item["inventory_role"]),
             parent=str(item["parent"]),
             domain=str(item["domain"]),
             status=str(item["status"]),

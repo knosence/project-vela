@@ -306,10 +306,11 @@ fn render_finding(finding: &ValidationFinding) -> String {
 
 fn render_matrix_sot(item: &vela_core::models::MatrixSoT) -> String {
     format!(
-        "{{\"path\":\"{}\",\"title\":\"{}\",\"sot_type\":\"{}\",\"parent\":\"{}\",\"domain\":\"{}\",\"status\":\"{}\",\"area\":\"{}\",\"is_cornerstone\":{}}}",
+        "{{\"path\":\"{}\",\"title\":\"{}\",\"sot_type\":\"{}\",\"inventory_role\":\"{}\",\"parent\":\"{}\",\"domain\":\"{}\",\"status\":\"{}\",\"area\":\"{}\",\"is_cornerstone\":{}}}",
         escape_json(&item.path),
         escape_json(&item.title),
         escape_json(&item.sot_type),
+        escape_json(&item.inventory_role),
         escape_json(&item.parent),
         escape_json(&item.domain),
         escape_json(&item.status),
@@ -320,10 +321,11 @@ fn render_matrix_sot(item: &vela_core::models::MatrixSoT) -> String {
 
 fn render_reference(item: &vela_core::models::GovernedReference) -> String {
     format!(
-        "{{\"path\":\"{}\",\"title\":\"{}\",\"ref_type\":\"{}\",\"parent\":\"{}\",\"domain\":\"{}\",\"status\":\"{}\"}}",
+        "{{\"path\":\"{}\",\"title\":\"{}\",\"ref_type\":\"{}\",\"inventory_role\":\"{}\",\"parent\":\"{}\",\"domain\":\"{}\",\"status\":\"{}\"}}",
         escape_json(&item.path),
         escape_json(&item.title),
         escape_json(&item.ref_type),
+        escape_json(&item.inventory_role),
         escape_json(&item.parent),
         escape_json(&item.domain),
         escape_json(&item.status),
