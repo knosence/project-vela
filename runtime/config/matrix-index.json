@@ -12,6 +12,39 @@
       "is_cornerstone": false
     },
     {
+      "path": "knowledge/100.WHO.Custom-Vela-Identity-SoT.md",
+      "title": "Custom Vela Identity Source of Truth",
+      "sot_type": "system",
+      "inventory_role": "agent-identity",
+      "parent": "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]",
+      "domain": "agents",
+      "status": "active",
+      "area": "agents",
+      "is_cornerstone": false
+    },
+    {
+      "path": "knowledge/100.WHO.Test-Custom-Identity-SoT.md",
+      "title": "Test Custom Identity Source of Truth",
+      "sot_type": "system",
+      "inventory_role": "agent-identity",
+      "parent": "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]",
+      "domain": "agents",
+      "status": "active",
+      "area": "agents",
+      "is_cornerstone": false
+    },
+    {
+      "path": "knowledge/100.WHO.Vela-Identity-SoT.md",
+      "title": "Vela Identity Source of Truth",
+      "sot_type": "system",
+      "inventory_role": "agent-identity",
+      "parent": "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]",
+      "domain": "agents",
+      "status": "active",
+      "area": "agents",
+      "is_cornerstone": false
+    },
+    {
       "path": "knowledge/200.WHAT.Domain-SoT.md",
       "title": "200.WHAT.Domain Hub Source of Truth",
       "sot_type": "dimension",
@@ -20,6 +53,28 @@
       "domain": "dimensions",
       "status": "active",
       "area": "dimensions",
+      "is_cornerstone": false
+    },
+    {
+      "path": "knowledge/200.WHAT.Repo-Watchlist-SoT.md",
+      "title": "Repo Watchlist Source of Truth",
+      "sot_type": "dimension",
+      "inventory_role": "branch-sot",
+      "parent": "[[200.WHAT.Domain-SoT#200.WHAT.Domains]]",
+      "domain": "dimensions",
+      "status": "active",
+      "area": "knowledge",
+      "is_cornerstone": false
+    },
+    {
+      "path": "knowledge/200.WHAT.Vela-Capabilities-SoT.md",
+      "title": "Vela Capabilities Source of Truth",
+      "sot_type": "system",
+      "inventory_role": "branch-sot",
+      "parent": "[[100.WHO.Vela-Identity-SoT#200.WHAT.Scope]]",
+      "domain": "agents",
+      "status": "active",
+      "area": "knowledge",
       "is_cornerstone": false
     },
     {
@@ -67,6 +122,17 @@
       "is_cornerstone": false
     },
     {
+      "path": "knowledge/600.WHY.Vela-Intent-SoT.md",
+      "title": "Vela Intent Source of Truth",
+      "sot_type": "system",
+      "inventory_role": "branch-sot",
+      "parent": "[[100.WHO.Vela-Identity-SoT#600.WHY.Compass]]",
+      "domain": "agents",
+      "status": "active",
+      "area": "knowledge",
+      "is_cornerstone": false
+    },
+    {
       "path": "knowledge/Cornerstone.Knosence-SoT.md",
       "title": "Knosence Cornerstone Source of Truth",
       "sot_type": "system",
@@ -76,72 +142,6 @@
       "status": "active",
       "area": "cornerstone",
       "is_cornerstone": true
-    },
-    {
-      "path": "knowledge/WHAT.Repo-Watchlist-SoT.md",
-      "title": "Repo Watchlist Source of Truth",
-      "sot_type": "dimension",
-      "inventory_role": "branch-sot",
-      "parent": "[[200.WHAT.Domain-SoT#200.WHAT.Domains]]",
-      "domain": "dimensions",
-      "status": "active",
-      "area": "knowledge",
-      "is_cornerstone": false
-    },
-    {
-      "path": "knowledge/WHAT.Vela-Capabilities-SoT.md",
-      "title": "Vela Capabilities Source of Truth",
-      "sot_type": "system",
-      "inventory_role": "branch-sot",
-      "parent": "[[WHO.Vela-Identity-SoT#200.WHAT.Scope]]",
-      "domain": "agents",
-      "status": "active",
-      "area": "knowledge",
-      "is_cornerstone": false
-    },
-    {
-      "path": "knowledge/WHO.Custom-Vela-Identity-SoT.md",
-      "title": "Custom Vela Identity Source of Truth",
-      "sot_type": "system",
-      "inventory_role": "agent-identity",
-      "parent": "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]",
-      "domain": "agents",
-      "status": "active",
-      "area": "agents",
-      "is_cornerstone": false
-    },
-    {
-      "path": "knowledge/WHO.Test-Custom-Identity-SoT.md",
-      "title": "Test Custom Identity Source of Truth",
-      "sot_type": "system",
-      "inventory_role": "agent-identity",
-      "parent": "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]",
-      "domain": "agents",
-      "status": "active",
-      "area": "agents",
-      "is_cornerstone": false
-    },
-    {
-      "path": "knowledge/WHO.Vela-Identity-SoT.md",
-      "title": "Vela Identity Source of Truth",
-      "sot_type": "system",
-      "inventory_role": "agent-identity",
-      "parent": "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]",
-      "domain": "agents",
-      "status": "active",
-      "area": "agents",
-      "is_cornerstone": false
-    },
-    {
-      "path": "knowledge/WHY.Vela-Intent-SoT.md",
-      "title": "Vela Intent Source of Truth",
-      "sot_type": "system",
-      "inventory_role": "branch-sot",
-      "parent": "[[WHO.Vela-Identity-SoT#600.WHY.Compass]]",
-      "domain": "agents",
-      "status": "active",
-      "area": "knowledge",
-      "is_cornerstone": false
     }
   ],
   "references": [],

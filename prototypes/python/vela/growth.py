@@ -214,8 +214,15 @@ def _inventory_role_for_target(target: str) -> str:
     name = Path(target).name
     if name == "Cornerstone.Knosence-SoT.md":
         return "cornerstone"
-    if name.startswith("WHO.") or "Identity-SoT" in name:
+    if "Identity-SoT" in name:
         return "agent-identity"
-    if re.match(r"^\d{3}\.[A-Z]+\..+-SoT\.md$", name):
+    if name in {
+        "100.WHO.Circle-SoT.md",
+        "200.WHAT.Domain-SoT.md",
+        "300.WHERE.Terrain-SoT.md",
+        "400.WHEN.Chronicle-SoT.md",
+        "500.HOW.Method-SoT.md",
+        "600.WHY.Compass-SoT.md",
+    }:
         return "dimension-hub"
     return "branch-sot"

@@ -24,7 +24,7 @@ pub fn inventory_area_for_path(path: &str) -> Option<&'static str> {
         let name = normalized.rsplit('/').next().unwrap_or(normalized.as_str());
         if is_dimension_hub_name(name) {
             Some("dimensions")
-        } else if name.starts_with("WHO.") && name.contains("Identity-SoT") {
+        } else if is_agent_identity_name(name) {
             Some("agents")
         } else {
             Some("knowledge")
@@ -129,7 +129,7 @@ fn classify_sot_role(path: &str, area: &str) -> &'static str {
     if area == "dimensions" && is_dimension_hub(path) {
         return "dimension-hub";
     }
-    if area == "agents" && path.rsplit('/').next().unwrap_or(path).starts_with("WHO.") {
+    if area == "agents" && is_agent_identity_name(path.rsplit('/').next().unwrap_or(path)) {
         return "agent-identity";
     }
     "branch-sot"
@@ -141,13 +141,19 @@ fn is_dimension_hub(path: &str) -> bool {
 }
 
 fn is_dimension_hub_name(name: &str) -> bool {
-    let bytes = name.as_bytes();
-    bytes.len() >= 12
-        && bytes[0].is_ascii_digit()
-        && bytes[1].is_ascii_digit()
-        && bytes[2].is_ascii_digit()
-        && bytes[3] == b'.'
-        && name.ends_with("-SoT.md")
+    matches!(
+        name,
+        "100.WHO.Circle-SoT.md"
+            | "200.WHAT.Domain-SoT.md"
+            | "300.WHERE.Terrain-SoT.md"
+            | "400.WHEN.Chronicle-SoT.md"
+            | "500.HOW.Method-SoT.md"
+            | "600.WHY.Compass-SoT.md"
+    )
+}
+
+fn is_agent_identity_name(name: &str) -> bool {
+    (name.starts_with("WHO.") || name.starts_with("100.WHO.")) && name.contains("Identity-SoT")
 }
 
 fn parse_frontmatter(text: &str) -> Vec<(String, String)> {

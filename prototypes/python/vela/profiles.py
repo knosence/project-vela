@@ -59,7 +59,7 @@ def register_profile(name: str, label: str, base_profile: str = "vela") -> Path:
     )
     knowledge_dir = PROFILE_DIR.parents[1] / "knowledge"
     knowledge_dir.mkdir(parents=True, exist_ok=True)
-    (knowledge_dir / f"WHO.{label.replace(' ', '-')}-Identity-SoT.md").write_text(
+    (knowledge_dir / f"100.WHO.{label.replace(' ', '-')}-Identity-SoT.md").write_text(
         "\n".join(
             [
                 "---",

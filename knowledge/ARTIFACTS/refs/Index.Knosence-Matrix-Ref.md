@@ -22,9 +22,9 @@ The index layer exists so the system can see the matrix as a whole, keep track o
 ## This Section Lists the Agents SoTs Registered in the Matrix
 | Title | Path | Type | Parent | Status |
 |---|---|---|---|---|
-| Custom Vela Identity Source of Truth | `knowledge/WHO.Custom-Vela-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
-| Test Custom Identity Source of Truth | `knowledge/WHO.Test-Custom-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
-| Vela Identity Source of Truth | `knowledge/WHO.Vela-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
+| Custom Vela Identity Source of Truth | `knowledge/100.WHO.Custom-Vela-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
+| Test Custom Identity Source of Truth | `knowledge/100.WHO.Test-Custom-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
+| Vela Identity Source of Truth | `knowledge/100.WHO.Vela-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
 
 ## This Section Lists the Cornerstone SoTs Registered in the Matrix
 | Title | Path | Type | Parent | Status |
@@ -44,9 +44,9 @@ The index layer exists so the system can see the matrix as a whole, keep track o
 ## This Section Lists the Knowledge SoTs Registered in the Matrix
 | Title | Path | Type | Parent | Status |
 |---|---|---|---|---|
-| Repo Watchlist Source of Truth | `knowledge/WHAT.Repo-Watchlist-SoT.md` | `dimension` | `[[200.WHAT.Domain-SoT#200.WHAT.Domains]]` | `active` |
-| Vela Capabilities Source of Truth | `knowledge/WHAT.Vela-Capabilities-SoT.md` | `system` | `[[WHO.Vela-Identity-SoT#200.WHAT.Scope]]` | `active` |
-| Vela Intent Source of Truth | `knowledge/WHY.Vela-Intent-SoT.md` | `system` | `[[WHO.Vela-Identity-SoT#600.WHY.Compass]]` | `active` |
+| Repo Watchlist Source of Truth | `knowledge/200.WHAT.Repo-Watchlist-SoT.md` | `dimension` | `[[200.WHAT.Domain-SoT#200.WHAT.Domains]]` | `active` |
+| Vela Capabilities Source of Truth | `knowledge/200.WHAT.Vela-Capabilities-SoT.md` | `system` | `[[100.WHO.Vela-Identity-SoT#200.WHAT.Scope]]` | `active` |
+| Vela Intent Source of Truth | `knowledge/600.WHY.Vela-Intent-SoT.md` | `system` | `[[100.WHO.Vela-Identity-SoT#600.WHY.Compass]]` | `active` |
 
 ## This Registry Points Back to the Root and the Governing Laws
 - Root: [[Cornerstone.Knosence-SoT]]

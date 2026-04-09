@@ -5,7 +5,7 @@ pub fn is_sovereign_target(path: &str) -> bool {
     matches!(inferred_inventory_role_for_path(path), Some("cornerstone" | "agent-identity"))
         || path == "knowledge/Cornerstone.Knosence-SoT.md"
         || path == "knowledge/ARTIFACTS/proposals/TEST.Sovereign-Guardrail-Fixture.md"
-        || path == "knowledge/WHAT.Repo-Watchlist-SoT.md"
+        || path == "knowledge/200.WHAT.Repo-Watchlist-SoT.md"
 }
 
 pub fn requires_human_approval(path: &str) -> bool {
