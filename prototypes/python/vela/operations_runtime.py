@@ -140,21 +140,43 @@ def review_dreamer_proposal(target: str, decision: str, actor: str, reason: str)
 
     record_approval(f"dreamer_{_slug(target)}_{_stamp()}", decision, actor, reason, target)
     current = path.read_text(encoding="utf-8")
-    updated = _mark_dreamer_proposal_reviewed(current, decision, actor, reason)
+    follow_up = _build_dreamer_follow_up(target, current, decision, actor)
+    updated = _mark_dreamer_proposal_reviewed(current, decision, actor, reason, follow_up["target"] if follow_up else None)
     result = write_text(target, updated, actor="system", endpoint="dreamer-review", reason=f"dreamer proposal {decision}")
+    follow_up_result = {"ok": True, "target": None, "kind": None}
+    if result["ok"] and follow_up:
+        follow_up_result = write_text(
+            follow_up["target"],
+            follow_up["content"],
+            actor="system",
+            endpoint="dreamer-review",
+            reason=f"dreamer follow up for {target}",
+        )
     append_event(
         EventRecord(
             source="vela",
             endpoint="dreamer-review",
             actor=actor,
             target=target,
-            status="committed" if result["ok"] else "blocked",
+            status="committed" if result["ok"] and follow_up_result["ok"] else "blocked",
             reason=reason,
-            artifacts=result.get("artifacts", [target]),
-            validation_summary={"decision": decision},
+            artifacts=[
+                target,
+                *result.get("artifacts", [target]),
+                *([follow_up["target"]] if follow_up and follow_up_result["ok"] else []),
+                *follow_up_result.get("artifacts", []),
+            ],
+            validation_summary={"decision": decision, "follow_up_kind": follow_up["kind"] if follow_up else None},
         )
     )
-    return {"ok": result["ok"], "target": target, "decision": decision, "findings": result.get("findings", [])}
+    return {
+        "ok": result["ok"] and follow_up_result["ok"],
+        "target": target,
+        "decision": decision,
+        "follow_up_target": follow_up["target"] if follow_up else None,
+        "follow_up_kind": follow_up["kind"] if follow_up else None,
+        "findings": result.get("findings", []) + follow_up_result.get("findings", []),
+    }
 
 
 def _patched_targets() -> list[str]:
@@ -408,7 +430,7 @@ def _proposal_reason(text: str) -> str:
     return ""
 
 
-def _mark_dreamer_proposal_reviewed(text: str, decision: str, actor: str, reason: str) -> str:
+def _mark_dreamer_proposal_reviewed(text: str, decision: str, actor: str, reason: str, follow_up_target: str | None) -> str:
     status_map = {
         "approved": "approved",
         "denied": "denied",
@@ -421,11 +443,66 @@ def _mark_dreamer_proposal_reviewed(text: str, decision: str, actor: str, reason
         f"- actor: `{actor}`\n"
         f"- reason: {reason}\n"
     )
+    if follow_up_target:
+        review_section += f"- follow up: `[[{Path(follow_up_target).stem}]]`\n"
     if "## Review Outcome" in updated:
         updated = re.sub(r"\n## Review Outcome.*$", review_section, updated, flags=re.DOTALL)
     else:
         updated = updated.rstrip() + review_section
     return updated
+
+
+def _build_dreamer_follow_up(target: str, proposal_text: str, decision: str, actor: str) -> dict[str, str] | None:
+    if decision != "approved":
+        return None
+    reason = _proposal_reason(proposal_text)
+    classification = _classify_dreamer_follow_up(reason)
+    stem = Path(target).stem.replace("Dreamer-Proposal.", "Dreamer-Follow-Up.")
+    follow_up_target = f"knowledge/ARTIFACTS/proposals/{stem}.md"
+    return {
+        "target": follow_up_target,
+        "kind": classification,
+        "content": _render_dreamer_follow_up(follow_up_target, target, reason, classification, actor),
+    }
+
+
+def _classify_dreamer_follow_up(reason: str) -> str:
+    lowered = reason.lower()
+    if any(token in lowered for token in ["validator", "validation", "rule", "frontmatter", "structure"]):
+        return "validator-change"
+    if any(token in lowered for token in ["workflow", "triage", "route", "pipeline", "queue"]):
+        return "workflow-change"
+    return "refusal-tightening"
+
+
+def _render_dreamer_follow_up(
+    follow_up_target: str,
+    proposal_target: str,
+    reason: str,
+    classification: str,
+    actor: str,
+) -> str:
+    created = datetime.now(timezone.utc).date().isoformat()
+    return (
+        "---\n"
+        "sot-type: proposal\n"
+        f"created: {created}\n"
+        f"last-rewritten: {created}\n"
+        f'parent: "[[{Path(proposal_target).stem}]]"\n'
+        "domain: operations\n"
+        "status: proposed\n"
+        'tags: ["dreamer","follow-up","proposal"]\n'
+        "---\n\n"
+        "# Dreamer Follow Up\n\n"
+        "## This Proposal Records the Concrete Follow Up Opened After an Approved Dreamer Review\n"
+        f"Approved Dreamer proposal `[[{Path(proposal_target).stem}]]` opened this `{classification}` follow up.\n\n"
+        "## Classification\n\n"
+        f"- kind: `{classification}`\n"
+        f"- reason: `{reason}`\n"
+        f"- reviewed by: `{actor}`\n\n"
+        "## Suggested Next Step\n\n"
+        f"- Apply a targeted {classification} change and verify it against the repeated failure signal.\n"
+    )
 
 
 def _stamp() -> str:

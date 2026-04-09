@@ -867,9 +867,14 @@ class VelaSystemTest(unittest.TestCase):
         target = queue["items"][0]["target"]
         review = review_dreamer_proposal(target=target, decision="approved", actor="human", reason="accept dreamer follow up")
         self.assertTrue(review["ok"])
+        self.assertEqual(review["follow_up_kind"], "workflow-change")
+        self.assertTrue(review["follow_up_target"])
         updated = (REPO_ROOT / target).read_text(encoding="utf-8")
+        follow_up = (REPO_ROOT / review["follow_up_target"]).read_text(encoding="utf-8")
         self.assertIn("status: approved", updated)
         self.assertIn("## Review Outcome", updated)
+        self.assertIn("follow up:", updated)
+        self.assertIn("# Dreamer Follow Up", follow_up)
 
     def test_dreamer_queue_service_and_review_endpoint(self) -> None:
         for _ in range(3):
@@ -892,6 +897,7 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(review["ok"])
         self.assertEqual(review["endpoint"], "dreamer-review")
+        self.assertIsNone(review["data"]["follow_up_target"])
 
     def test_inbox_triage_moves_text_file_to_companion_and_links_it(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
