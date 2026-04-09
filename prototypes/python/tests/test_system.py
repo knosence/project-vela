@@ -13,7 +13,12 @@ from prototypes.python.vela.matrix import write_matrix_index
 from prototypes.python.vela.paths import EVENT_LOG_PATH, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
 from prototypes.python.vela.repo_watch import analyze_release
-from prototypes.python.vela.rust_bridge import route_for_target, validate_config_payload, validate_target as validate_target_payload
+from prototypes.python.vela.rust_bridge import (
+    inspect_reference_payload,
+    route_for_target,
+    validate_config_payload,
+    validate_target as validate_target_payload,
+)
 from prototypes.python.vela.server import VelaService
 from prototypes.python.vela.verification import run_scenario
 
@@ -502,6 +507,29 @@ class VelaSystemTest(unittest.TestCase):
         payload = validate_config_payload(load_config())
         self.assertTrue(payload["setup_required"])
         self.assertTrue(any(item["code"] == "CONFIG_REQUIRED" for item in payload["findings"]))
+
+    def test_rust_reference_bridge(self) -> None:
+        payload = inspect_reference_payload(
+            "knowledge/refs/Ref.example.Release-Intelligence.md",
+            "---\n"
+            "sot-type: reference\n"
+            "created: 2026-04-08\n"
+            "last-rewritten: 2026-04-08\n"
+            "parent: \"[[WHAT.Repo-Watchlist-SoT#200.WHAT.Scope]]\"\n"
+            "domain: repo-watch\n"
+            "status: active\n"
+            "tags: [\"repo-watch\",\"release\",\"reference\"]\n"
+            "---\n\n"
+            "# Release Intelligence openai/openai-python 1.2.3\n\n"
+            "## This Reference Declares the Release Packet and the Review Chain\n"
+            "The packet exists.\n\n"
+            "## This Reference Links the Governing Inputs and Outputs\n"
+            "- Packet: `knowledge/refs/example.packet.json`\n\n"
+            "## This Reference States the Release Judgment Clearly\n"
+            "- Breaking change risk: `high`\n",
+        )
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["reference"]["domain"], "repo-watch")
 
     def test_matrix_index_layer(self) -> None:
         result = write_matrix_index()

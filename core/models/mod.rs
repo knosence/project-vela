@@ -35,6 +35,16 @@ pub struct RuntimeConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GovernedReference {
+    pub path: String,
+    pub title: String,
+    pub ref_type: String,
+    pub parent: String,
+    pub domain: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationFinding {
     pub code: String,
     pub detail: String,

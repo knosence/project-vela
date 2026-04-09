@@ -69,3 +69,7 @@ def validate_event_payload(event: dict[str, Any]) -> dict[str, Any]:
 
 def analyze_release_payload(repo: str, version: str, notes: str, watchlist_text: str, context_markers: list[str]) -> dict[str, Any]:
     return _run(["analyze-release", repo, version, notes, ",".join(context_markers)], stdin=watchlist_text)
+
+
+def inspect_reference_payload(path: str, content: str) -> dict[str, Any]:
+    return _run(["inspect-reference", path], stdin=content)

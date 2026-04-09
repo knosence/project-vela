@@ -8,6 +8,7 @@ from typing import Any
 
 from .models import ValidationFinding
 from .paths import MATRIX_INDEX_JSON_PATH, MATRIX_INDEX_PATH, REPO_ROOT
+from .rust_bridge import inspect_reference_payload
 from .simple_yaml import loads
 from .traceability import annotate_finding, annotate_findings
 
@@ -56,6 +57,17 @@ class MatrixReference:
         }
 
 
+def _reference_payloads() -> list[dict[str, Any]]:
+    payloads: list[dict[str, Any]] = []
+    for path in sorted((REPO_ROOT / "knowledge" / "refs").glob("Ref.*.md")):
+        if path == MATRIX_INDEX_PATH:
+            continue
+        text = path.read_text(encoding="utf-8")
+        payload = inspect_reference_payload(str(path.relative_to(REPO_ROOT)), text)
+        payloads.append(payload)
+    return payloads
+
+
 def _parse_frontmatter(text: str) -> dict[str, Any]:
     if not text.startswith("---\n"):
         return {}
@@ -99,22 +111,18 @@ def discover_sots() -> list[MatrixSoT]:
 
 def discover_references() -> list[MatrixReference]:
     entries: list[MatrixReference] = []
-    for path in sorted((REPO_ROOT / "knowledge" / "refs").glob("Ref.*.md")):
-        if path == MATRIX_INDEX_PATH:
+    for payload in _reference_payloads():
+        reference = payload.get("reference")
+        if not reference:
             continue
-        text = path.read_text(encoding="utf-8")
-        frontmatter = _parse_frontmatter(text)
-        if str(frontmatter.get("sot-type", "")) != "reference":
-            continue
-        rel = str(path.relative_to(REPO_ROOT))
         entries.append(
             MatrixReference(
-                path=rel,
-                title=_extract_title(text),
-                ref_type=str(frontmatter.get("sot-type", "reference")),
-                parent=str(frontmatter.get("parent", "")),
-                domain=str(frontmatter.get("domain", "unknown")),
-                status=str(frontmatter.get("status", "unknown")),
+                path=str(reference.get("path", "")),
+                title=str(reference.get("title", "Untitled Reference")),
+                ref_type=str(reference.get("ref_type", "reference")),
+                parent=str(reference.get("parent", "")),
+                domain=str(reference.get("domain", "unknown")),
+                status=str(reference.get("status", "unknown")),
             )
         )
     return entries
@@ -249,44 +257,16 @@ def validate_matrix_structure(entries: list[MatrixSoT] | None = None) -> list[Va
 
 
 def validate_reference_structure(entries: list[MatrixReference] | None = None) -> list[ValidationFinding]:
-    refs = entries or discover_references()
     findings: list[ValidationFinding] = []
-    required_fields = {"sot-type", "created", "last-rewritten", "domain", "status", "tags", "parent"}
-    required_headings = [
-        "## This Reference Declares the Release Packet and the Review Chain",
-        "## This Reference Links the Governing Inputs and Outputs",
-        "## This Reference States the Release Judgment Clearly",
-    ]
-
-    for entry in refs:
-        text = (REPO_ROOT / entry.path).read_text(encoding="utf-8")
-        frontmatter = _parse_frontmatter(text)
-        for field in required_fields:
-            if field not in frontmatter:
-                findings.append(
-                    annotate_finding(ValidationFinding(
-                        "MATRIX_REFERENCE_FRONTMATTER_REQUIRED",
-                        f"{Path(entry.path).name} is missing required frontmatter field `{field}`",
-                        "error",
-                    ))
-                )
-        if not str(frontmatter.get("parent", "")).strip():
-            findings.append(
-                annotate_finding(ValidationFinding(
-                    "MATRIX_REFERENCE_PARENT_REQUIRED",
-                    f"{Path(entry.path).name} must declare a non-empty parent",
-                    "error",
-                ))
+    for payload in _reference_payloads():
+        findings.extend(
+            annotate_findings(
+                [
+                    ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", []))
+                    for item in payload.get("findings", [])
+                ]
             )
-        for heading in required_headings:
-            if heading not in text:
-                findings.append(
-                    annotate_finding(ValidationFinding(
-                        "MATRIX_REFERENCE_HEADING_REQUIRED",
-                        f"{Path(entry.path).name} is missing required heading `{heading}`",
-                        "error",
-                    ))
-                )
+        )
     return findings
 
 

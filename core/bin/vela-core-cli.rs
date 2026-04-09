@@ -5,6 +5,7 @@ use vela_core::events::{validate_event_record, EventRecord, ValidationSummary};
 use vela_core::models::{OnboardingConfig, Severity, ValidationFinding};
 use vela_core::parser::{build_runtime_config, parse_system_identity};
 use vela_core::policy::{route_for_target, validate_commit_policy};
+use vela_core::references::inspect_reference;
 use vela_core::repo_watch::assess_release;
 use vela_core::validator::{
     has_blocking_findings, missing_required_fields, validate_narrative_document, validate_runtime_config,
@@ -176,6 +177,33 @@ fn run() -> Result<(), String> {
                     .map(|item| format!("\"{}\"", escape_json(item)))
                     .collect::<Vec<String>>()
                     .join(",")
+            );
+        }
+        "inspect-reference" => {
+            let path = args.next().ok_or_else(|| "missing path".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (reference, findings) = inspect_reference(&path, &content);
+            let reference_json = reference
+                .map(|item| {
+                    format!(
+                        "{{\"path\":\"{}\",\"title\":\"{}\",\"ref_type\":\"{}\",\"parent\":\"{}\",\"domain\":\"{}\",\"status\":\"{}\"}}",
+                        escape_json(&item.path),
+                        escape_json(&item.title),
+                        escape_json(&item.ref_type),
+                        escape_json(&item.parent),
+                        escape_json(&item.domain),
+                        escape_json(&item.status),
+                    )
+                })
+                .unwrap_or_else(|| "null".to_string());
+            println!(
+                "{{\"ok\":{},\"reference\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) { "true" } else { "false" },
+                reference_json,
+                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
             );
         }
         other => return Err(format!("unknown command: {other}")),
