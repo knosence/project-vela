@@ -3,6 +3,7 @@ use std::io::{self, Read};
 
 use vela_core::events::{validate_event_record, EventRecord, ValidationSummary};
 use vela_core::matrix::{
+    build_matrix_index,
     validate_parent_consistency as validate_matrix_parent_consistency,
     validate_sot_structure as validate_matrix_sot_structure,
 };
@@ -233,6 +234,19 @@ fn run() -> Result<(), String> {
             println!(
                 "{{\"ok\":{},\"findings\":[{}]}}",
                 if !has_blocking_findings(&findings) { "true" } else { "false" },
+                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+            );
+        }
+        "render-matrix-index" => {
+            let root = args.next().ok_or_else(|| "missing repo root".to_string())?;
+            let root = std::path::Path::new(&root);
+            let (entries, references, findings, markdown, snapshot_json) = build_matrix_index(root);
+            println!(
+                "{{\"ok\":true,\"markdown\":\"{}\",\"snapshot_json\":\"{}\",\"entries\":{},\"references\":{},\"findings\":[{}]}}",
+                escape_json(&markdown),
+                escape_json(&snapshot_json),
+                entries.len(),
+                references.len(),
                 findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
             );
         }

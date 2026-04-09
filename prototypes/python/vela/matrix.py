@@ -9,6 +9,7 @@ from typing import Any
 from .models import ValidationFinding
 from .paths import MATRIX_INDEX_JSON_PATH, MATRIX_INDEX_PATH, REPO_ROOT
 from .rust_bridge import inspect_reference_payload
+from .rust_bridge import render_matrix_index_payload
 from .rust_bridge import validate_parent_payload
 from .rust_bridge import validate_sot_payload
 from .simple_yaml import loads
@@ -311,27 +312,16 @@ def render_matrix_index(entries: list[MatrixSoT], refs: list[MatrixReference]) -
 
 
 def write_matrix_index() -> dict[str, Any]:
-    entries = discover_sots()
-    refs = discover_references()
-    findings = validate_matrix_rules(entries) + validate_matrix_structure(entries) + validate_reference_structure(refs)
+    payload = render_matrix_index_payload()
+    snapshot = json.loads(str(payload["snapshot_json"]))
     MATRIX_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
     MATRIX_INDEX_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
-    MATRIX_INDEX_PATH.write_text(render_matrix_index(entries, refs), encoding="utf-8")
-    MATRIX_INDEX_JSON_PATH.write_text(
-        json.dumps(
-            {
-                "entries": [item.as_dict() for item in entries],
-                "references": [item.as_dict() for item in refs],
-                "findings": [item.as_dict() for item in findings],
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    MATRIX_INDEX_PATH.write_text(str(payload["markdown"]), encoding="utf-8")
+    MATRIX_INDEX_JSON_PATH.write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
     return {
         "path": str(MATRIX_INDEX_PATH.relative_to(REPO_ROOT)),
         "json_path": str(MATRIX_INDEX_JSON_PATH.relative_to(REPO_ROOT)),
-        "entries": len(entries),
-        "references": len(refs),
-        "findings": [item.as_dict() for item in findings],
+        "entries": int(payload["entries"]),
+        "references": int(payload["references"]),
+        "findings": [item for item in payload["findings"]],
     }

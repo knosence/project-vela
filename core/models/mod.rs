@@ -45,6 +45,18 @@ pub struct GovernedReference {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MatrixSoT {
+    pub path: String,
+    pub title: String,
+    pub sot_type: String,
+    pub parent: String,
+    pub domain: String,
+    pub status: String,
+    pub area: String,
+    pub is_cornerstone: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationFinding {
     pub code: String,
     pub detail: String,
@@ -90,6 +102,13 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
         "CONFIG_REQUIRED" | "SETUP_STATE_INCONSISTENT" => {
             vec!["Vela Setup Rule: Setup Mode Honesty".to_string()]
         }
+        "MATRIX_SINGLE_CORNERSTONE_REQUIRED" => {
+            vec!["Law 1 Exactly One Cornerstone Shall Exist".to_string()]
+        }
+        "MATRIX_PARENT_REQUIRED" => vec![
+            "Pattern 3 Single Parent".to_string(),
+            "Law 2 Every Non Cornerstone Source of Truth Shall Declare One Parent".to_string(),
+        ],
         "MATRIX_HUB_PARENT_REQUIRED" => vec![
             "Pattern 15 Three-Hop Ceiling".to_string(),
             "Law 6 Branch Sources of Truth Shall Prefer Hub Lineage Over Direct Root Attachment".to_string(),
@@ -107,6 +126,16 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
         | "MATRIX_INACTIVE_SECTION_REQUIRED" => vec![
             "Pattern 17 SoT-Native Output".to_string(),
             "Pattern 7 Single Source Block Map".to_string(),
+        ],
+        "MATRIX_REFERENCE_FRONTMATTER_REQUIRED" | "MATRIX_REFERENCE_TYPE_REQUIRED" => vec![
+            "Pattern 16 Frontmatter Contract".to_string(),
+        ],
+        "MATRIX_REFERENCE_PARENT_REQUIRED" => vec![
+            "Pattern 3 Single Parent".to_string(),
+            "Law 2 Every Non Cornerstone Source of Truth Shall Declare One Parent".to_string(),
+        ],
+        "MATRIX_REFERENCE_HEADING_REQUIRED" => vec![
+            "Pattern 17 SoT-Native Output".to_string(),
         ],
         "NARRATIVE_HEADING_REQUIRED" | "NARRATIVE_HEADING_WEAK" | "NARRATIVE_OPENING_REQUIRED" => vec![
             "Pattern 17 SoT-Native Output".to_string(),

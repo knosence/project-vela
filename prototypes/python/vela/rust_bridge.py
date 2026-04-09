@@ -81,3 +81,7 @@ def validate_parent_payload(path: str, content: str) -> dict[str, Any]:
 
 def validate_sot_payload(path: str, content: str) -> dict[str, Any]:
     return _run(["validate-sot", path], stdin=content)
+
+
+def render_matrix_index_payload() -> dict[str, Any]:
+    return _run(["render-matrix-index", str(REPO_ROOT)])

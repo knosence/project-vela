@@ -1,0 +1,225 @@
+{
+  "main": {
+    "id": "2d0e31a3524f9925",
+    "type": "split",
+    "children": [
+      {
+        "id": "ab7e213bfa52d097",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "3e08b19d68062871",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "README.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "README"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "c6f5366e18b66354",
+    "type": "split",
+    "children": [
+      {
+        "id": "09443e06c1bda446",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "ef1abfaab7880acc",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "971eb5f8a0570e21",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "d45b792eb774191c",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "de46aa6ad4c33921",
+    "type": "split",
+    "children": [
+      {
+        "id": "353479477a7a9ee0",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b3a727b366e828e6",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "README.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for README"
+            }
+          },
+          {
+            "id": "cb31fd20af52f983",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "README.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from README"
+            }
+          },
+          {
+            "id": "6352a643590ddcfa",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "45ad8e5a5cd65989",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "3bdba5fe4daea90e",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "README.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of README"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "3e08b19d68062871",
+  "lastOpenFiles": [
+    "runtime/queues/5c491ca2b8455a92a4e0dbc0996af0526d50c322.lock",
+    "runtime/queues/29be89ea0aeff38887526f07a400095c6246b43f.lock",
+    "knowledge/archive/backups/202604090240(Growth-Proposal.2026-04-09.sovereign-change.TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
+    "knowledge/proposals/Ref.repo-watch-test.Release-Intelligence.md",
+    "knowledge/proposals/repo-watch-test.validation.json",
+    "knowledge/proposals/repo-watch-test.reflection.json",
+    "knowledge/proposals/repo-watch-test.md",
+    "knowledge/proposals/repo-watch-test.assessment.json",
+    "knowledge/proposals/repo-watch-test.packet.json",
+    "knowledge/archive/backups/202604090240(protected-zone-test.md)Backup.md",
+    "runtime/queues/937feec27ec15b0da632d94972e70720dea7f662.lock",
+    "knowledge/proposals/direct-root-dimension-branch-test.md",
+    "knowledge/proposals/direct-root-agent-branch-test.md",
+    "knowledge/refs/Ref.indexed-release-summary.Release-Intelligence.md",
+    "knowledge/refs/indexed-release-summary.validation.json",
+    "knowledge/refs/indexed-release-summary.reflection.json",
+    "knowledge/refs/indexed-release-summary.md",
+    "knowledge/refs/indexed-release-summary.assessment.json",
+    "knowledge/refs/indexed-release-summary.packet.json",
+    "knowledge/archive/backups/202604090240(growth-apply-service-test.md)Backup.md",
+    "knowledge/refs/Ref.service-source.md",
+    "knowledge/proposals/growth-apply-service-test.md",
+    "knowledge/proposals/service-source-SoT.md",
+    "knowledge/archive/backups/202604090240(archive-transaction-test.md)Backup.md",
+    "knowledge/archive/backups/202604090240(growth-apply-spawn-test.md)Backup.md",
+    "knowledge/proposals/spawn-source.Spawned-Child-SoT.md",
+    "knowledge/proposals/growth-apply-spawn-test.md",
+    "knowledge/proposals/spawn-source-SoT.md",
+    "knowledge/archive/backups/202604090240(TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
+    "knowledge/archive/backups/202604090240(growth-apply-fractal-test.md)Backup.md",
+    "knowledge/archive/backups/202604090240(fractal-source-SoT.md)Backup.md",
+    "knowledge/proposals/growth-apply-fractal-test.md",
+    "knowledge/proposals/fractal-source-SoT.md",
+    "knowledge/archive/backups/202604090240(growth-apply-reference-test.md)Backup.md",
+    "knowledge/refs/Ref.reference-source.md",
+    "knowledge/proposals/growth-apply-reference-test.md"
+  ]
+}
