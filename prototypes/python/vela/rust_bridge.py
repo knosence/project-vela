@@ -73,3 +73,7 @@ def analyze_release_payload(repo: str, version: str, notes: str, watchlist_text:
 
 def inspect_reference_payload(path: str, content: str) -> dict[str, Any]:
     return _run(["inspect-reference", path], stdin=content)
+
+
+def validate_parent_payload(path: str, content: str) -> dict[str, Any]:
+    return _run(["validate-parent", path], stdin=content)

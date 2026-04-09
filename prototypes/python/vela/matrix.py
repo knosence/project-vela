@@ -9,6 +9,7 @@ from typing import Any
 from .models import ValidationFinding
 from .paths import MATRIX_INDEX_JSON_PATH, MATRIX_INDEX_PATH, REPO_ROOT
 from .rust_bridge import inspect_reference_payload
+from .rust_bridge import validate_parent_payload
 from .simple_yaml import loads
 from .traceability import annotate_finding, annotate_findings
 
@@ -272,65 +273,10 @@ def validate_reference_structure(entries: list[MatrixReference] | None = None) -
 
 def validate_parent_consistency(path: Path) -> list[ValidationFinding]:
     text = path.read_text(encoding="utf-8")
-    frontmatter = _parse_frontmatter(text)
-    findings: list[ValidationFinding] = []
-    declaration_parent = ""
-    for line in text.splitlines():
-        match = re.match(r"^\*\*Parent:\*\*\s*(.+)$", line.strip())
-        if match:
-            declaration_parent = match.group(1).strip()
-            break
-
-    fm_parent = _normalize_parent(str(frontmatter.get("parent", "")))
-    declaration_parent = _normalize_parent(declaration_parent)
-    is_cornerstone = path.name == "Cornerstone.Project-Vela-SoT.md"
-
-    if is_cornerstone:
-        if declaration_parent.lower() not in {"none", ""}:
-            findings.append(
-                annotate_finding(ValidationFinding(
-                    "MATRIX_CORNERSTONE_DECLARATION_PARENT_INVALID",
-                    f"{path.name} must declare `Parent: None` in the Subject Declaration",
-                    "error",
-                ))
-            )
-        return findings
-
-    if fm_parent and declaration_parent and fm_parent != declaration_parent:
-        findings.append(
-            annotate_finding(ValidationFinding(
-                "MATRIX_PARENT_DECLARATION_MISMATCH",
-                f"{path.name} frontmatter parent does not match Subject Declaration parent",
-                "error",
-            ))
-        )
-
-    if _requires_hub_parent(path, frontmatter) and "Cornerstone.Project-Vela-SoT#" in fm_parent:
-        findings.append(
-            annotate_finding(ValidationFinding(
-                "MATRIX_HUB_PARENT_REQUIRED",
-                f"{path.name} should attach to a dimension hub or governed local parent instead of directly to the cornerstone",
-                "error",
-            ))
-        )
-    return annotate_findings(findings)
-
-
-def _normalize_parent(value: str) -> str:
-    return value.strip().strip('"').strip("'")
-
-
-def _requires_hub_parent(path: Path, frontmatter: dict[str, Any]) -> bool:
-    domain = str(frontmatter.get("domain", "")).strip()
-    if domain == "agents":
-        return True
-    if domain == "dimensions":
-        return not _is_dimension_hub(path)
-    return False
-
-
-def _is_dimension_hub(path: Path) -> bool:
-    return bool(re.match(r"^\d{3}\.[A-Z]+\..+-SoT\.md$", path.name))
+    payload = validate_parent_payload(str(path.relative_to(REPO_ROOT)), text)
+    return annotate_findings(
+        [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
+    )
 
 
 def classify_change_zone(before: str, after: str) -> str:

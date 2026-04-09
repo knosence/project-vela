@@ -2,6 +2,7 @@ use std::env;
 use std::io::{self, Read};
 
 use vela_core::events::{validate_event_record, EventRecord, ValidationSummary};
+use vela_core::matrix::validate_parent_consistency as validate_matrix_parent_consistency;
 use vela_core::models::{OnboardingConfig, Severity, ValidationFinding};
 use vela_core::parser::{build_runtime_config, parse_system_identity};
 use vela_core::policy::{route_for_target, validate_commit_policy};
@@ -203,6 +204,19 @@ fn run() -> Result<(), String> {
                 "{{\"ok\":{},\"reference\":{},\"findings\":[{}]}}",
                 if !has_blocking_findings(&findings) { "true" } else { "false" },
                 reference_json,
+                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+            );
+        }
+        "validate-parent" => {
+            let path = args.next().ok_or_else(|| "missing path".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let findings = validate_matrix_parent_consistency(&path, &content);
+            println!(
+                "{{\"ok\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) { "true" } else { "false" },
                 findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
             );
         }

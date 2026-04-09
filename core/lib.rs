@@ -1,5 +1,6 @@
 pub mod events;
 pub mod lineage;
+pub mod matrix;
 pub mod models;
 pub mod parser;
 pub mod policy;
