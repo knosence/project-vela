@@ -1,4 +1,5 @@
 pub mod events;
+pub mod inventory;
 pub mod lineage;
 pub mod matrix;
 pub mod models;
