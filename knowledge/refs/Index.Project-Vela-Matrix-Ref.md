@@ -22,10 +22,10 @@ The index layer exists so the system can see the matrix as a whole, keep track o
 ## This Section Lists the Agents SoTs Registered in the Matrix
 | Title | Path | Type | Parent | Status |
 |---|---|---|---|---|
-| Custom Vela Identity Source of Truth | `knowledge/agents/custom-vela/WHO.Custom-Vela-Identity-SoT.md` | `system` | `[[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]` | `active` |
-| Test Custom Identity Source of Truth | `knowledge/agents/test-custom/WHO.Test-Custom-Identity-SoT.md` | `system` | `[[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]` | `active` |
+| Custom Vela Identity Source of Truth | `knowledge/agents/custom-vela/WHO.Custom-Vela-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Identity]]` | `active` |
+| Test Custom Identity Source of Truth | `knowledge/agents/test-custom/WHO.Test-Custom-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Identity]]` | `active` |
 | Vela Capabilities Source of Truth | `knowledge/agents/vela/WHAT.Vela-Capabilities-SoT.md` | `system` | `[[WHO.Vela-Identity-SoT#200.WHAT.Scope]]` | `active` |
-| Vela Identity Source of Truth | `knowledge/agents/vela/WHO.Vela-Identity-SoT.md` | `system` | `[[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]` | `active` |
+| Vela Identity Source of Truth | `knowledge/agents/vela/WHO.Vela-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Identity]]` | `active` |
 | Vela Intent Source of Truth | `knowledge/agents/vela/WHY.Vela-Intent-SoT.md` | `system` | `[[WHO.Vela-Identity-SoT#600.WHY.Compass]]` | `active` |
 
 ## This Section Lists the Cornerstone SoTs Registered in the Matrix

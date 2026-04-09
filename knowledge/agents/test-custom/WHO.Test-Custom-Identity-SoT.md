@@ -2,7 +2,7 @@
 sot-type: system
 created: 2026-04-08
 last-rewritten: 2026-04-08
-parent: "[[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]"
+parent: "[[100.WHO.Circle-SoT#100.WHO.Identity]]"
 domain: agents
 status: active
 tags: ["agent","identity","sot"]
@@ -17,11 +17,12 @@ tags: ["agent","identity","sot"]
 **Subject:** Test Custom is a replaceable assistant identity bound to the Project Vela system.
 **Type:** system
 **Created:** 2026-04-08
-**Parent:** [[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]
+**Parent:** [[100.WHO.Circle-SoT#100.WHO.Identity]]
 
 ### Links
 
-- Parent: [[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]
+- Parent: [[100.WHO.Circle-SoT#100.WHO.Identity]]
+- WHO hub: [[100.WHO.Circle-SoT]]
 - Cornerstone: [[Cornerstone.Project-Vela-SoT]]
 
 ### Inbox
