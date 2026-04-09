@@ -366,6 +366,7 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
         proposal_target=proposal_target,
         actor=actor,
         approval_id=approval_id,
+        execution=execution,
     )
     if not source_update["ok"]:
         return {
@@ -425,9 +426,9 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
     created = datetime.now(timezone.utc).date().isoformat()
     stem = re.sub(r"[^A-Za-z0-9.-]+", "-", target_path.stem).strip("-") or "target"
     proposal_name = Path(proposal_target).stem
+    source_text = (REPO_ROOT / assessed_target).read_text(encoding="utf-8")
 
     if stage == "fractal":
-        source_text = (REPO_ROOT / assessed_target).read_text(encoding="utf-8")
         execution_target = assessed_target
         content = _fractalize_source(source_text, assessed_target, proposal_target, created)
         return {"target": execution_target, "content": content, "kind": "fractalized-source"}
@@ -435,16 +436,21 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
     if stage == "reference-note":
         ref_stem = stem[:-4] if stem.endswith("-SoT") else stem
         execution_target = f"knowledge/refs/Ref.{ref_stem}.md"
-        content = (
-            f"# Reference Note for {target_path.name}\n\n"
-            "## This Reference Note Exists Because the Parent Artifact Has Exceeded a Flat Shape\n"
-            f"The governed growth proposal `{proposal_target}` recommended extraction into a reference note.\n\n"
-            "## This Reference Note Points Back to the Assessed Parent Artifact\n"
-            f"- parent artifact: `{assessed_target}`\n"
-            f"- proposal: `{proposal_target}`\n"
-            f"- created: `{created}`\n"
+        extracted = _extract_reference_entries(source_text)
+        content = _render_reference_note(
+            execution_target=execution_target,
+            assessed_target=assessed_target,
+            proposal_target=proposal_target,
+            created=created,
+            extracted=extracted,
         )
-        return {"target": execution_target, "content": content, "kind": "reference-note"}
+        return {
+            "target": execution_target,
+            "content": content,
+            "kind": "reference-note",
+            "dimension": extracted["dimension"],
+            "entries": extracted["entries"],
+        }
 
     if stage == "spawn" and assessed_target.endswith("-SoT.md"):
         child_stem = stem[:-4] if stem.endswith("-SoT") else stem
@@ -488,6 +494,7 @@ def _render_spawned_sot(execution_target: str, assessed_target: str, proposal_ta
         f"**Parent:** [[{parent_name}]]\n\n"
         "### Links\n\n"
         f"- Parent: [[{parent_name}]]\n"
+        f"- Source Branch: [[{parent_name}]]\n"
         "- Cornerstone: [[Cornerstone.Project-Vela-SoT]]\n"
         f"- Proposal: `{proposal_target}`\n\n"
         "### Inbox\n\n"
@@ -533,6 +540,7 @@ def _apply_growth_to_source(
     proposal_target: str,
     actor: str,
     approval_id: str | None,
+    execution: dict[str, Any],
 ) -> dict[str, Any]:
     if stage not in {"reference-note", "spawn"}:
         return {"ok": True, "findings": [], "artifacts": [assessed_target]}
@@ -545,6 +553,7 @@ def _apply_growth_to_source(
         execution_target=execution_target,
         proposal_target=proposal_target,
         stage=stage,
+        execution=execution,
     )
     return write_text(
         assessed_target,
@@ -563,6 +572,7 @@ def _inject_growth_source_updates(
     execution_target: str,
     proposal_target: str,
     stage: str,
+    execution: dict[str, Any],
 ) -> str:
     created = datetime.now(timezone.utc).date().isoformat()
     execution_name = Path(execution_target).stem
@@ -589,6 +599,14 @@ def _inject_growth_source_updates(
     updated = _append_line_to_section(updated, "### Status", status_line)
     updated = _append_line_to_section(updated, "### Next Actions", next_action_line)
     updated = _append_line_to_section(updated, "### Decisions", decision_line)
+    if stage == "reference-note":
+        updated = _replace_entries_with_reference_pointer(
+            updated,
+            execution.get("dimension", ""),
+            execution.get("entries", []),
+            execution_name,
+            created,
+        )
     return updated
 
 
@@ -607,14 +625,14 @@ def _append_line_to_section(text: str, heading: str, addition: str) -> str:
 
 
 def _fractalize_source(source_text: str, assessed_target: str, proposal_target: str, created: str) -> str:
-    if "## 210.Grouping" in source_text or "## 110.Grouping" in source_text:
+    if re.search(r"^##\s[1-6][1-9]0\.", source_text, flags=re.MULTILINE):
         return source_text
 
     counts = _dimension_entry_counts(source_text)
     if not counts:
         return source_text
     densest = max(counts, key=counts.get)
-    subgroup_heading = f"## {int(densest) + 10:03d}.Grouping"
+    subgroup_heading = f"## {int(densest) + 10:03d}.{_dimension_label(source_text, densest)}-Subgroup"
     subgroup = (
         f"{subgroup_heading}\n\n"
         "### Active\n\n"
@@ -655,6 +673,138 @@ def _next_top_level_heading_for_dimension(text: str, dimension: str) -> str:
             end = text.find("\n", start)
             return text[start:end] if end != -1 else text[start:]
     return ""
+
+
+def _dimension_label(text: str, dimension: str) -> str:
+    match = re.search(rf"^##\s{dimension}\.[^.]+\.(.+)$", text, flags=re.MULTILINE)
+    if not match:
+        return "Grouping"
+    raw = re.sub(r"[^A-Za-z0-9]+", "-", match.group(1)).strip("-")
+    return raw or "Grouping"
+
+
+def _extract_reference_entries(source_text: str) -> dict[str, Any]:
+    counts = _dimension_entry_counts(source_text)
+    if not counts:
+        return {"dimension": "", "entries": []}
+    densest = max(counts, key=lambda item: (counts[item], _dimension_preference(item)))
+    section = _dimension_section(source_text, densest)
+    active = _subsection(section, "### Active")
+    entries = _entry_blocks(active)[:2]
+    return {"dimension": _dimension_heading(source_text, densest), "entries": entries}
+
+
+def _dimension_preference(dimension: str) -> int:
+    order = {
+        "200": 6,
+        "500": 5,
+        "300": 4,
+        "400": 3,
+        "600": 2,
+        "100": 1,
+    }
+    return order.get(dimension, 0)
+
+
+def _render_reference_note(
+    *,
+    execution_target: str,
+    assessed_target: str,
+    proposal_target: str,
+    created: str,
+    extracted: dict[str, Any],
+) -> str:
+    heading = extracted.get("dimension", "")
+    entries = extracted.get("entries", [])
+    entry_text = "\n\n".join(entries) if entries else "(No extracted entries.)"
+    return (
+        f"# Reference Note for {Path(execution_target).name}\n\n"
+        "## This Reference Note Exists Because the Parent Artifact Has Exceeded a Flat Shape\n"
+        f"The governed growth proposal `{proposal_target}` recommended extraction into a reference note.\n\n"
+        "## This Reference Note Points Back to the Assessed Parent Artifact\n"
+        f"- parent artifact: `{assessed_target}`\n"
+        f"- proposal: `{proposal_target}`\n"
+        f"- extracted from: `{heading}`\n"
+        f"- created: `{created}`\n\n"
+        "## This Reference Note Preserves the Extracted Active Entries\n"
+        f"{entry_text}\n"
+    )
+
+
+def _replace_entries_with_reference_pointer(
+    source_text: str,
+    dimension_heading: str,
+    entries: list[str],
+    execution_name: str,
+    created: str,
+) -> str:
+    if not dimension_heading or not entries:
+        return source_text
+    section = _section_by_heading(source_text, dimension_heading)
+    if not section:
+        return source_text
+    active = _subsection(section, "### Active")
+    updated_active = active
+    for entry in entries:
+        updated_active = updated_active.replace(entry, "").strip()
+    pointer = (
+        f"- Detailed entries moved to `[[{execution_name}]]`. ({created})\n"
+        "  - The parent keeps the summary while the deeper detail now lives in the reference note. [AGENT:gpt-5]"
+    )
+    if pointer not in updated_active:
+        updated_active = f"{updated_active}\n\n{pointer}".strip()
+    section_updated = section.replace(active, updated_active, 1)
+    return source_text.replace(section, section_updated, 1)
+
+
+def _dimension_heading(text: str, dimension: str) -> str:
+    match = re.search(rf"^(##\s{dimension}\.[^\n]+)$", text, flags=re.MULTILINE)
+    return match.group(1) if match else ""
+
+
+def _dimension_section(text: str, dimension: str) -> str:
+    return _section_by_heading(text, _dimension_heading(text, dimension))
+
+
+def _section_by_heading(text: str, heading: str) -> str:
+    if not heading:
+        return ""
+    start = text.find(heading)
+    if start == -1:
+        return ""
+    rest = text[start + len(heading):]
+    next_heading_match = re.search(r"\n## ", rest)
+    end = start + len(heading) + next_heading_match.start() if next_heading_match else len(text)
+    return text[start:end]
+
+
+def _subsection(section: str, heading: str) -> str:
+    start = section.find(heading)
+    if start == -1:
+        return ""
+    rest = section[start + len(heading):]
+    next_heading_match = re.search(r"\n### |\n## ", rest)
+    end = start + len(heading) + next_heading_match.start() if next_heading_match else len(section)
+    return section[start:end]
+
+
+def _entry_blocks(active_section: str) -> list[str]:
+    blocks: list[str] = []
+    current: list[str] = []
+    for line in active_section.splitlines():
+        if line.startswith("- "):
+            if current:
+                blocks.append("\n".join(current).strip())
+            current = [line]
+            continue
+        if current:
+            if line.startswith("### ") or line.startswith("## "):
+                break
+            if line.strip():
+                current.append(line)
+    if current:
+        blocks.append("\n".join(current).strip())
+    return [block for block in blocks if not block.startswith("- Detailed entries moved")]
 
 
 def _mark_proposal_applied(proposal_text: str, execution_target: str, stage: str) -> str:

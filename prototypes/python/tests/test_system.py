@@ -279,9 +279,13 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["execution_kind"], "reference-note")
         self.assertTrue((REPO_ROOT / result["execution_target"]).exists())
+        ref_text = (REPO_ROOT / result["execution_target"]).read_text(encoding="utf-8")
+        self.assertIn("This Reference Note Preserves the Extracted Active Entries", ref_text)
+        self.assertIn("Vela routes, plans, drafts, critiques, validates, documents, and proposes growth under governed workflows.", ref_text)
         updated_source = (REPO_ROOT / source_target).read_text(encoding="utf-8")
         self.assertIn("Reference Note: [[Ref.reference-source]]", updated_source)
         self.assertIn("created a reference note `[[Ref.reference-source]]`", updated_source)
+        self.assertIn("Detailed entries moved to `[[Ref.reference-source]]`", updated_source)
 
     def test_apply_growth_proposal_blocks_sovereign_without_approval(self) -> None:
         proposal_target = "knowledge/proposals/growth-apply-sovereign-test.md"
@@ -354,7 +358,8 @@ class VelaSystemTest(unittest.TestCase):
         result = apply_growth_proposal(proposal_target, actor="scribe")
         self.assertTrue(result["ok"])
         self.assertEqual(result["execution_kind"], "spawned-sot")
-        self.assertTrue((REPO_ROOT / result["execution_target"]).exists())
+        child_text = (REPO_ROOT / result["execution_target"]).read_text(encoding="utf-8")
+        self.assertIn("- Source Branch: [[spawn-source-SoT]]", child_text)
         updated_source = source_path.read_text(encoding="utf-8")
         self.assertIn("Spawned Child: [[spawn-source.Spawned-Child-SoT]]", updated_source)
         self.assertIn("created a spawned child SoT `[[spawn-source.Spawned-Child-SoT]]`", updated_source)
@@ -400,7 +405,7 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["execution_kind"], "fractalized-source")
         updated_source = source_path.read_text(encoding="utf-8")
-        self.assertIn("## 110.Grouping", updated_source)
+        self.assertIn("## 110.Identity-Subgroup", updated_source)
 
     def test_growth_apply_service_endpoint(self) -> None:
         proposal_target = "knowledge/proposals/growth-apply-service-test.md"
