@@ -56,7 +56,7 @@ pub fn validate_sot_structure(path: &str, text: &str) -> Vec<ValidationFinding> 
     let mut findings = Vec::new();
 
     for field in REQUIRED_FRONTMATTER_FIELDS {
-        if frontmatter_value(&frontmatter, field).unwrap_or_default().is_empty() {
+        if !frontmatter.iter().any(|(key, _)| key == field) {
             findings.push(ValidationFinding::error(
                 "MATRIX_FRONTMATTER_REQUIRED",
                 format!("{path} is missing required frontmatter field `{field}`"),
@@ -162,7 +162,7 @@ fn parse_frontmatter(text: &str) -> Vec<(String, String)> {
             break;
         }
         if let Some((key, value)) = line.split_once(':') {
-            entries.push((key.trim().to_string(), value.trim().to_string()));
+            entries.push((key.trim().to_string(), value.trim().trim_matches('"').to_string()));
         }
     }
     entries
