@@ -131,6 +131,23 @@ def list_dreamer_queue() -> dict[str, Any]:
     return {"ok": True, "items": items}
 
 
+def list_dreamer_follow_ups() -> dict[str, Any]:
+    items: list[dict[str, Any]] = []
+    for path in sorted((REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Follow-Up.*.md")):
+        text = path.read_text(encoding="utf-8")
+        frontmatter = _parse_frontmatter(text)
+        items.append(
+            {
+                "target": str(path.relative_to(REPO_ROOT)),
+                "status": str(frontmatter.get("status", "unknown")),
+                "created": str(frontmatter.get("created", "")),
+                "kind": _follow_up_kind(text),
+                "reason": _follow_up_reason(text),
+            }
+        )
+    return {"ok": True, "items": items}
+
+
 def review_dreamer_proposal(target: str, decision: str, actor: str, reason: str) -> dict[str, Any]:
     path = REPO_ROOT / target
     if not path.exists():
@@ -176,6 +193,81 @@ def review_dreamer_proposal(target: str, decision: str, actor: str, reason: str)
         "follow_up_target": follow_up["target"] if follow_up else None,
         "follow_up_kind": follow_up["kind"] if follow_up else None,
         "findings": result.get("findings", []) + follow_up_result.get("findings", []),
+    }
+
+
+def apply_dreamer_follow_up(target: str, actor: str, reason: str) -> dict[str, Any]:
+    path = REPO_ROOT / target
+    if not path.exists():
+        return {"ok": False, "findings": [{"code": "DREAMER_FOLLOW_UP_NOT_FOUND", "detail": f"Dreamer follow up not found: {target}"}]}
+    if actor not in {"human", "system"}:
+        finding = {"code": "ROLE_ACTION_NOT_ALLOWED", "detail": f"Actor `{actor}` may not apply Dreamer follow ups."}
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="dreamer-follow-up-apply",
+                actor=actor,
+                target=target,
+                status="blocked",
+                reason=finding["detail"],
+                artifacts=[target],
+                validation_summary={"reason": reason},
+            )
+        )
+        return {"ok": False, "findings": [finding]}
+
+    current = path.read_text(encoding="utf-8")
+    frontmatter = _parse_frontmatter(current)
+    status = str(frontmatter.get("status", "unknown"))
+    if status == "applied":
+        return {"ok": True, "target": target, "execution_target": _existing_execution_target(current), "kind": _follow_up_kind(current), "findings": []}
+    if status != "proposed":
+        return {"ok": False, "findings": [{"code": "DREAMER_FOLLOW_UP_STATUS_INVALID", "detail": f"Dreamer follow up is not executable from status `{status}`."}]}
+
+    kind = _follow_up_kind(current)
+    follow_up_reason = _follow_up_reason(current)
+    execution = _build_follow_up_execution(target, kind, follow_up_reason, actor, reason)
+    execution_result = write_text(
+        execution["target"],
+        execution["content"],
+        actor=actor,
+        endpoint="dreamer-follow-up-apply",
+        reason=f"execute dreamer follow up {target}",
+    )
+    if not execution_result["ok"]:
+        return {"ok": False, "findings": execution_result.get("findings", [])}
+
+    updated = _mark_dreamer_follow_up_applied(current, actor, reason, execution["target"])
+    follow_up_result = write_text(
+        target,
+        updated,
+        actor=actor,
+        endpoint="dreamer-follow-up-apply",
+        reason=f"mark dreamer follow up applied {target}",
+    )
+    append_event(
+        EventRecord(
+            source="vela",
+            endpoint="dreamer-follow-up-apply",
+            actor=actor,
+            target=target,
+            status="applied" if execution_result["ok"] and follow_up_result["ok"] else "blocked",
+            reason=reason,
+            artifacts=[
+                target,
+                execution["target"],
+                *execution_result.get("artifacts", [execution["target"]]),
+                *follow_up_result.get("artifacts", [target]),
+            ],
+            validation_summary={"kind": kind, "execution_target": execution["target"]},
+        )
+    )
+    return {
+        "ok": execution_result["ok"] and follow_up_result["ok"],
+        "target": target,
+        "execution_target": execution["target"],
+        "kind": kind,
+        "findings": execution_result.get("findings", []) + follow_up_result.get("findings", []),
     }
 
 
@@ -430,6 +522,20 @@ def _proposal_reason(text: str) -> str:
     return ""
 
 
+def _follow_up_kind(text: str) -> str:
+    for line in text.splitlines():
+        if line.startswith("- kind:"):
+            return line.split(":", 1)[1].strip().strip("`")
+    return ""
+
+
+def _follow_up_reason(text: str) -> str:
+    for line in text.splitlines():
+        if line.startswith("- reason:"):
+            return line.split(":", 1)[1].strip().strip("`")
+    return ""
+
+
 def _mark_dreamer_proposal_reviewed(text: str, decision: str, actor: str, reason: str, follow_up_target: str | None) -> str:
     status_map = {
         "approved": "approved",
@@ -503,6 +609,68 @@ def _render_dreamer_follow_up(
         "## Suggested Next Step\n\n"
         f"- Apply a targeted {classification} change and verify it against the repeated failure signal.\n"
     )
+
+
+def _build_follow_up_execution(
+    target: str,
+    kind: str,
+    follow_up_reason: str,
+    actor: str,
+    execution_reason: str,
+) -> dict[str, str]:
+    stem = Path(target).stem.replace("Dreamer-Follow-Up.", "Dreamer-Execution.")
+    execution_target = f"knowledge/ARTIFACTS/refs/{stem}.md"
+    created = datetime.now(timezone.utc).date().isoformat()
+    queue_name = {
+        "validator-change": "Validator-Change-Queue",
+        "workflow-change": "Workflow-Change-Queue",
+        "refusal-tightening": "Refusal-Tightening-Queue",
+    }.get(kind, "Dreamer-Action-Queue")
+    content = (
+        "---\n"
+        "sot-type: reference\n"
+        f"created: {created}\n"
+        f"last-rewritten: {created}\n"
+        f'parent: "[[{Path(target).stem}]]"\n'
+        "domain: operations\n"
+        "status: active\n"
+        'tags: ["dreamer","execution","operations"]\n'
+        "---\n\n"
+        "# Dreamer Execution\n\n"
+        "## This Reference Records the Concrete Queue Item Opened from an Approved Dreamer Follow Up\n"
+        f"Follow up `[[{Path(target).stem}]]` was executed by `{actor}` and opened a concrete `{kind}` queue item.\n\n"
+        "## Classification\n\n"
+        f"- kind: `{kind}`\n"
+        f"- pattern: `{follow_up_reason}`\n"
+        f"- queue: `[[{queue_name}]]`\n\n"
+        "## Execution\n\n"
+        f"- reason: {execution_reason}\n"
+        "- next step: implement the queued change through the governed validation or workflow path.\n"
+    )
+    return {"target": execution_target, "content": content}
+
+
+def _mark_dreamer_follow_up_applied(text: str, actor: str, reason: str, execution_target: str) -> str:
+    updated = re.sub(r"^status:\s*\w[\w-]*$", "status: applied", text, count=1, flags=re.MULTILINE)
+    execution_section = (
+        "\n## Execution Outcome\n\n"
+        "- decision: `applied`\n"
+        f"- actor: `{actor}`\n"
+        f"- reason: {reason}\n"
+        f"- execution: `[[{Path(execution_target).stem}]]`\n"
+    )
+    if "## Execution Outcome" in updated:
+        updated = re.sub(r"\n## Execution Outcome.*$", execution_section, updated, flags=re.DOTALL)
+    else:
+        updated = updated.rstrip() + execution_section
+    return updated
+
+
+def _existing_execution_target(text: str) -> str | None:
+    for line in text.splitlines():
+        if line.startswith("- execution:"):
+            return line.split("[[", 1)[1].split("]]", 1)[0]
+    return None
 
 
 def _stamp() -> str:

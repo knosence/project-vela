@@ -8,7 +8,14 @@ from .config import ensure_bootstrap_files, load_config, missing_required_fields
 from .governance import apply_growth_proposal, create_cross_reference
 from .inbox import triage_inbox
 from .matrix import write_matrix_index
-from .operations_runtime import list_dreamer_queue, review_dreamer_proposal, run_night_cycle, run_warden_patrol
+from .operations_runtime import (
+    apply_dreamer_follow_up,
+    list_dreamer_follow_ups,
+    list_dreamer_queue,
+    review_dreamer_proposal,
+    run_night_cycle,
+    run_warden_patrol,
+)
 from .profiles import activate_profile, list_profiles
 from .server import VelaService, serve
 from .verification import run_scenario, write_verification_report
@@ -122,6 +129,17 @@ def cmd_dreamer_review(args: argparse.Namespace) -> int:
     return 0 if result["ok"] else 1
 
 
+def cmd_dreamer_follow_ups(_: argparse.Namespace) -> int:
+    print(json.dumps(list_dreamer_follow_ups(), indent=2))
+    return 0
+
+
+def cmd_dreamer_apply_follow_up(args: argparse.Namespace) -> int:
+    result = apply_dreamer_follow_up(target=args.target, actor="human", reason=args.reason)
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     serve(host=args.host, port=args.port)
     return 0
@@ -204,6 +222,12 @@ def build_parser() -> argparse.ArgumentParser:
     dreamer_review_parser.add_argument("decision")
     dreamer_review_parser.add_argument("--reason", default="")
     dreamer_review_parser.set_defaults(func=cmd_dreamer_review)
+    dreamer_follow_ups_parser = dreamer_sub.add_parser("follow-ups")
+    dreamer_follow_ups_parser.set_defaults(func=cmd_dreamer_follow_ups)
+    dreamer_apply_follow_up_parser = dreamer_sub.add_parser("apply-follow-up")
+    dreamer_apply_follow_up_parser.add_argument("target")
+    dreamer_apply_follow_up_parser.add_argument("--reason", default="")
+    dreamer_apply_follow_up_parser.set_defaults(func=cmd_dreamer_apply_follow_up)
 
     serve_parser = sub.add_parser("serve")
     serve_parser.add_argument("--host", default="127.0.0.1")

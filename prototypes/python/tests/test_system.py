@@ -21,7 +21,14 @@ from prototypes.python.vela.matrix import classify_change_zone
 from prototypes.python.vela.matrix import validate_canonical_graph_targets
 from prototypes.python.vela.matrix import write_matrix_index
 from prototypes.python.vela.matrix import validate_parent_consistency
-from prototypes.python.vela.operations_runtime import list_dreamer_queue, review_dreamer_proposal, run_night_cycle, run_warden_patrol
+from prototypes.python.vela.operations_runtime import (
+    apply_dreamer_follow_up,
+    list_dreamer_follow_ups,
+    list_dreamer_queue,
+    review_dreamer_proposal,
+    run_night_cycle,
+    run_warden_patrol,
+)
 from prototypes.python.vela.paths import EVENT_LOG_PATH, PATCH_LOG_PATH, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
 from prototypes.python.vela.repo_watch import analyze_release
@@ -118,6 +125,8 @@ class VelaSystemTest(unittest.TestCase):
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("DC-Night-Report-*.md"):
             path.unlink()
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("Dreamer-Pattern-Report-*.md"):
+            path.unlink()
+        for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("Dreamer-Execution.*.md"):
             path.unlink()
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Proposal.*.md"):
             path.unlink()
@@ -877,6 +886,20 @@ class VelaSystemTest(unittest.TestCase):
         self.assertIn("## Review Outcome", updated)
         self.assertIn("follow up:", updated)
         self.assertIn("# Dreamer Follow Up", follow_up)
+        follow_ups = list_dreamer_follow_ups()
+        self.assertTrue(follow_ups["items"])
+        applied = apply_dreamer_follow_up(
+            target=review["follow_up_target"],
+            actor="human",
+            reason="queue the workflow fix",
+        )
+        self.assertTrue(applied["ok"])
+        self.assertEqual(applied["kind"], "workflow-change")
+        execution = (REPO_ROOT / applied["execution_target"]).read_text(encoding="utf-8")
+        updated_follow_up = (REPO_ROOT / review["follow_up_target"]).read_text(encoding="utf-8")
+        self.assertIn("# Dreamer Execution", execution)
+        self.assertIn("status: applied", updated_follow_up)
+        self.assertIn("## Execution Outcome", updated_follow_up)
 
     def test_dreamer_queue_service_and_review_endpoint(self) -> None:
         for _ in range(3):
@@ -900,6 +923,35 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(review["ok"])
         self.assertEqual(review["endpoint"], "dreamer-review")
         self.assertIsNone(review["data"]["follow_up_target"])
+
+    def test_dreamer_follow_up_service_endpoint(self) -> None:
+        for _ in range(3):
+            write_text(
+                "knowledge/210.WHAT.Vela-Capabilities-SoT.md",
+                (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8").replace(
+                    "Vela routes, plans, drafts, critiques, validates, documents, and proposes growth under governed workflows.",
+                    "Vela routes, plans, drafts, critiques, validates, documents, proposes growth, and patrols canonical writes.",
+                ),
+                actor="warden",
+                endpoint="test",
+                reason="force blocked pattern for dreamer follow up service",
+            )
+        VelaService().night_cycle_run({"actor": "n8n"})
+        proposal_target = VelaService().dreamer_queue()["data"]["items"][0]["target"]
+        review = VelaService().dreamer_review(
+            {"target": proposal_target, "decision": "approved", "actor": "human", "reason": "open the follow up"}
+        )
+        self.assertTrue(review["ok"])
+        queue = VelaService().dreamer_follow_ups()
+        self.assertTrue(queue["ok"])
+        self.assertTrue(queue["data"]["items"])
+        apply_result = VelaService().dreamer_apply_follow_up(
+            {"target": review["data"]["follow_up_target"], "actor": "human", "reason": "execute the queue item"}
+        )
+        self.assertTrue(apply_result["ok"])
+        self.assertEqual(apply_result["endpoint"], "dreamer-follow-up-apply")
+        execution = (REPO_ROOT / apply_result["data"]["execution_target"]).read_text(encoding="utf-8")
+        self.assertIn("queue item", execution)
 
     def test_inbox_triage_moves_text_file_to_companion_and_links_it(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"

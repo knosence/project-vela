@@ -11,7 +11,14 @@ from .governance import apply_growth_proposal, create_cross_reference, record_ap
 from .inbox import triage_inbox
 from .models import ValidationFinding
 from .models import new_id
-from .operations_runtime import list_dreamer_queue, review_dreamer_proposal, run_night_cycle, run_warden_patrol
+from .operations_runtime import (
+    apply_dreamer_follow_up,
+    list_dreamer_follow_ups,
+    list_dreamer_queue,
+    review_dreamer_proposal,
+    run_night_cycle,
+    run_warden_patrol,
+)
 from .paths import REPO_ROOT, VERIFICATION_STATUS_PATH
 from .profiles import activate_profile, list_profiles
 from .repo_watch import ingest_release
@@ -176,6 +183,9 @@ class VelaService:
     def dreamer_queue(self) -> dict[str, Any]:
         return envelope(True, "dreamer-queue", "accepted", "Dreamer queue listed", data=list_dreamer_queue())
 
+    def dreamer_follow_ups(self) -> dict[str, Any]:
+        return envelope(True, "dreamer-follow-ups", "accepted", "Dreamer follow up queue listed", data=list_dreamer_follow_ups())
+
     def dreamer_review(self, payload: dict[str, Any]) -> dict[str, Any]:
         result = review_dreamer_proposal(
             target=payload["target"],
@@ -186,6 +196,16 @@ class VelaService:
         if result["ok"]:
             return envelope(True, "dreamer-review", "accepted", "Dreamer proposal reviewed", data=result)
         return envelope(False, "dreamer-review", "rejected", "Dreamer proposal review blocked", data=result, errors=result.get("findings", []))
+
+    def dreamer_apply_follow_up(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = apply_dreamer_follow_up(
+            target=payload["target"],
+            actor=payload.get("actor", "human"),
+            reason=payload.get("reason", ""),
+        )
+        if result["ok"]:
+            return envelope(True, "dreamer-follow-up-apply", "accepted", "Dreamer follow up applied", data=result)
+        return envelope(False, "dreamer-follow-up-apply", "rejected", "Dreamer follow up apply blocked", data=result, errors=result.get("findings", []))
 
     def profiles(self) -> dict[str, Any]:
         return envelope(True, "profiles", "accepted", "Profiles listed", data=list_profiles())
@@ -220,6 +240,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.path == "/api/n8n/dreamer/queue":
             self._send(self.service.dreamer_queue())
             return
+        if self.path == "/api/n8n/dreamer/follow-ups":
+            self._send(self.service.dreamer_follow_ups())
+            return
         self._send(envelope(False, "unknown", "rejected", "Endpoint not found", errors=[{"code": "NOT_FOUND", "detail": self.path}]), HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
@@ -239,6 +262,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             "/api/n8n/patrol/run": self.service.patrol_run,
             "/api/n8n/night-cycle/run": self.service.night_cycle_run,
             "/api/n8n/dreamer/review": self.service.dreamer_review,
+            "/api/n8n/dreamer/follow-ups/apply": self.service.dreamer_apply_follow_up,
             "/api/n8n/profiles/use": self.service.profiles_use,
         }
         handler = routes.get(self.path)
