@@ -495,6 +495,7 @@ def _render_spawned_sot(execution_target: str, assessed_target: str, proposal_ta
         "### Links\n\n"
         f"- Parent: [[{parent_name}]]\n"
         f"- Source Branch: [[{parent_name}]]\n"
+        f"- Source Target: `{assessed_target}`\n"
         "- Cornerstone: [[Cornerstone.Project-Vela-SoT]]\n"
         f"- Proposal: `{proposal_target}`\n\n"
         "### Inbox\n\n"
@@ -607,6 +608,8 @@ def _inject_growth_source_updates(
             execution_name,
             created,
         )
+    if stage == "spawn":
+        updated = _insert_spawn_branch_pointer(updated, execution_name, created)
     return updated
 
 
@@ -753,6 +756,25 @@ def _replace_entries_with_reference_pointer(
     )
     if pointer not in updated_active:
         updated_active = f"{updated_active}\n\n{pointer}".strip()
+    section_updated = section.replace(active, updated_active, 1)
+    return source_text.replace(section, section_updated, 1)
+
+
+def _insert_spawn_branch_pointer(source_text: str, execution_name: str, created: str) -> str:
+    counts = _dimension_entry_counts(source_text)
+    if not counts:
+        return source_text
+    densest = max(counts, key=lambda item: (counts[item], _dimension_preference(item)))
+    dimension_heading = _dimension_heading(source_text, densest)
+    section = _section_by_heading(source_text, dimension_heading)
+    if not section:
+        return source_text
+    active = _subsection(section, "### Active")
+    pointer = (
+        f"- Branch-specific detail now continues in `[[{execution_name}]]`. ({created})\n"
+        "  - The parent retains the summary while the new child SoT carries the deeper branch structure. [AGENT:gpt-5]"
+    )
+    updated_active = active if pointer in active else f"{active.rstrip()}\n\n{pointer}\n"
     section_updated = section.replace(active, updated_active, 1)
     return source_text.replace(section, section_updated, 1)
 

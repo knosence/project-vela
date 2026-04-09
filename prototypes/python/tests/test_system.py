@@ -360,9 +360,11 @@ class VelaSystemTest(unittest.TestCase):
         self.assertEqual(result["execution_kind"], "spawned-sot")
         child_text = (REPO_ROOT / result["execution_target"]).read_text(encoding="utf-8")
         self.assertIn("- Source Branch: [[spawn-source-SoT]]", child_text)
+        self.assertIn("- Source Target: `knowledge/proposals/spawn-source-SoT.md`", child_text)
         updated_source = source_path.read_text(encoding="utf-8")
         self.assertIn("Spawned Child: [[spawn-source.Spawned-Child-SoT]]", updated_source)
         self.assertIn("created a spawned child SoT `[[spawn-source.Spawned-Child-SoT]]`", updated_source)
+        self.assertIn("Branch-specific detail now continues in `[[spawn-source.Spawned-Child-SoT]]`", updated_source)
 
     def test_apply_growth_proposal_fractalizes_source(self) -> None:
         proposal_target = "knowledge/proposals/growth-apply-fractal-test.md"
