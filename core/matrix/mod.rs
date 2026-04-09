@@ -4,13 +4,12 @@ use std::path::Path;
 use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_path, inventory_area_for_path, inventory_role_for_path};
 use crate::models::{GovernedReference, MatrixSoT, Severity, ValidationFinding};
 
-const REQUIRED_FRONTMATTER_FIELDS: [&str; 7] = [
+const REQUIRED_FRONTMATTER_FIELDS: [&str; 6] = [
     "sot-type",
     "created",
     "last-rewritten",
     "domain",
     "status",
-    "tags",
     "parent",
 ];
 const REQUIRED_HEADINGS: [&str; 16] = [
@@ -473,6 +472,89 @@ tags: [\"dimension\"]\n\
         let findings = validate_sot_structure("knowledge/Cornerstone.Knosence-SoT.md", text);
         assert!(findings.iter().any(|item| item.code == "MATRIX_FRONTMATTER_REQUIRED"));
         assert!(findings.iter().any(|item| item.code == "MATRIX_HEADING_REQUIRED"));
+    }
+
+    #[test]
+    fn allows_optional_tags_field_under_frontmatter_contract() {
+        let text = "---\n\
+sot-type: system\n\
+created: 2026-04-08\n\
+last-rewritten: 2026-04-08\n\
+parent: none\n\
+domain: cornerstone\n\
+status: active\n\
+---\n\n\
+# Example\n\n\
+## 000.Index\n\n\
+### Subject Declaration\n\n\
+**Subject:** Example root.\n\
+**Type:** system\n\
+**Created:** 2026-04-08\n\
+**Parent:** none\n\n\
+### Links\n\n\
+Links.\n\n\
+### Inbox\n\n\
+Inbox.\n\n\
+### Status\n\n\
+Status.\n\n\
+### Open Questions\n\n\
+Questions.\n\n\
+### Next Actions\n\n\
+Actions.\n\n\
+### Decisions\n\n\
+Decisions.\n\n\
+### Block Map — Single Source\n\n\
+| ID | Question | Dimension | This SoT's Name | Description |\n\
+|----|----------|-----------|-----------------|-------------|\n\
+| 000 | — | Index | Index | Root |\n\
+| 100 | Who | Circle | Circle | Who |\n\
+| 200 | What | Domain | Domain | What |\n\
+| 300 | Where | Terrain | Terrain | Where |\n\
+| 400 | When | Chronicle | Chronicle | When |\n\
+| 500 | How | Method | Method | How |\n\
+| 600 | Why/Not | Compass | Compass | Why |\n\
+| 700 | — | Archive | Archive | Archive |\n\n\
+## 100.WHO.Circle\n\n\
+### Active\n\n\
+- Entry. (2026-04-08)\n\
+  - Context.\n\n\
+### Inactive\n\n\
+(No inactive entries.)\n\n\
+## 200.WHAT.Domain\n\n\
+### Active\n\n\
+- Entry. (2026-04-08)\n\
+  - Context.\n\n\
+### Inactive\n\n\
+(No inactive entries.)\n\n\
+## 300.WHERE.Terrain\n\n\
+### Active\n\n\
+- Entry. (2026-04-08)\n\
+  - Context.\n\n\
+### Inactive\n\n\
+(No inactive entries.)\n\n\
+## 400.WHEN.Chronicle\n\n\
+### Active\n\n\
+- Entry. (2026-04-08)\n\
+  - Context.\n\n\
+### Inactive\n\n\
+(No inactive entries.)\n\n\
+## 500.HOW.Method\n\n\
+### Active\n\n\
+- Entry. (2026-04-08)\n\
+  - Context.\n\n\
+### Inactive\n\n\
+(No inactive entries.)\n\n\
+## 600.WHY.Compass\n\n\
+### Active\n\n\
+- Entry. (2026-04-08)\n\
+  - Context.\n\n\
+### Inactive\n\n\
+(No inactive entries.)\n\n\
+## 700.Archive\n\n\
+(No archived entries.)\n";
+
+        let findings = validate_sot_structure("knowledge/Cornerstone.Knosence-SoT.md", text);
+        assert!(!findings.iter().any(|item| item.detail.contains("`tags`")));
     }
 
     #[test]

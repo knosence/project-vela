@@ -1,0 +1,39 @@
+# SoT Framework Reference
+
+## This Reference States the Current Structural Contract for Sources of Truth
+This note is the repository-local reference for how a Source of Truth behaves mechanically. It captures the current framework decisions that the validators, docs, and matrix behavior are expected to follow.
+
+## This Reference Defines a Source of Truth as the First and Last Canonical Lookup
+A Source of Truth is the document that, when anything about its subject is in question, is the first and last thing looked at. It is the single canonical reference for the subject it wraps.
+
+## This Reference Splits a Source of Truth Into Three Layers and Two Zones
+The three layers are `Subject Declaration`, `Dimensions`, and the `Living Record`. The two zones are `Protected` for Layers 1 and 2, and `Fluid` for Layer 3.
+
+## This Reference Defines the Seven Structural Dimensions
+The standard dimension set is:
+
+- `100.WHO.Circle`
+- `200.WHAT.Domain`
+- `300.WHERE.Terrain`
+- `400.WHEN.Chronicle`
+- `500.HOW.Method`
+- `600.WHY.Compass`
+- `700.Archive`
+
+## This Reference Defines the Heading and Entry Grammar
+Dimension headings use `## {ID}.{DIMENSION}.{Name}`. Active entries use bullet, date, and one indented reason line. Archived entries preserve the same shape and add `Archived:` and `Archived Reason:`.
+
+## This Reference Defines the Living Record Order Inside 000.Index
+The Living Record in `000.Index` is ordered:
+
+- `Inbox`
+- `Status`
+- `Open Questions`
+- `Next Actions`
+- `Decisions`
+
+## This Reference Defines the Archive and Growth Protocols
+Archive is dual: move the entry from `Active` to `Inactive`, add archived date and reason, then append the archived record into `700.Archive`. Growth follows the lightest intervention path: `flat`, `fractal`, `reference note`, then `spawned SoT`.
+
+## This Reference Defines the Numbered Naming and Frontmatter Contracts
+Canonical SoTs use `{ID}.{Context}.{Subject}-SoT.md`, with the cornerstone as the sole non-numbered top-level exception. Required frontmatter fields are `sot-type`, `created`, `last-rewritten`, `parent`, `domain`, and `status`. `tags` are supported but optional.

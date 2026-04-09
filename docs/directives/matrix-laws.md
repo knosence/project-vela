@@ -23,3 +23,6 @@ Dimension hubs may attach directly to the cornerstone because they are the branc
 
 ## Law 7 Canonical Sources of Truth Shall Stay Flat While Non Canonical Artifacts Stay Segregated
 Canonical SoTs belong directly under `knowledge/`. Operational refs, proposals, logs, archives, and templates belong under `knowledge/ARTIFACTS/`, while intake belongs under `knowledge/INBOX/`.
+
+## Law 8 Canonical Source of Truth Filenames Shall Use the Numbered Scheme
+Non-cornerstone SoTs shall use numbered dimension-prefixed filenames such as `100.WHO.Circle-SoT.md` and `200.WHAT.Repo-Watchlist-SoT.md`. The cornerstone remains the sole non-numbered top-level exception.

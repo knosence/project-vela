@@ -4,15 +4,7 @@ pub fn inspect_reference(path: &str, text: &str) -> (Option<GovernedReference>, 
     let mut findings = Vec::new();
     let frontmatter = parse_frontmatter(text);
 
-    let required_fields = [
-        "sot-type",
-        "created",
-        "last-rewritten",
-        "parent",
-        "domain",
-        "status",
-        "tags",
-    ];
+    let required_fields = ["sot-type", "created", "last-rewritten", "parent", "domain", "status"];
     for field in required_fields {
         if !frontmatter.iter().any(|(key, _)| key == field) {
             findings.push(ValidationFinding::error(
@@ -151,5 +143,30 @@ tags: [\"repo-watch\",\"release\",\"reference\"]\n\
         assert!(findings
             .iter()
             .any(|item| item.code == "MATRIX_REFERENCE_HEADING_REQUIRED"));
+    }
+
+    #[test]
+    fn allows_reference_without_tags_field() {
+        let text = "---\n\
+sot-type: reference\n\
+created: 2026-04-08\n\
+last-rewritten: 2026-04-08\n\
+parent: \"[[200.WHAT.Repo-Watchlist-SoT#200.WHAT.Scope]]\"\n\
+domain: repo-watch\n\
+status: active\n\
+---\n\n\
+# Release Intelligence openai/openai-python 1.2.3\n\n\
+## This Reference Declares the Release Packet and the Review Chain\n\
+The packet exists.\n\n\
+## This Reference Links the Governing Inputs and Outputs\n\
+- Packet: `knowledge/ARTIFACTS/refs/x.packet.json`\n\n\
+## This Reference States the Release Judgment Clearly\n\
+- Breaking change risk: `high`\n";
+
+        let (reference, findings) =
+            inspect_reference("knowledge/ARTIFACTS/refs/Ref.example.Release-Intelligence.md", text);
+
+        assert!(findings.is_empty());
+        assert!(reference.is_some());
     }
 }

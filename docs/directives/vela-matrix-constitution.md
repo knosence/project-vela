@@ -24,23 +24,28 @@ Pattern 6 Protected and Fluid Zones means `000.Index` declarations, block maps, 
 Pattern 7 Single Source Block Map means structural identity is declared once inside each SoT.
 Pattern 8 Unified Compass means WHY and WHY NOT stay under `600`.
 Pattern 9 Declaration Anchor means Subject Declaration remains in `000.Index`.
+The Living Record inside `000.Index` is ordered `Inbox`, `Status`, `Open Questions`, `Next Actions`, then append-only `Decisions`.
 
 ## This Constitution Applies the Behavioral Patterns to Mutation and Growth
 Pattern 10 Dual Archive means archived content belongs in both the original dimension's inactive area and `700.Archive`.
 Pattern 11 Lightest Intervention means Vela should prefer flat, then fractal, then ref, then spawned SoT.
 Pattern 12 Sovereign Spawn means child SoTs reset to their own `000–700` numbering while keeping lineage through parent and links.
 Pattern 13 Extraction Before Deletion means no meaningful content is deleted without being extracted first.
+Archive protocol means the entry moves from `Active` to `Inactive`, receives archived date and reason, and is also appended to `700.Archive`.
 
 ## This Constitution Applies the Operational Patterns to Governance and Runtime Behavior
 Pattern 14 One Home Many Pointers means content lives once and is seen elsewhere through links or refs.
 Pattern 15 Three-Hop Ceiling means the matrix should stay navigable from the cornerstone without depth sprawl.
-Pattern 16 Frontmatter Contract means `sot-type`, `created`, `last-rewritten`, `parent`, `domain`, `status`, and `tags` are required.
+Pattern 16 Frontmatter Contract means `sot-type`, `created`, `last-rewritten`, `parent`, `domain`, and `status` are required. `tags` remain supported but optional.
 Pattern 17 SoT-Native Output means Vela agents should produce matrix-native structures rather than ad hoc prose dumps.
 Pattern 18 Human Gate means identity-level or sovereign changes require explicit approval.
 Pattern 19 Day Night Cycle means operational agents can work continuously, but governance still separates production, validation, maintenance, and improvement roles.
 
 ## This Constitution Applies the Three Hop Rule Through Explicit Dimension Hubs
 Dimension hubs are the only ordinary SoTs that should attach directly to the cornerstone. Branch SoTs should prefer the relevant dimension hub or a governed local parent so the tree stays legible as Cornerstone → hub → parent → child.
+
+## This Constitution Applies the Numbered Naming Scheme to Canonical Files
+Canonical SoTs follow `{ID}.{Context}.{Subject}-SoT.md` for hubs and branch SoTs, with the cornerstone as the singular exception. Governed references use letter-suffixed IDs in the broader framework, while this repository currently keeps named governed refs under `knowledge/ARTIFACTS/refs/` until a fuller ref-ID scheme is adopted.
 
 ## This Constitution Defines the Vela Runtime Roles in Matrix Terms
 The Router and Planner prepare pathing.
