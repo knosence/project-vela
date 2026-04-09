@@ -121,6 +121,8 @@ class VelaSystemTest(unittest.TestCase):
             path.unlink()
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Proposal.*.md"):
             path.unlink()
+        for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Follow-Up.*.md"):
+            path.unlink()
         if PATCH_LOG_PATH.exists():
             PATCH_LOG_PATH.unlink()
 
