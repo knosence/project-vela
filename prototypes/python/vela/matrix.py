@@ -36,6 +36,26 @@ class MatrixSoT:
         }
 
 
+@dataclass
+class MatrixReference:
+    path: str
+    title: str
+    ref_type: str
+    parent: str
+    domain: str
+    status: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "title": self.title,
+            "ref_type": self.ref_type,
+            "parent": self.parent,
+            "domain": self.domain,
+            "status": self.status,
+        }
+
+
 def _parse_frontmatter(text: str) -> dict[str, Any]:
     if not text.startswith("---\n"):
         return {}
@@ -72,6 +92,29 @@ def discover_sots() -> list[MatrixSoT]:
                 status=str(frontmatter.get("status", "unknown")),
                 area=area,
                 is_cornerstone=Path(rel).name == "Cornerstone.Project-Vela-SoT.md",
+            )
+        )
+    return entries
+
+
+def discover_references() -> list[MatrixReference]:
+    entries: list[MatrixReference] = []
+    for path in sorted((REPO_ROOT / "knowledge" / "refs").glob("Ref.*.md")):
+        if path == MATRIX_INDEX_PATH:
+            continue
+        text = path.read_text(encoding="utf-8")
+        frontmatter = _parse_frontmatter(text)
+        if str(frontmatter.get("sot-type", "")) != "reference":
+            continue
+        rel = str(path.relative_to(REPO_ROOT))
+        entries.append(
+            MatrixReference(
+                path=rel,
+                title=_extract_title(text),
+                ref_type=str(frontmatter.get("sot-type", "reference")),
+                parent=str(frontmatter.get("parent", "")),
+                domain=str(frontmatter.get("domain", "unknown")),
+                status=str(frontmatter.get("status", "unknown")),
             )
         )
     return entries
@@ -205,6 +248,48 @@ def validate_matrix_structure(entries: list[MatrixSoT] | None = None) -> list[Va
     return findings
 
 
+def validate_reference_structure(entries: list[MatrixReference] | None = None) -> list[ValidationFinding]:
+    refs = entries or discover_references()
+    findings: list[ValidationFinding] = []
+    required_fields = {"sot-type", "created", "last-rewritten", "domain", "status", "tags", "parent"}
+    required_headings = [
+        "## This Reference Declares the Release Packet and the Review Chain",
+        "## This Reference Links the Governing Inputs and Outputs",
+        "## This Reference States the Release Judgment Clearly",
+    ]
+
+    for entry in refs:
+        text = (REPO_ROOT / entry.path).read_text(encoding="utf-8")
+        frontmatter = _parse_frontmatter(text)
+        for field in required_fields:
+            if field not in frontmatter:
+                findings.append(
+                    annotate_finding(ValidationFinding(
+                        "MATRIX_REFERENCE_FRONTMATTER_REQUIRED",
+                        f"{Path(entry.path).name} is missing required frontmatter field `{field}`",
+                        "error",
+                    ))
+                )
+        if not str(frontmatter.get("parent", "")).strip():
+            findings.append(
+                annotate_finding(ValidationFinding(
+                    "MATRIX_REFERENCE_PARENT_REQUIRED",
+                    f"{Path(entry.path).name} must declare a non-empty parent",
+                    "error",
+                ))
+            )
+        for heading in required_headings:
+            if heading not in text:
+                findings.append(
+                    annotate_finding(ValidationFinding(
+                        "MATRIX_REFERENCE_HEADING_REQUIRED",
+                        f"{Path(entry.path).name} is missing required heading `{heading}`",
+                        "error",
+                    ))
+                )
+    return findings
+
+
 def validate_parent_consistency(path: Path) -> list[ValidationFinding]:
     text = path.read_text(encoding="utf-8")
     frontmatter = _parse_frontmatter(text)
@@ -295,7 +380,7 @@ def _section_map(text: str) -> dict[str, str]:
     return {key: "\n".join(value).strip() for key, value in sections.items()}
 
 
-def render_matrix_index(entries: list[MatrixSoT]) -> str:
+def render_matrix_index(entries: list[MatrixSoT], refs: list[MatrixReference]) -> str:
     grouped: dict[str, list[MatrixSoT]] = {}
     for entry in entries:
         grouped.setdefault(entry.area, []).append(entry)
@@ -318,6 +403,7 @@ def render_matrix_index(entries: list[MatrixSoT]) -> str:
         "",
         "## This Summary Shows the Current Shape of the Matrix at a Glance",
         f"- total SoTs: {len(entries)}",
+        f"- total governed refs: {len(refs)}",
         f"- cornerstone count: {sum(item.is_cornerstone for item in entries)}",
         f"- indexed areas: {', '.join(sorted(grouped))}",
         "",
@@ -336,6 +422,18 @@ def render_matrix_index(entries: list[MatrixSoT]) -> str:
             lines.append(f"| {item.title} | `{item.path}` | `{item.sot_type}` | `{parent}` | `{item.status}` |")
         lines.append("")
 
+    if refs:
+        lines.extend(
+            [
+                "## This Section Lists Governed References Registered in the Matrix",
+                "| Title | Path | Type | Parent | Status |",
+                "|---|---|---|---|---|",
+            ]
+        )
+        for item in refs:
+            lines.append(f"| {item.title} | `{item.path}` | `{item.ref_type}` | `{item.parent}` | `{item.status}` |")
+        lines.append("")
+
     lines.extend(
         [
             "## This Registry Points Back to the Root and the Governing Laws",
@@ -349,14 +447,16 @@ def render_matrix_index(entries: list[MatrixSoT]) -> str:
 
 def write_matrix_index() -> dict[str, Any]:
     entries = discover_sots()
-    findings = validate_matrix_rules(entries) + validate_matrix_structure(entries)
+    refs = discover_references()
+    findings = validate_matrix_rules(entries) + validate_matrix_structure(entries) + validate_reference_structure(refs)
     MATRIX_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
     MATRIX_INDEX_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
-    MATRIX_INDEX_PATH.write_text(render_matrix_index(entries), encoding="utf-8")
+    MATRIX_INDEX_PATH.write_text(render_matrix_index(entries, refs), encoding="utf-8")
     MATRIX_INDEX_JSON_PATH.write_text(
         json.dumps(
             {
                 "entries": [item.as_dict() for item in entries],
+                "references": [item.as_dict() for item in refs],
                 "findings": [item.as_dict() for item in findings],
             },
             indent=2,
@@ -367,5 +467,6 @@ def write_matrix_index() -> dict[str, Any]:
         "path": str(MATRIX_INDEX_PATH.relative_to(REPO_ROOT)),
         "json_path": str(MATRIX_INDEX_JSON_PATH.relative_to(REPO_ROOT)),
         "entries": len(entries),
+        "references": len(refs),
         "findings": [item.as_dict() for item in findings],
     }

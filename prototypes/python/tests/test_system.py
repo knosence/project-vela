@@ -48,6 +48,18 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/proposals/growth-apply-spawn-test.md",
             "knowledge/proposals/Synthetic-Identity-SoT.md",
             "knowledge/proposals/Synthetic-Identity.Spawned-Child-SoT.md",
+            "knowledge/proposals/repo-watch-test.md",
+            "knowledge/proposals/Ref.repo-watch-test.Release-Intelligence.md",
+            "knowledge/proposals/repo-watch-test.packet.json",
+            "knowledge/proposals/repo-watch-test.assessment.json",
+            "knowledge/proposals/repo-watch-test.reflection.json",
+            "knowledge/proposals/repo-watch-test.validation.json",
+            "knowledge/refs/indexed-release-summary.md",
+            "knowledge/refs/Ref.indexed-release-summary.Release-Intelligence.md",
+            "knowledge/refs/indexed-release-summary.packet.json",
+            "knowledge/refs/indexed-release-summary.assessment.json",
+            "knowledge/refs/indexed-release-summary.reflection.json",
+            "knowledge/refs/indexed-release-summary.validation.json",
         ]:
             path = REPO_ROOT / target
             if path.exists():
@@ -119,11 +131,11 @@ class VelaSystemTest(unittest.TestCase):
                 "repo": "openai/openai-python",
                 "version": "1.2.3",
                 "notes": "Breaking API migration required.",
-                "target": "knowledge/refs/repo-watch-test.md",
+                "target": "knowledge/proposals/repo-watch-test.md",
             }
         )
         self.assertTrue(result["ok"])
-        self.assertTrue((REPO_ROOT / "knowledge/refs/repo-watch-test.md").exists())
+        self.assertTrue((REPO_ROOT / "knowledge/proposals/repo-watch-test.md").exists())
         self.assertTrue((REPO_ROOT / result["data"]["packet_target"]).exists())
         self.assertTrue((REPO_ROOT / result["data"]["assessment_target"]).exists())
         self.assertTrue((REPO_ROOT / result["data"]["reflection_target"]).exists())
@@ -496,7 +508,28 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue((REPO_ROOT / result["path"]).exists())
         contents = (REPO_ROOT / result["path"]).read_text(encoding="utf-8")
         self.assertIn("Cornerstone.Project-Vela-SoT", contents)
+        self.assertIn("references", json.loads((REPO_ROOT / result["json_path"]).read_text(encoding="utf-8")))
         self.assertFalse(result["findings"])
+
+    def test_matrix_index_registers_governed_release_reference(self) -> None:
+        try:
+            result = VelaService().repo_release(
+                {
+                    "repo": "openai/openai-python",
+                    "version": "1.2.3",
+                    "notes": "Breaking API migration required.",
+                    "target": "knowledge/refs/indexed-release-summary.md",
+                }
+            )
+            self.assertTrue(result["ok"])
+            index_result = write_matrix_index()
+            matrix_index = (REPO_ROOT / index_result["path"]).read_text(encoding="utf-8")
+            self.assertIn("Governed References Registered in the Matrix", matrix_index)
+            self.assertIn(result["data"]["intelligence_target"], matrix_index)
+            self.assertGreaterEqual(index_result["references"], 1)
+        finally:
+            self._cleanup_generated_artifacts()
+            write_matrix_index()
 
     def test_scenario_runner(self) -> None:
         results = run_scenario("routing")

@@ -15,6 +15,7 @@ The index layer exists so the system can see the matrix as a whole, keep track o
 
 ## This Summary Shows the Current Shape of the Matrix at a Glance
 - total SoTs: 7
+- total governed refs: 0
 - cornerstone count: 1
 - indexed areas: agents, cornerstone, dimensions
 

@@ -6,6 +6,9 @@ The Matrix build kit is the governing framework. Project Vela is an implementati
 ## This Constitution Establishes the Local Root, Registry, and Sovereign Surfaces
 The single cornerstone is [Cornerstone.Project-Vela-SoT.md](/home/knosence/vela/knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md). The top-level registry is [Index.Project-Vela-Matrix-Ref.md](/home/knosence/vela/knowledge/refs/Index.Project-Vela-Matrix-Ref.md). Sovereign surfaces include the cornerstone, identity SoTs, the canonical watchlist SoT, and local matrix laws.
 
+## This Constitution Registers Governed References Without Confusing Them for Sources of Truth
+SoTs remain the constitutional tree. Governed references such as release-intelligence refs are indexed as review surfaces with explicit parents, but they do not become root authorities or substitute for a SoT.
+
 ## This Constitution Applies the Creational Patterns to the Repository Tree
 Pattern 1 Canonical Reference means each system or profile subject gets one canonical SoT file.
 Pattern 2 Demand-Driven Dimensions means every SoT carries the full structural skeleton even when some dimensions stay sparse.
@@ -42,4 +45,3 @@ The broader improvement role still needs a clearer Dreamer analogue in the repo.
 
 ## This Constitution Commits the Repository to Mechanical Enforcement Rather Than Vague Alignment
 The Python matrix validator and the Rust governance boundary should keep moving toward explicit enforcement of the Matrix framework so Vela does not merely talk about SoTs but actually behaves like a matrix-native system.
-

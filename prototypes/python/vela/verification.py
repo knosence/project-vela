@@ -108,7 +108,7 @@ def scenario_governance() -> list[dict[str, Any]]:
 
 
 def scenario_repo_watch() -> list[dict[str, Any]]:
-    target = "knowledge/refs/mock-release-summary.md"
+    target = "knowledge/proposals/repo-watch-scenario-test.md"
     result = ingest_release(
         {"repo": "openai/openai-python", "version": "1.2.3", "notes": "Breaking API migration required for client construction."},
         (REPO_ROOT / "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8"),
