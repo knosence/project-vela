@@ -35,7 +35,7 @@ governance:
   single_writer: true
   reflection_before_mutation: true
 repo_watch:
-  watchlist_path: knowledge/200.WHAT.Repo-Watchlist-SoT.md
+  watchlist_path: knowledge/220.WHAT.Repo-Watchlist-SoT.md
   bootstrap: manual-seed
 deployment:
   target: <required>

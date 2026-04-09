@@ -12,13 +12,18 @@ from .paths import INBOX_DIR, PATCH_LOG_PATH, REPO_ROOT
 
 def triage_inbox(file_name: str | None = None, actor: str = "vela") -> dict[str, Any]:
     INBOX_DIR.mkdir(parents=True, exist_ok=True)
-    candidates = [INBOX_DIR / file_name] if file_name else sorted(path for path in INBOX_DIR.glob("*.md") if path.name != "000.Project-Vela-Starter.md")
+    candidates = [INBOX_DIR / file_name] if file_name else sorted(path for path in INBOX_DIR.iterdir() if path.is_file() and path.name != "000.Project-Vela-Starter.md")
     results: list[dict[str, Any]] = []
     for path in candidates:
         if not path.exists():
             results.append({"ok": False, "file": str(path.relative_to(REPO_ROOT)), "status": "missing"})
             continue
-        results.append(_triage_markdown_file(path, actor=actor))
+        if path.suffix.lower() == ".md":
+            results.append(_triage_markdown_file(path, actor=actor))
+        elif path.suffix.lower() == ".txt":
+            results.append(_triage_text_companion_file(path, actor=actor))
+        else:
+            results.append(_flag_unsupported_inbox_file(path, actor=actor))
     return {
         "ok": all(item.get("ok", False) for item in results) if results else True,
         "processed": len(results),
@@ -121,6 +126,105 @@ def _triage_markdown_file(path: Path, actor: str) -> dict[str, Any]:
     }
 
 
+def _triage_text_companion_file(path: Path, actor: str) -> dict[str, Any]:
+    relative_path = str(path.relative_to(REPO_ROOT))
+    text = path.read_text(encoding="utf-8")
+    target = _extract_target(text)
+    dimension = route_inbox_entry(text)
+
+    if not dimension:
+        return _flag_for_review(path, actor, "unsorted-needs-review", "dimension router could not classify inbox item")
+    if not target:
+        return _flag_for_review(path, actor, "missing-target", f"Missing target SoT for dimension {dimension}.", dimension=dimension)
+
+    target_path = REPO_ROOT / target
+    if not target_path.exists():
+        return _block_missing_target(path, actor, target, dimension)
+
+    companion_path = _move_to_companion_path(path, target_path)
+    entry = _extract_entry(text, path)
+    entry["context"] = f"{entry['context']} See: [[{companion_path.name}]]".strip()
+    updated = _append_entry_to_dimension(target_path.read_text(encoding="utf-8"), dimension, entry)
+    write_result = write_text(target, updated, actor=actor, endpoint="inbox-triage", reason=f"triage inbox item {relative_path}")
+    if not write_result["ok"]:
+        _append_patch_log("blocked", relative_path, f"Target write blocked for {target}.", actor)
+        return {
+            "ok": False,
+            "file": relative_path,
+            "status": "blocked",
+            "dimension": dimension,
+            "target": target,
+            "findings": write_result["findings"],
+        }
+
+    pointer = build_pointer_entry(entry["value"], Path(target).stem, _dimension_anchor(updated, dimension), _today())
+    _append_patch_log("applied", relative_path, f"Extracted into {target} with companion {companion_path.relative_to(REPO_ROOT)} {pointer}", actor)
+    append_event(
+        EventRecord(
+            source="vela",
+            endpoint="inbox-triage",
+            actor=actor,
+            target=target,
+            status="committed",
+            reason=f"inbox text item {relative_path} extracted into {target}",
+            artifacts=[target, str(companion_path.relative_to(REPO_ROOT))],
+            validation_summary={"dimension": dimension, "source_file": relative_path, "pointer": pointer},
+        )
+    )
+    return {
+        "ok": True,
+        "file": relative_path,
+        "status": "applied",
+        "dimension": dimension,
+        "target": target,
+        "companion": str(companion_path.relative_to(REPO_ROOT)),
+        "pointer": pointer,
+    }
+
+
+def _flag_unsupported_inbox_file(path: Path, actor: str) -> dict[str, Any]:
+    return _flag_for_review(path, actor, "unsupported-non-markdown", f"Unsupported inbox file type `{path.suffix}` requires richer extraction.")
+
+
+def _flag_for_review(path: Path, actor: str, reason: str, detail: str, dimension: str | None = None) -> dict[str, Any]:
+    relative_path = str(path.relative_to(REPO_ROOT))
+    _append_patch_log("flagged", relative_path, detail, actor)
+    append_event(
+        EventRecord(
+            source="vela",
+            endpoint="inbox-triage",
+            actor=actor,
+            target=relative_path,
+            status="flagged",
+            reason=detail,
+            artifacts=[relative_path],
+            validation_summary={"reason": reason, "dimension": dimension or ""},
+        )
+    )
+    payload = {"ok": False, "file": relative_path, "status": "flagged", "reason": reason}
+    if dimension:
+        payload["dimension"] = dimension
+    return payload
+
+
+def _block_missing_target(path: Path, actor: str, target: str, dimension: str) -> dict[str, Any]:
+    relative_path = str(path.relative_to(REPO_ROOT))
+    _append_patch_log("blocked", relative_path, f"Declared target does not exist: {target}.", actor)
+    append_event(
+        EventRecord(
+            source="vela",
+            endpoint="inbox-triage",
+            actor=actor,
+            target=relative_path,
+            status="blocked",
+            reason="declared target SoT does not exist",
+            artifacts=[relative_path],
+            validation_summary={"dimension": dimension, "target": target},
+        )
+    )
+    return {"ok": False, "file": relative_path, "status": "blocked", "reason": "target-missing", "dimension": dimension, "target": target}
+
+
 def _extract_target(text: str) -> str | None:
     frontmatter_match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
     if frontmatter_match:
@@ -174,6 +278,15 @@ def _extract_entry(text: str, path: Path) -> dict[str, str]:
     context_lines = [line for line in lines[1:] if not line.startswith("#")]
     context = " ".join(context_lines).strip() if context_lines else "Extracted from Inbox during governed triage."
     return {"value": f"{value}. ({_today()})" if not re.search(r"\(\d{4}-\d{2}-\d{2}\)$", value) else value, "context": context}
+
+
+def _move_to_companion_path(source: Path, target_path: Path) -> Path:
+    companion_name = f"{target_path.stem}{source.suffix}"
+    destination = target_path.with_name(companion_name)
+    if destination.exists():
+        destination = target_path.with_name(f"{target_path.stem}-{_today().replace('-', '')}{source.suffix}")
+    source.rename(destination)
+    return destination
 
 
 def _append_entry_to_dimension(content: str, dimension: str, entry: dict[str, str]) -> str:

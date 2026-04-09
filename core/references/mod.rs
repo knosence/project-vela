@@ -102,7 +102,7 @@ mod tests {
 sot-type: reference\n\
 created: 2026-04-08\n\
 last-rewritten: 2026-04-08\n\
-parent: \"[[200.WHAT.Repo-Watchlist-SoT#200.WHAT.Scope]]\"\n\
+parent: \"[[220.WHAT.Repo-Watchlist-SoT#200.WHAT.Watch Scope]]\"\n\
 domain: repo-watch\n\
 status: active\n\
 tags: [\"repo-watch\",\"release\",\"reference\"]\n\
@@ -130,7 +130,7 @@ The packet exists.\n\n\
 sot-type: reference\n\
 created: 2026-04-08\n\
 last-rewritten: 2026-04-08\n\
-parent: \"[[200.WHAT.Repo-Watchlist-SoT#200.WHAT.Scope]]\"\n\
+parent: \"[[220.WHAT.Repo-Watchlist-SoT#200.WHAT.Watch Scope]]\"\n\
 domain: repo-watch\n\
 status: active\n\
 tags: [\"repo-watch\",\"release\",\"reference\"]\n\
@@ -151,7 +151,7 @@ tags: [\"repo-watch\",\"release\",\"reference\"]\n\
 sot-type: reference\n\
 created: 2026-04-08\n\
 last-rewritten: 2026-04-08\n\
-parent: \"[[200.WHAT.Repo-Watchlist-SoT#200.WHAT.Scope]]\"\n\
+parent: \"[[220.WHAT.Repo-Watchlist-SoT#200.WHAT.Watch Scope]]\"\n\
 domain: repo-watch\n\
 status: active\n\
 ---\n\n\

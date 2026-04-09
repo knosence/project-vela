@@ -93,7 +93,7 @@ def build_release_intelligence_ref(
         "sot-type: reference\n"
         "created: 2026-04-08\n"
         "last-rewritten: 2026-04-08\n"
-        'parent: "[[200.WHAT.Repo-Watchlist-SoT#200.WHAT.Scope]]"\n'
+        'parent: "[[220.WHAT.Repo-Watchlist-SoT#200.WHAT.Watch Scope]]"\n'
         "domain: repo-watch\n"
         "status: active\n"
         'tags: ["repo-watch","release","intelligence","reference"]\n'
@@ -107,7 +107,7 @@ def build_release_intelligence_ref(
         f"- Reflection: `{reflection_target}`\n"
         f"- Validation: `{validation_target}`\n"
         f"- Summary: `{summary_target}`\n"
-        "- Parent watchlist: `knowledge/200.WHAT.Repo-Watchlist-SoT.md`\n\n"
+        "- Parent watchlist: `knowledge/220.WHAT.Repo-Watchlist-SoT.md`\n\n"
         "## This Reference States the Release Judgment Clearly\n"
         f"- Watched repo: `{'yes' if assessment['watched'] else 'no'}`\n"
         f"- Breaking change risk: `{assessment['risk']['level']}`\n"
@@ -133,7 +133,7 @@ def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> 
         "version": packet.get("version", "unknown"),
         "notes": packet.get("notes", "No release notes provided."),
         "target": target,
-        "watchlist_target": "knowledge/200.WHAT.Repo-Watchlist-SoT.md",
+        "watchlist_target": "knowledge/220.WHAT.Repo-Watchlist-SoT.md",
         "context_markers": local_context_markers(),
     }
     packet_result = write_text(

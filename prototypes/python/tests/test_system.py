@@ -53,7 +53,7 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/Cornerstone.Knosence-SoT.Spawned-Child-SoT.md",
             "knowledge/Cornerstone.Project-Vela.Spawned-Child-SoT.md",
             "knowledge/ARTIFACTS/refs/Ref.WHAT.Vela-Capabilities.md",
-            "knowledge/ARTIFACTS/refs/Ref.200.WHAT.Vela-Capabilities-SoT.md",
+            "knowledge/ARTIFACTS/refs/Ref.210.WHAT.Vela-Capabilities-SoT.md",
             "knowledge/ARTIFACTS/refs/Ref.reference-source.md",
             "knowledge/ARTIFACTS/refs/Ref.service-source.md",
             "knowledge/ARTIFACTS/proposals/growth-apply-reference-test.md",
@@ -90,6 +90,15 @@ class VelaSystemTest(unittest.TestCase):
         for target in [
             "knowledge/INBOX/test-inbox-item.md",
             "knowledge/INBOX/test-inbox-missing-target.md",
+            "knowledge/INBOX/test-inbox-item.txt",
+            "knowledge/INBOX/test-inbox-binary.png",
+        ]:
+            path = REPO_ROOT / target
+            if path.exists():
+                path.unlink()
+        for target in [
+            "knowledge/inbox-triage-target.txt",
+            "knowledge/inbox-triage-target-20260409.txt",
         ]:
             path = REPO_ROOT / target
             if path.exists():
@@ -190,7 +199,7 @@ class VelaSystemTest(unittest.TestCase):
         self.assertIn(result["data"]["assessment_target"], intelligence_ref)
 
     def test_repo_watch_analysis_uses_watchlist_reasoning(self) -> None:
-        watchlist = (REPO_ROOT / "knowledge/200.WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8")
+        watchlist = (REPO_ROOT / "knowledge/220.WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8")
         assessment = analyze_release(
             {
                 "repo": "openai/openai-python",
@@ -239,7 +248,7 @@ class VelaSystemTest(unittest.TestCase):
 
     def test_protected_zone_write_creates_backup(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/protected-zone-test.md"
-        original = (REPO_ROOT / "knowledge/200.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8")
+        original = (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8")
         seed_path = REPO_ROOT / target
         seed_path.parent.mkdir(parents=True, exist_ok=True)
         seed_path.write_text(original, encoding="utf-8")
@@ -254,7 +263,7 @@ class VelaSystemTest(unittest.TestCase):
 
     def test_archive_transaction_moves_entry_and_appends_archive(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/archive-transaction-test.md"
-        content = (REPO_ROOT / "knowledge/100.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8").replace(
+        content = (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8").replace(
             "- Vela is the default installed assistant profile under Knosence. (2026-04-08)\n  - The profile is close to the human root without replacing it. [HUMAN]",
             "- Sample archived value. (2026-04-08)\n  - Exists to verify archive movement. [AGENT:gpt-5]",
         )
@@ -277,7 +286,7 @@ class VelaSystemTest(unittest.TestCase):
 
     def test_subject_declaration_change_requires_approval(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/subject-declaration-test.md"
-        original = (REPO_ROOT / "knowledge/100.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8")
+        original = (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8")
         path = REPO_ROOT / target
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(original, encoding="utf-8")
@@ -313,17 +322,17 @@ class VelaSystemTest(unittest.TestCase):
     def test_cross_reference_pointer_format(self) -> None:
         pointer = build_pointer_entry(
             "Repo watch summary recorded",
-            "200.WHAT.Repo-Watchlist-SoT",
+            "220.WHAT.Repo-Watchlist-SoT",
             "200.WHAT.Domain",
             "2026-04-08",
         )
         self.assertEqual(
             pointer,
-            "- Repo watch summary recorded. See: [[200.WHAT.Repo-Watchlist-SoT#200.WHAT.Domain]] (2026-04-08)",
+            "- Repo watch summary recorded. See: [[220.WHAT.Repo-Watchlist-SoT#200.WHAT.Domain]] (2026-04-08)",
         )
 
     def test_growth_assessment_stays_flat_for_small_sot(self) -> None:
-        assessment = assess_growth("knowledge/100.WHO.Vela-Identity-SoT.md")
+        assessment = assess_growth("knowledge/110.WHO.Vela-Identity-SoT.md")
         self.assertEqual(assessment.stage, "flat")
         self.assertEqual(assessment.inventory_role, "agent-identity")
 
@@ -348,7 +357,7 @@ class VelaSystemTest(unittest.TestCase):
         target = "knowledge/ARTIFACTS/proposals/Synthetic-Identity-SoT.md"
         path = REPO_ROOT / target
         path.parent.mkdir(parents=True, exist_ok=True)
-        base = (REPO_ROOT / "knowledge/100.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8")
+        base = (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8")
         repeated_entries = "\n".join(
             f"- Identity entry {idx}. (2026-04-08)\n  - Context {idx}. [AGENT:gpt-5]"
             for idx in range(1, 12)
@@ -373,7 +382,7 @@ class VelaSystemTest(unittest.TestCase):
             for idx in range(1, 10)
         )
         path.write_text(
-            (REPO_ROOT / "knowledge/100.WHO.Vela-Identity-SoT.md")
+            (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md")
             .read_text(encoding="utf-8")
             .replace("- Vela is the default installed assistant profile under Knosence. (2026-04-08)\n  - The profile is close to the human root without replacing it. [HUMAN]", entries),
             encoding="utf-8",
@@ -386,7 +395,7 @@ class VelaSystemTest(unittest.TestCase):
         path = REPO_ROOT / target
         path.parent.mkdir(parents=True, exist_ok=True)
         repeated = "\n".join(f"## 210.Group{idx}\n\n### Active\n\n- Group entry {idx}. (2026-04-08)\n  - Context. [AGENT:gpt-5]\n" for idx in range(1, 6))
-        base = (REPO_ROOT / "knowledge/200.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8")
+        base = (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8")
         path.write_text(base + "\n" + repeated + ("\nExtra line.\n" * 220), encoding="utf-8")
         assessment = assess_growth(target)
         self.assertEqual(assessment.stage, "reference-note")
@@ -399,7 +408,7 @@ class VelaSystemTest(unittest.TestCase):
             f"- Heavy entry {idx}. (2026-04-08)\n  - Context {idx}. [AGENT:gpt-5]"
             for idx in range(1, 15)
         )
-        base = (REPO_ROOT / "knowledge/200.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8")
+        base = (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8")
         path.write_text(base.replace("- Vela routes, plans, drafts, critiques, validates, documents, and proposes growth under governed workflows. (2026-04-08)\n  - The profile is oriented toward structured assistance rather than unbounded autonomy. [AGENT:gpt-5]", repeated_entries) + ("\nOperational note.\n" * 340), encoding="utf-8")
         assessment = assess_growth(target)
         self.assertEqual(assessment.stage, "spawn")
@@ -408,7 +417,7 @@ class VelaSystemTest(unittest.TestCase):
         proposal_target = "knowledge/ARTIFACTS/proposals/growth-apply-reference-test.md"
         source_target = "knowledge/ARTIFACTS/proposals/reference-source-SoT.md"
         (REPO_ROOT / source_target).write_text(
-            (REPO_ROOT / "knowledge/200.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
+            (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         proposal_path = REPO_ROOT / proposal_target
@@ -435,7 +444,7 @@ class VelaSystemTest(unittest.TestCase):
             "## This Proposal Records the Signals That Triggered the Recommendation\n"
             "- signals: `{'line_count': 280}`\n\n"
             "## This Proposal Identifies the Artifact That Would Be Affected If Approved\n"
-            "- target: `knowledge/200.WHAT.Vela-Capabilities-SoT.md`\n",
+            "- target: `knowledge/210.WHAT.Vela-Capabilities-SoT.md`\n",
             encoding="utf-8",
         )
         result = apply_growth_proposal(proposal_target, actor="scribe")
@@ -454,7 +463,7 @@ class VelaSystemTest(unittest.TestCase):
         proposal_target = "knowledge/ARTIFACTS/proposals/growth-apply-sovereign-test.md"
         source_target = "knowledge/ARTIFACTS/proposals/Synthetic-Identity-SoT.md"
         (REPO_ROOT / source_target).write_text(
-            (REPO_ROOT / "knowledge/100.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8"),
+            (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         proposal_path = REPO_ROOT / proposal_target
@@ -496,7 +505,7 @@ class VelaSystemTest(unittest.TestCase):
         source_target = "knowledge/ARTIFACTS/proposals/spawn-source-SoT.md"
         source_path = REPO_ROOT / source_target
         source_path.write_text(
-            (REPO_ROOT / "knowledge/200.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
+            (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         proposal_path = REPO_ROOT / proposal_target
@@ -543,7 +552,7 @@ class VelaSystemTest(unittest.TestCase):
             for idx in range(1, 10)
         )
         source_path.write_text(
-            (REPO_ROOT / "knowledge/100.WHO.Vela-Identity-SoT.md")
+            (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md")
             .read_text(encoding="utf-8")
             .replace(
                 "- Vela is the default installed assistant profile. (2026-04-08)\n  - The system ships with Vela while still allowing replacement and customization. [AGENT:gpt-5]",
@@ -581,7 +590,7 @@ class VelaSystemTest(unittest.TestCase):
         proposal_target = "knowledge/ARTIFACTS/proposals/growth-apply-service-test.md"
         source_target = "knowledge/ARTIFACTS/proposals/service-source-SoT.md"
         (REPO_ROOT / source_target).write_text(
-            (REPO_ROOT / "knowledge/200.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
+            (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         proposal_path = REPO_ROOT / proposal_target
@@ -613,7 +622,7 @@ class VelaSystemTest(unittest.TestCase):
     def test_inbox_triage_extracts_markdown_into_declared_target(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
         target_path = REPO_ROOT / target
-        target_path.write_text((REPO_ROOT / "knowledge/200.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        target_path.write_text((REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
         inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-item.md"
         inbox_path.write_text(
             "# Inbox Item\n\n"
@@ -647,7 +656,7 @@ class VelaSystemTest(unittest.TestCase):
     def test_inbox_triage_service_endpoint(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
         target_path = REPO_ROOT / target
-        target_path.write_text((REPO_ROOT / "knowledge/200.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        target_path.write_text((REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
         inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-item.md"
         inbox_path.write_text(
             "# Inbox Item\n\n"
@@ -659,6 +668,35 @@ class VelaSystemTest(unittest.TestCase):
         result = VelaService().inbox_triage({"file": "test-inbox-item.md", "actor": "n8n"})
         self.assertTrue(result["ok"])
         self.assertEqual(result["endpoint"], "inbox-triage")
+
+    def test_inbox_triage_moves_text_file_to_companion_and_links_it(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
+        target_path = REPO_ROOT / target
+        target_path.write_text((REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        existing_companion = REPO_ROOT / "knowledge/ARTIFACTS/proposals/inbox-triage-target.txt"
+        existing_companion.write_text("existing companion", encoding="utf-8")
+        inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-item.txt"
+        inbox_path.write_text(
+            "Target: [[inbox-triage-target.md]]\n\n"
+            "Capability update\n\n"
+            "The text intake should be preserved as a companion file while its contents are extracted.\n",
+            encoding="utf-8",
+        )
+        result = triage_inbox(file_name="test-inbox-item.txt", actor="vela")
+        self.assertTrue(result["ok"])
+        self.assertFalse(inbox_path.exists())
+        companion = REPO_ROOT / "knowledge/ARTIFACTS/proposals/inbox-triage-target-20260409.txt"
+        self.assertTrue(companion.exists())
+        updated = target_path.read_text(encoding="utf-8")
+        self.assertIn("See: [[inbox-triage-target-20260409.txt]]", updated)
+
+    def test_inbox_triage_flags_unsupported_binary_file(self) -> None:
+        inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-binary.png"
+        inbox_path.write_bytes(b"png")
+        result = triage_inbox(file_name="test-inbox-binary.png", actor="vela")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["results"][0]["reason"], "unsupported-non-markdown")
+        self.assertTrue(inbox_path.exists())
 
     def test_dry_boot_prompt(self) -> None:
         health = VelaService().health()
@@ -677,7 +715,7 @@ class VelaSystemTest(unittest.TestCase):
             "sot-type: reference\n"
             "created: 2026-04-08\n"
             "last-rewritten: 2026-04-08\n"
-            "parent: \"[[200.WHAT.Repo-Watchlist-SoT#200.WHAT.Scope]]\"\n"
+            "parent: \"[[220.WHAT.Repo-Watchlist-SoT#200.WHAT.Scope]]\"\n"
             "domain: repo-watch\n"
             "status: active\n"
             "tags: [\"repo-watch\",\"release\",\"reference\"]\n"
@@ -730,7 +768,7 @@ class VelaSystemTest(unittest.TestCase):
         target = REPO_ROOT / "knowledge/ARTIFACTS/proposals/direct-root-agent-branch-test.md"
         target.write_text(
             (
-                (REPO_ROOT / "knowledge/100.WHO.Vela-Identity-SoT.md")
+                (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md")
                 .read_text(encoding="utf-8")
                 .replace('parent: "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]"', 'parent: "[[Cornerstone.Knosence-SoT#100.WHO.Circle]]"')
                 .replace("**Parent:** [[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]", "**Parent:** [[Cornerstone.Knosence-SoT#100.WHO.Circle]]")
@@ -746,7 +784,7 @@ class VelaSystemTest(unittest.TestCase):
         target = REPO_ROOT / "knowledge/ARTIFACTS/proposals/direct-root-dimension-branch-test.md"
         target.write_text(
             (
-                (REPO_ROOT / "knowledge/200.WHAT.Repo-Watchlist-SoT.md")
+                (REPO_ROOT / "knowledge/220.WHAT.Repo-Watchlist-SoT.md")
                 .read_text(encoding="utf-8")
                 .replace('parent: "[[200.WHAT.Domain-SoT#200.WHAT.Domains]]"', 'parent: "[[Cornerstone.Knosence-SoT#200.WHAT.Domain]]"')
                 .replace("**Parent:** [[200.WHAT.Domain-SoT#200.WHAT.Domains]]", "**Parent:** [[Cornerstone.Knosence-SoT#200.WHAT.Domain]]")

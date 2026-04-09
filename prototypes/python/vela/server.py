@@ -58,7 +58,7 @@ class VelaService:
 
     def repo_release(self, payload: dict[str, Any]) -> dict[str, Any]:
         target = payload.get("target", "knowledge/ARTIFACTS/refs/repo-release.md")
-        watchlist = (REPO_ROOT / "knowledge/200.WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8")
+        watchlist = (REPO_ROOT / "knowledge/220.WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8")
         result = ingest_release(payload, watchlist, target)
         if result["committed"]:
             return envelope(True, "repo-release", "accepted", "Release processed", data=result)

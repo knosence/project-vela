@@ -153,7 +153,12 @@ fn is_dimension_hub_name(name: &str) -> bool {
 }
 
 fn is_agent_identity_name(name: &str) -> bool {
-    (name.starts_with("WHO.") || name.starts_with("100.WHO.")) && name.contains("Identity-SoT")
+    (name.starts_with("WHO.")
+        || name.starts_with("100.WHO.")
+        || name.starts_with("110.WHO.")
+        || name.starts_with("111.WHO.")
+        || name.starts_with("112.WHO."))
+        && name.contains("Identity-SoT")
 }
 
 fn parse_frontmatter(text: &str) -> Vec<(String, String)> {

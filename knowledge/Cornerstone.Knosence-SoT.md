@@ -29,8 +29,8 @@ tags: ["cornerstone","human","shared-knowledge","matrix","sot"]
 - HOW hub: [[500.HOW.Method-SoT]]
 - WHY hub: [[600.WHY.Compass-SoT]]
 - Knosence domain: [[200.WHAT.Domain-SoT#200.WHAT.Domains]]
-- Vela identity: [[100.WHO.Vela-Identity-SoT]]
-- Repo watchlist: [[200.WHAT.Repo-Watchlist-SoT]]
+- Vela identity: [[110.WHO.Vela-Identity-SoT]]
+- Repo watchlist: [[220.WHAT.Repo-Watchlist-SoT]]
 - Starter inbox: `knowledge/INBOX/000.Project-Vela-Starter.md`
 
 ### Inbox

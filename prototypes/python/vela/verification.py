@@ -111,7 +111,7 @@ def scenario_repo_watch() -> list[dict[str, Any]]:
     target = "knowledge/ARTIFACTS/proposals/repo-watch-scenario-test.md"
     result = ingest_release(
         {"repo": "openai/openai-python", "version": "1.2.3", "notes": "Breaking API migration required for client construction."},
-        (REPO_ROOT / "knowledge/200.WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8"),
+        (REPO_ROOT / "knowledge/220.WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8"),
         target,
     )
     return [

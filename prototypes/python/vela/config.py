@@ -51,7 +51,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "reflection_before_mutation": True,
     },
     "repo_watch": {
-        "watchlist_path": "knowledge/200.WHAT.Repo-Watchlist-SoT.md",
+        "watchlist_path": "knowledge/220.WHAT.Repo-Watchlist-SoT.md",
         "bootstrap": "manual-seed",
     },
     "deployment": {"target": "<required>"},
