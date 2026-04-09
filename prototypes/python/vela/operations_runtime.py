@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .governance import append_event, validate_target, write_text
+from .governance import append_event, record_approval, validate_target, write_text
 from .growth import assess_growth
 from .models import EventRecord
 from .paths import EVENT_LOG_PATH, PATCH_LOG_PATH, REFS_DIR, REPO_ROOT
@@ -112,6 +113,48 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
         "blocked_items": blocked_items,
         "dreamer_proposals": dreamer_proposals,
     }
+
+
+def list_dreamer_queue() -> dict[str, Any]:
+    items: list[dict[str, Any]] = []
+    for path in sorted((REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Proposal.*.md")):
+        text = path.read_text(encoding="utf-8")
+        frontmatter = _parse_frontmatter(text)
+        items.append(
+            {
+                "target": str(path.relative_to(REPO_ROOT)),
+                "status": str(frontmatter.get("status", "unknown")),
+                "created": str(frontmatter.get("created", "")),
+                "reason": _proposal_reason(text),
+            }
+        )
+    return {"ok": True, "items": items}
+
+
+def review_dreamer_proposal(target: str, decision: str, actor: str, reason: str) -> dict[str, Any]:
+    path = REPO_ROOT / target
+    if not path.exists():
+        return {"ok": False, "findings": [{"code": "DREAMER_PROPOSAL_NOT_FOUND", "detail": f"Dreamer proposal not found: {target}"}]}
+    if decision not in {"approved", "denied", "needs-more-info"}:
+        return {"ok": False, "findings": [{"code": "DREAMER_REVIEW_DECISION_INVALID", "detail": f"Unsupported decision: {decision}"}]}
+
+    record_approval(f"dreamer_{_slug(target)}_{_stamp()}", decision, actor, reason, target)
+    current = path.read_text(encoding="utf-8")
+    updated = _mark_dreamer_proposal_reviewed(current, decision, actor, reason)
+    result = write_text(target, updated, actor="system", endpoint="dreamer-review", reason=f"dreamer proposal {decision}")
+    append_event(
+        EventRecord(
+            source="vela",
+            endpoint="dreamer-review",
+            actor=actor,
+            target=target,
+            status="committed" if result["ok"] else "blocked",
+            reason=reason,
+            artifacts=result.get("artifacts", [target]),
+            validation_summary={"decision": decision},
+        )
+    )
+    return {"ok": result["ok"], "target": target, "decision": decision, "findings": result.get("findings", [])}
 
 
 def _patched_targets() -> list[str]:
@@ -341,6 +384,48 @@ def _render_dreamer_proposal(
 
 def _slug(value: str) -> str:
     return "-".join(part for part in "".join(ch.lower() if ch.isalnum() else "-" for ch in value).split("-") if part) or "pattern"
+
+
+def _parse_frontmatter(text: str) -> dict[str, str]:
+    if not text.startswith("---\n"):
+        return {}
+    parts = text.split("---\n", 2)
+    if len(parts) != 3:
+        return {}
+    data: dict[str, str] = {}
+    for line in parts[1].splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        data[key.strip()] = value.strip().strip('"')
+    return data
+
+
+def _proposal_reason(text: str) -> str:
+    for line in text.splitlines():
+        if line.startswith("- reason:"):
+            return line.split(":", 1)[1].strip().strip("`")
+    return ""
+
+
+def _mark_dreamer_proposal_reviewed(text: str, decision: str, actor: str, reason: str) -> str:
+    status_map = {
+        "approved": "approved",
+        "denied": "denied",
+        "needs-more-info": "needs-more-info",
+    }
+    updated = re.sub(r"^status:\s*\w[\w-]*$", f"status: {status_map[decision]}", text, count=1, flags=re.MULTILINE)
+    review_section = (
+        "\n## Review Outcome\n\n"
+        f"- decision: `{decision}`\n"
+        f"- actor: `{actor}`\n"
+        f"- reason: {reason}\n"
+    )
+    if "## Review Outcome" in updated:
+        updated = re.sub(r"\n## Review Outcome.*$", review_section, updated, flags=re.DOTALL)
+    else:
+        updated = updated.rstrip() + review_section
+    return updated
 
 
 def _stamp() -> str:

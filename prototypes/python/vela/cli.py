@@ -8,7 +8,7 @@ from .config import ensure_bootstrap_files, load_config, missing_required_fields
 from .governance import apply_growth_proposal, create_cross_reference
 from .inbox import triage_inbox
 from .matrix import write_matrix_index
-from .operations_runtime import run_night_cycle, run_warden_patrol
+from .operations_runtime import list_dreamer_queue, review_dreamer_proposal, run_night_cycle, run_warden_patrol
 from .profiles import activate_profile, list_profiles
 from .server import VelaService, serve
 from .verification import run_scenario, write_verification_report
@@ -111,6 +111,17 @@ def cmd_night_cycle_run(_: argparse.Namespace) -> int:
     return 0 if result["ok"] else 1
 
 
+def cmd_dreamer_queue(_: argparse.Namespace) -> int:
+    print(json.dumps(list_dreamer_queue(), indent=2))
+    return 0
+
+
+def cmd_dreamer_review(args: argparse.Namespace) -> int:
+    result = review_dreamer_proposal(target=args.target, decision=args.decision, actor="human", reason=args.reason)
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     serve(host=args.host, port=args.port)
     return 0
@@ -183,6 +194,16 @@ def build_parser() -> argparse.ArgumentParser:
     night_cycle_sub = night_cycle_parser.add_subparsers(dest="night_cycle_command", required=True)
     night_cycle_run_parser = night_cycle_sub.add_parser("run")
     night_cycle_run_parser.set_defaults(func=cmd_night_cycle_run)
+
+    dreamer_parser = sub.add_parser("dreamer")
+    dreamer_sub = dreamer_parser.add_subparsers(dest="dreamer_command", required=True)
+    dreamer_queue_parser = dreamer_sub.add_parser("queue")
+    dreamer_queue_parser.set_defaults(func=cmd_dreamer_queue)
+    dreamer_review_parser = dreamer_sub.add_parser("review")
+    dreamer_review_parser.add_argument("target")
+    dreamer_review_parser.add_argument("decision")
+    dreamer_review_parser.add_argument("--reason", default="")
+    dreamer_review_parser.set_defaults(func=cmd_dreamer_review)
 
     serve_parser = sub.add_parser("serve")
     serve_parser.add_argument("--host", default="127.0.0.1")

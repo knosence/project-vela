@@ -21,7 +21,7 @@ from prototypes.python.vela.matrix import classify_change_zone
 from prototypes.python.vela.matrix import validate_canonical_graph_targets
 from prototypes.python.vela.matrix import write_matrix_index
 from prototypes.python.vela.matrix import validate_parent_consistency
-from prototypes.python.vela.operations_runtime import run_night_cycle, run_warden_patrol
+from prototypes.python.vela.operations_runtime import list_dreamer_queue, review_dreamer_proposal, run_night_cycle, run_warden_patrol
 from prototypes.python.vela.paths import EVENT_LOG_PATH, PATCH_LOG_PATH, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
 from prototypes.python.vela.repo_watch import analyze_release
@@ -847,6 +847,51 @@ class VelaSystemTest(unittest.TestCase):
         night_cycle = VelaService().night_cycle_run({"actor": "n8n"})
         self.assertTrue(night_cycle["ok"])
         self.assertEqual(night_cycle["endpoint"], "night-cycle-run")
+
+    def test_dreamer_queue_and_review(self) -> None:
+        for _ in range(3):
+            write_text(
+                "knowledge/210.WHAT.Vela-Capabilities-SoT.md",
+                (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8").replace(
+                    "Vela routes, plans, drafts, critiques, validates, documents, and proposes growth under governed workflows.",
+                    "Vela routes, plans, drafts, critiques, validates, documents, proposes growth, and patrols canonical writes.",
+                ),
+                actor="warden",
+                endpoint="test",
+                reason="force blocked pattern for dreamer queue",
+            )
+        cycle = run_night_cycle(requested_by="human")
+        self.assertTrue(cycle["dreamer_proposals"])
+        queue = list_dreamer_queue()
+        self.assertTrue(queue["items"])
+        target = queue["items"][0]["target"]
+        review = review_dreamer_proposal(target=target, decision="approved", actor="human", reason="accept dreamer follow up")
+        self.assertTrue(review["ok"])
+        updated = (REPO_ROOT / target).read_text(encoding="utf-8")
+        self.assertIn("status: approved", updated)
+        self.assertIn("## Review Outcome", updated)
+
+    def test_dreamer_queue_service_and_review_endpoint(self) -> None:
+        for _ in range(3):
+            write_text(
+                "knowledge/210.WHAT.Vela-Capabilities-SoT.md",
+                (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8").replace(
+                    "Vela routes, plans, drafts, critiques, validates, documents, and proposes growth under governed workflows.",
+                    "Vela routes, plans, drafts, critiques, validates, documents, proposes growth, and patrols canonical writes.",
+                ),
+                actor="warden",
+                endpoint="test",
+                reason="force blocked pattern for dreamer service queue",
+            )
+        VelaService().night_cycle_run({"actor": "n8n"})
+        queue = VelaService().dreamer_queue()
+        self.assertTrue(queue["ok"])
+        target = queue["data"]["items"][0]["target"]
+        review = VelaService().dreamer_review(
+            {"target": target, "decision": "denied", "actor": "human", "reason": "not worth pursuing"}
+        )
+        self.assertTrue(review["ok"])
+        self.assertEqual(review["endpoint"], "dreamer-review")
 
     def test_inbox_triage_moves_text_file_to_companion_and_links_it(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
