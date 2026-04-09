@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .growth import assess_growth, render_growth_proposal
 from .governance import propose_growth, write_text
 from .models import ValidationFinding
+from .rust_bridge import route_for_target
 
 
 @dataclass
@@ -16,19 +18,14 @@ class PipelineResult:
     findings: list[dict[str, Any]]
     committed: bool
     target: str
+    growth_proposal: dict[str, Any]
 
 
 class Router:
     permissions = "read-only"
 
     def classify(self, task_type: str, target: str) -> str:
-        if target.startswith("knowledge/cornerstone/"):
-            return "sovereign-change"
-        if task_type == "repo-release":
-            return "repo-watch"
-        if task_type == "validate":
-            return "validation"
-        return "standard"
+        return route_for_target(task_type, target)
 
 
 class Planner:
@@ -52,7 +49,7 @@ class Worker:
     permissions = "read+write-draft"
 
     def draft(self, title: str, body: str) -> str:
-        return f"# {title}\n\n## This Draft Captures the First Useful Pass\n{body.strip()}\n"
+        return f"# {title}\n\nThis draft captures the first useful pass before critique and validation.\n\n{body.strip()}\n"
 
 
 class Reflector:
@@ -88,14 +85,13 @@ class Scribe:
 class Grower:
     permissions = "read+propose-structural-change"
 
-    def propose(self, route: str, target: str) -> str:
-        body = (
-            "# Structural Evolution Proposal\n\n"
-            "## This Proposal Records Conservative Growth After the Main Task\n"
-            f"Route `{route}` touched `{target}`. Consider whether a dedicated validator or template should be added before similar changes scale.\n"
-        )
-        proposal_path = propose_growth(f"proposal-{route}", body)
-        return str(proposal_path)
+    def propose(self, route: str, target: str) -> dict[str, Any]:
+        assessment = assess_growth(target)
+        body = render_growth_proposal(route, target, assessment)
+        critique = Reflector().critique(body, "growth-proposal")
+        proposal_target = f"knowledge/proposals/pending-{route}.md"
+        findings = [item.as_dict() for item in Warden().validate(body, proposal_target)]
+        return propose_growth(route, target, body, critique, findings)
 
 
 class SequentialPipeline:
@@ -117,6 +113,14 @@ class SequentialPipeline:
         committed = False
         if not any(item["severity"] == "error" for item in findings):
             committed = bool(self.scribe.commit(target, draft, reason=f"{task_type} pipeline", approval_id=approval_id)["ok"])
-        self.grower.propose(route, target)
-        return PipelineResult(route=route, plan=plan, draft=draft, critique=critique, findings=findings, committed=committed, target=target)
-
+        growth_proposal = self.grower.propose(route, target)
+        return PipelineResult(
+            route=route,
+            plan=plan,
+            draft=draft,
+            critique=critique,
+            findings=findings,
+            committed=committed,
+            target=target,
+            growth_proposal=growth_proposal,
+        )

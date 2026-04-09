@@ -1,0 +1,75 @@
+{
+  "entries": [
+    {
+      "path": "knowledge/agents/custom-vela/WHO.Custom-Vela-Identity-SoT.md",
+      "title": "Custom Vela Identity Source of Truth",
+      "sot_type": "system",
+      "parent": "[[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]",
+      "domain": "agents",
+      "status": "active",
+      "area": "agents",
+      "is_cornerstone": false
+    },
+    {
+      "path": "knowledge/agents/test-custom/WHO.Test-Custom-Identity-SoT.md",
+      "title": "Test Custom Identity Source of Truth",
+      "sot_type": "system",
+      "parent": "[[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]",
+      "domain": "agents",
+      "status": "active",
+      "area": "agents",
+      "is_cornerstone": false
+    },
+    {
+      "path": "knowledge/agents/vela/WHAT.Vela-Capabilities-SoT.md",
+      "title": "Vela Capabilities Source of Truth",
+      "sot_type": "system",
+      "parent": "[[WHO.Vela-Identity-SoT#200.WHAT.Scope]]",
+      "domain": "agents",
+      "status": "active",
+      "area": "agents",
+      "is_cornerstone": false
+    },
+    {
+      "path": "knowledge/agents/vela/WHO.Vela-Identity-SoT.md",
+      "title": "Vela Identity Source of Truth",
+      "sot_type": "system",
+      "parent": "[[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]",
+      "domain": "agents",
+      "status": "active",
+      "area": "agents",
+      "is_cornerstone": false
+    },
+    {
+      "path": "knowledge/agents/vela/WHY.Vela-Intent-SoT.md",
+      "title": "Vela Intent Source of Truth",
+      "sot_type": "system",
+      "parent": "[[WHO.Vela-Identity-SoT#600.WHY.Compass]]",
+      "domain": "agents",
+      "status": "active",
+      "area": "agents",
+      "is_cornerstone": false
+    },
+    {
+      "path": "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md",
+      "title": "Project Vela Cornerstone Source of Truth",
+      "sot_type": "system",
+      "parent": "",
+      "domain": "vela",
+      "status": "active",
+      "area": "cornerstone",
+      "is_cornerstone": true
+    },
+    {
+      "path": "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md",
+      "title": "Repo Watchlist Source of Truth",
+      "sot_type": "dimension",
+      "parent": "[[Cornerstone.Project-Vela-SoT#200.WHAT.Domain]]",
+      "domain": "dimensions",
+      "status": "active",
+      "area": "dimensions",
+      "is_cornerstone": false
+    }
+  ],
+  "findings": []
+}

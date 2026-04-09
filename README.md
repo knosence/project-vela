@@ -13,5 +13,4 @@ The repository boots into setup mode until required onboarding values exist. Eve
 Python under `prototypes/python` provides the executable runtime, CLI, HTTP service, and verification harness for fast iteration. Rust under `core/` captures the durable schemas, validation boundaries, policy logic, lineage contracts, and queue interfaces that the system is expected to harden into.
 
 ## The Fastest Path to Exercise the System Is Through the Provided Commands
-Run `python3 -m prototypes.python.vela.cli init`, `python3 -m prototypes.python.vela.cli setup`, `python3 -m prototypes.python.vela.cli dry-boot`, and `python3 -m prototypes.python.vela.cli verify --scenario full` from the repository root.
-
+Run `python3 -m prototypes.python.vela.cli init`, `python3 -m prototypes.python.vela.cli setup`, `python3 -m prototypes.python.vela.cli index`, `python3 -m prototypes.python.vela.cli dry-boot`, and `python3 -m prototypes.python.vela.cli verify --scenario full` from the repository root.

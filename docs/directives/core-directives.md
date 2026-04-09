@@ -6,3 +6,5 @@ The system enforces SoT supremacy, single-writer discipline, role purity, reflec
 ## This Document Clarifies That Behavior Matters More Than Slogans
 Tests, validators, and runtime gates are expected to prove the directives through observed behavior rather than through wording alone.
 
+## This Document Works Alongside Explicit Matrix Laws for Root and Index Governance
+See `docs/directives/matrix-laws.md` for the single-cornerstone, single-parent, and index-visibility laws that govern the matrix as a tree.

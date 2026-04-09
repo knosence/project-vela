@@ -6,11 +6,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from .config import load_config, missing_required_fields, setup_complete
+from .matrix import validate_matrix_rules
 from .governance import record_approval
 from .models import new_id
 from .paths import REPO_ROOT, VERIFICATION_STATUS_PATH
 from .profiles import activate_profile, list_profiles
 from .repo_watch import ingest_release
+from .rust_bridge import validate_config_payload
 from .verification import run_scenario, write_verification_report
 
 
@@ -53,7 +55,7 @@ class VelaService:
 
     def repo_release(self, payload: dict[str, Any]) -> dict[str, Any]:
         target = payload.get("target", "knowledge/refs/repo-release.md")
-        watchlist = (REPO_ROOT / "knowledge/dimensions/200.WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8")
+        watchlist = (REPO_ROOT / "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8")
         result = ingest_release(payload, watchlist, target)
         if result["committed"]:
             return envelope(True, "repo-release", "accepted", "Release processed", data=result)
@@ -66,8 +68,8 @@ class VelaService:
         findings = []
         if scope == "repo":
             cfg = load_config()
-            for item in missing_required_fields(cfg):
-                findings.append({"code": "CONFIG_REQUIRED", "detail": f"Missing required field: {item}"})
+            findings.extend(validate_config_payload(cfg)["findings"])
+            findings.extend(item.as_dict() for item in validate_matrix_rules())
         if "narrative" in requested_checks:
             findings.append({"code": "NARRATIVE_VALIDATOR_ACTIVE", "detail": "Narrative validator executed", "severity": "info"})
         ok = not any(item["code"] == "CONFIG_REQUIRED" for item in findings) or mode == "report"
@@ -168,4 +170,3 @@ def serve(host: str = "127.0.0.1", port: int = 8787) -> None:
         server.serve_forever()
     finally:
         server.server_close()
-

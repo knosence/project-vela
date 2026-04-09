@@ -5,6 +5,7 @@ import json
 import sys
 
 from .config import ensure_bootstrap_files, load_config, missing_required_fields, save_config, setup_complete
+from .matrix import write_matrix_index
 from .profiles import activate_profile, list_profiles
 from .server import VelaService, serve
 from .verification import run_scenario, write_verification_report
@@ -51,6 +52,11 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 0 if passed else 1
 
 
+def cmd_index(_: argparse.Namespace) -> int:
+    print(json.dumps(write_matrix_index(), indent=2))
+    return 0
+
+
 def cmd_profiles_list(_: argparse.Namespace) -> int:
     print(json.dumps(list_profiles(), indent=2))
     return 0
@@ -87,6 +93,9 @@ def build_parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("--scenario", default="full")
     verify_parser.set_defaults(func=cmd_verify)
 
+    index_parser = sub.add_parser("index")
+    index_parser.set_defaults(func=cmd_index)
+
     profiles_parser = sub.add_parser("profiles")
     profiles_sub = profiles_parser.add_subparsers(dest="profiles_command", required=True)
 
@@ -113,4 +122,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

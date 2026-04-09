@@ -6,3 +6,6 @@ edition = "2021"
 [lib]
 path = "lib.rs"
 
+[[bin]]
+name = "vela-core-cli"
+path = "bin/vela-core-cli.rs"

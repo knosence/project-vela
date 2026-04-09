@@ -7,10 +7,13 @@ from typing import Any
 from .agents import SequentialPipeline
 from .config import ensure_bootstrap_files, load_config, missing_required_fields, save_config, setup_complete
 from .governance import append_event, governance_snapshot, record_approval, write_text
+from .matrix import write_matrix_index
 from .models import EventRecord
 from .paths import EVENT_LOG_PATH, REPO_ROOT, STARTER_PATH, VERIFICATION_STATUS_PATH
 from .profiles import activate_profile, list_profiles, register_profile
 from .repo_watch import ingest_release
+
+TEST_SOVEREIGN_TARGET = "knowledge/proposals/TEST.Sovereign-Guardrail-Fixture.md"
 
 
 def _result(name: str, passed: bool, detail: str) -> dict[str, Any]:
@@ -34,10 +37,12 @@ def run_scenario(name: str) -> list[dict[str, Any]]:
 
 def scenario_config_boot() -> list[dict[str, Any]]:
     cfg = load_config()
+    index_result = write_matrix_index()
     return [
         _result("starter-exists", STARTER_PATH.exists(), "Starter file must exist"),
         _result("config-exists", (REPO_ROOT / "runtime/config/project-vela.yaml").exists(), "Config file must exist"),
         _result("setup-required-on-missing-fields", bool(missing_required_fields(cfg)), "Missing required fields should trigger setup mode"),
+        _result("matrix-index-exists", (REPO_ROOT / index_result["path"]).exists(), "Matrix index should exist"),
     ]
 
 
@@ -51,7 +56,7 @@ def scenario_profiles() -> list[dict[str, Any]]:
         _result("custom-profile-active", after["active_profile"] == "custom-vela", "Custom profile should activate"),
         _result(
             "system-sots-unchanged",
-            (REPO_ROOT / "knowledge/cornerstone/100.WHO.System-Identity-SoT.md").exists(),
+            (REPO_ROOT / "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md").exists(),
             "System SoTs should stay intact while profile changes",
         ),
     ]
@@ -63,7 +68,7 @@ def scenario_routing() -> list[dict[str, Any]]:
         task_type="write",
         title="System Identity Update",
         body="## This Proposal Tests Sovereign Guardrails\nAttempted change without approval.",
-        target="knowledge/cornerstone/100.WHO.System-Identity-SoT.md",
+        target=TEST_SOVEREIGN_TARGET,
     )
     normal = pipeline.run(
         task_type="write",
@@ -78,10 +83,10 @@ def scenario_routing() -> list[dict[str, Any]]:
 
 
 def scenario_governance() -> list[dict[str, Any]]:
-    target = "knowledge/cornerstone/500.HOW.System-Governance-SoT.md"
+    target = TEST_SOVEREIGN_TARGET
     denied = write_text(
         target,
-        "# System Governance\n\n## This Attempt Is Missing Human Approval\nThis should be denied.\n",
+        "# Sovereign Guardrail Test\n\n## This Attempt Is Missing Human Approval\nThis should be denied.\n",
         actor="scribe",
         endpoint="verify",
         reason="test missing approval",
@@ -89,7 +94,7 @@ def scenario_governance() -> list[dict[str, Any]]:
     record_approval("appr_test", "approved", "human", "approved for test", target)
     allowed = write_text(
         target,
-        "# System Governance\n\n## This Approved Revision Passes Through Controlled Commit\nThis should be accepted.\n",
+        "# Sovereign Guardrail Test\n\n## This Approved Revision Passes Through Controlled Commit\nThis should be accepted.\n",
         actor="scribe",
         endpoint="verify",
         reason="test approved path",
@@ -106,7 +111,7 @@ def scenario_repo_watch() -> list[dict[str, Any]]:
     target = "knowledge/refs/mock-release-summary.md"
     result = ingest_release(
         {"repo": "openai/openai-python", "version": "1.2.3", "notes": "Breaking API migration required for client construction."},
-        (REPO_ROOT / "knowledge/dimensions/200.WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8"),
+        (REPO_ROOT / "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8"),
         target,
     )
     return [
@@ -155,4 +160,3 @@ def write_verification_report(results: list[dict[str, Any]], scenario: str) -> P
         encoding="utf-8",
     )
     return report_path
-

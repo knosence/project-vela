@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .paths import APPROVALS_PATH, CONFIG_PATH, PROFILE_DIR, STARTER_PATH, VERIFICATION_STATUS_PATH
+from .rust_bridge import validate_config_payload
 from .simple_yaml import dumps, loads
 
 
@@ -50,7 +51,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "reflection_before_mutation": True,
     },
     "repo_watch": {
-        "watchlist_path": "knowledge/dimensions/200.WHAT.Repo-Watchlist-SoT.md",
+        "watchlist_path": "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md",
         "bootstrap": "manual-seed",
     },
     "deployment": {"target": "<required>"},
@@ -69,12 +70,7 @@ def _field_value(data: dict[str, Any], path: tuple[str, str]) -> Any:
 
 
 def missing_required_fields(data: dict[str, Any]) -> list[str]:
-    missing: list[str] = []
-    for path in REQUIRED_FIELDS:
-        value = _field_value(data, path)
-        if value in {None, "", "<required>"}:
-            missing.append(".".join(path))
-    return missing
+    return list(validate_config_payload(data)["missing_fields"])
 
 
 def ensure_bootstrap_files() -> None:
@@ -100,7 +96,8 @@ def save_config(data: dict[str, Any], path: Path = CONFIG_PATH) -> None:
 
 def setup_complete(data: dict[str, Any] | None = None) -> bool:
     cfg = data or load_config()
-    return not missing_required_fields(cfg) and bool(cfg.get("project", {}).get("setup_complete"))
+    payload = validate_config_payload(cfg)
+    return not payload["setup_required"] and bool(cfg.get("project", {}).get("setup_complete"))
 
 
 def set_active_profile(name: str) -> dict[str, Any]:
@@ -108,4 +105,3 @@ def set_active_profile(name: str) -> dict[str, Any]:
     cfg["assistant"]["active_profile"] = name
     save_config(cfg)
     return cfg
-

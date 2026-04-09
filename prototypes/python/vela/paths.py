@@ -11,4 +11,6 @@ EVENT_LOG_PATH = REPO_ROOT / "knowledge" / "logs" / "events.jsonl"
 PROPOSALS_DIR = REPO_ROOT / "knowledge" / "proposals"
 REFS_DIR = REPO_ROOT / "knowledge" / "refs"
 QUEUE_DIR = REPO_ROOT / "runtime" / "queues"
-
+MATRIX_INDEX_PATH = REPO_ROOT / "knowledge" / "refs" / "Index.Project-Vela-Matrix-Ref.md"
+MATRIX_INDEX_JSON_PATH = REPO_ROOT / "runtime" / "config" / "matrix-index.json"
+BACKUP_DIR = REPO_ROOT / "knowledge" / "archive" / "backups"
