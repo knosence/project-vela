@@ -12,6 +12,7 @@ from prototypes.python.vela.matrix import classify_change_zone
 from prototypes.python.vela.matrix import write_matrix_index
 from prototypes.python.vela.paths import EVENT_LOG_PATH, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
+from prototypes.python.vela.repo_watch import assess_breaking_change_risk, assess_local_relevance, parse_watchlist_entries
 from prototypes.python.vela.rust_bridge import route_for_target, validate_config_payload, validate_target as validate_target_payload
 from prototypes.python.vela.server import VelaService
 from prototypes.python.vela.verification import run_scenario
@@ -123,6 +124,19 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(result["ok"])
         self.assertTrue((REPO_ROOT / "knowledge/refs/repo-watch-test.md").exists())
+        self.assertEqual(result["data"]["risk"]["level"], "high")
+        self.assertEqual(result["data"]["relevance"]["level"], "high")
+
+    def test_repo_watch_analysis_uses_watchlist_reasoning(self) -> None:
+        watchlist = (REPO_ROOT / "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8")
+        entries = parse_watchlist_entries(watchlist)
+        risk = assess_breaking_change_risk("Breaking migration removes the old client construction path.")
+        relevance = assess_local_relevance("openai/openai-python", "Client migration for the python sdk responses api.", entries)
+        self.assertEqual(risk["level"], "high")
+        self.assertIn("migration", risk["signals"])
+        self.assertEqual(relevance["level"], "high")
+        self.assertIn("client", relevance["signals"])
+        self.assertIn("Python SDK changes are relevant", relevance["watch_reason"])
 
     def test_narrative_structure(self) -> None:
         result = VelaService().validate({"scope": "repo", "checks": ["narrative"], "mode": "report"})
