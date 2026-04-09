@@ -4,7 +4,7 @@
 These laws sit above convenience and below the cornerstone. They exist so the matrix can be managed deliberately rather than by accident.
 
 ## Law 1 The Matrix Shall Have Exactly One Cornerstone
-The matrix has one root subject and one root file. For Project Vela that root is `knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md`.
+The matrix has one root subject and one root file. In this repository that root is Knosence, and the canonical file is `knowledge/Cornerstone.Knosence-SoT.md`.
 
 ## Law 2 Every Non Cornerstone Source of Truth Shall Declare One Parent
 Lineage is not optional. Every non-cornerstone SoT must name a single parent so the tree stays navigable and the matrix can be indexed reliably.
@@ -20,3 +20,6 @@ Changes to the cornerstone, identity SoTs, watchlist sovereignty, and matrix law
 
 ## Law 6 Branch Sources of Truth Shall Prefer Hub Lineage Over Direct Root Attachment
 Dimension hubs may attach directly to the cornerstone because they are the branch points. Ordinary branch SoTs should attach to the relevant dimension hub or governed local parent instead of pointing straight to the cornerstone when a hub-level parent exists.
+
+## Law 7 Canonical Sources of Truth Shall Stay Flat While Non Canonical Artifacts Stay Segregated
+Canonical SoTs belong directly under `knowledge/`. Operational refs, proposals, logs, archives, and templates belong under `knowledge/ARTIFACTS/`, while intake belongs under `knowledge/INBOX/`.

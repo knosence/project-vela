@@ -89,7 +89,7 @@ class Grower:
         assessment = assess_growth(target)
         body = render_growth_proposal(route, target, assessment)
         critique = Reflector().critique(body, "growth-proposal")
-        proposal_target = f"knowledge/proposals/pending-{route}.md"
+        proposal_target = f"knowledge/ARTIFACTS/proposals/pending-{route}.md"
         findings = [item.as_dict() for item in Warden().validate(body, proposal_target)]
         return propose_growth(route, target, body, critique, findings)
 

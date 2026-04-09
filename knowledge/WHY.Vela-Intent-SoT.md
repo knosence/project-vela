@@ -22,7 +22,7 @@ tags: ["agent","intent","sot"]
 ### Links
 
 - Parent: [[WHO.Vela-Identity-SoT#600.WHY.Compass]]
-- Cornerstone: [[Cornerstone.Project-Vela-SoT]]
+- Cornerstone: [[Cornerstone.Knosence-SoT]]
 
 ### Inbox
 

@@ -119,12 +119,12 @@ tags: [\"repo-watch\",\"release\",\"reference\"]\n\
 ## This Reference Declares the Release Packet and the Review Chain\n\
 The packet exists.\n\n\
 ## This Reference Links the Governing Inputs and Outputs\n\
-- Packet: `knowledge/refs/x.packet.json`\n\n\
+- Packet: `knowledge/ARTIFACTS/refs/x.packet.json`\n\n\
 ## This Reference States the Release Judgment Clearly\n\
 - Breaking change risk: `high`\n";
 
         let (reference, findings) =
-            inspect_reference("knowledge/refs/Ref.example.Release-Intelligence.md", text);
+            inspect_reference("knowledge/ARTIFACTS/refs/Ref.example.Release-Intelligence.md", text);
 
         assert!(findings.is_empty());
         let reference = reference.expect("reference should parse");
@@ -146,7 +146,7 @@ tags: [\"repo-watch\",\"release\",\"reference\"]\n\
 # Release Intelligence openai/openai-python 1.2.3\n";
 
         let (_, findings) =
-            inspect_reference("knowledge/refs/Ref.example.Release-Intelligence.md", text);
+            inspect_reference("knowledge/ARTIFACTS/refs/Ref.example.Release-Intelligence.md", text);
 
         assert!(findings
             .iter()

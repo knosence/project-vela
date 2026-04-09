@@ -67,7 +67,7 @@ class MatrixReference:
 
 def _reference_payloads() -> list[dict[str, Any]]:
     payloads: list[dict[str, Any]] = []
-    for path in sorted((REPO_ROOT / "knowledge" / "refs").glob("Ref.*.md")):
+    for path in sorted((REPO_ROOT / "knowledge" / "ARTIFACTS" / "refs").glob("Ref.*.md")):
         if path == MATRIX_INDEX_PATH:
             continue
         text = path.read_text(encoding="utf-8")
@@ -252,13 +252,13 @@ def render_matrix_index(entries: list[MatrixSoT], refs: list[MatrixReference]) -
         "sot-type: reference",
         "created: 2026-04-08",
         "last-rewritten: 2026-04-08",
-        'parent: "[[Cornerstone.Project-Vela-SoT#000.Index]]"',
+        'parent: "[[Cornerstone.Knosence-SoT#000.Index]]"',
         "domain: matrix",
         "status: active",
         'tags: ["matrix","index","reference","registry"]',
         "---",
         "",
-        "# Project Vela Matrix Index",
+        "# Knosence Matrix Index",
         "",
         "## This Registry Gives a Top Level View of Every Source of Truth in the Matrix",
         "The index layer exists so the system can see the matrix as a whole, keep track of canonical homes, and verify that the tree still respects the root, parent, and indexing laws.",
@@ -299,7 +299,7 @@ def render_matrix_index(entries: list[MatrixSoT], refs: list[MatrixReference]) -
     lines.extend(
         [
             "## This Registry Points Back to the Root and the Governing Laws",
-            "- Root: [[Cornerstone.Project-Vela-SoT]]",
+            "- Root: [[Cornerstone.Knosence-SoT]]",
             "- Laws: `docs/directives/matrix-laws.md`",
             "",
         ]

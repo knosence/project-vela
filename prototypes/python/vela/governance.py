@@ -59,7 +59,7 @@ def record_approval(approval_id: str, decision: str, actor: str, reason: str, ta
 
 
 def narrative_findings(text: str) -> list[ValidationFinding]:
-    payload = rust_validate_target("knowledge/refs/narrative-check.md", text, "approved")
+    payload = rust_validate_target("knowledge/ARTIFACTS/refs/narrative-check.md", text, "approved")
     return annotate_findings(
         [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
     )
@@ -444,7 +444,7 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
 
     if stage == "reference-note":
         ref_stem = stem[:-4] if stem.endswith("-SoT") else stem
-        execution_target = f"knowledge/refs/Ref.{ref_stem}.md"
+        execution_target = f"knowledge/ARTIFACTS/refs/Ref.{ref_stem}.md"
         extracted = _extract_reference_entries(source_text)
         content = _render_reference_note(
             execution_target=execution_target,
@@ -467,7 +467,7 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
         content = _render_spawned_sot(execution_target, assessed_target, proposal_target, created)
         return {"target": execution_target, "content": content, "kind": "spawned-sot"}
 
-    execution_target = f"knowledge/proposals/Applied.{proposal_name}.md"
+    execution_target = f"knowledge/ARTIFACTS/proposals/Applied.{proposal_name}.md"
     content = (
         "# Applied Growth Action\n\n"
         "## This Artifact Records the Governed Structural Action Chosen from the Growth Proposal\n"
@@ -505,7 +505,7 @@ def _render_spawned_sot(execution_target: str, assessed_target: str, proposal_ta
         f"- Parent: [[{parent_name}]]\n"
         f"- Source Branch: [[{parent_name}]]\n"
         f"- Source Target: `{assessed_target}`\n"
-        "- Cornerstone: [[Cornerstone.Project-Vela-SoT]]\n"
+        "- Cornerstone: [[Cornerstone.Knosence-SoT]]\n"
         f"- Proposal: `{proposal_target}`\n\n"
         "### Inbox\n\n"
         "No pending items.\n\n"

@@ -4,5 +4,4 @@ base_profile: base
 replaceable: true
 system_owned: false
 persona_path: runtime/personas/vela
-agent_sot_path: knowledge/agents/vela
-
+agent_sot_path: knowledge

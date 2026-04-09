@@ -107,7 +107,7 @@ def build_release_intelligence_ref(
         f"- Reflection: `{reflection_target}`\n"
         f"- Validation: `{validation_target}`\n"
         f"- Summary: `{summary_target}`\n"
-        "- Parent watchlist: `knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md`\n\n"
+        "- Parent watchlist: `knowledge/WHAT.Repo-Watchlist-SoT.md`\n\n"
         "## This Reference States the Release Judgment Clearly\n"
         f"- Watched repo: `{'yes' if assessment['watched'] else 'no'}`\n"
         f"- Breaking change risk: `{assessment['risk']['level']}`\n"
@@ -133,7 +133,7 @@ def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> 
         "version": packet.get("version", "unknown"),
         "notes": packet.get("notes", "No release notes provided."),
         "target": target,
-        "watchlist_target": "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md",
+        "watchlist_target": "knowledge/WHAT.Repo-Watchlist-SoT.md",
         "context_markers": local_context_markers(),
     }
     packet_result = write_text(

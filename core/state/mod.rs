@@ -27,11 +27,11 @@ mod tests {
     fn write_state_enforces_single_writer_discipline() {
         let mut state = WriteState::default();
 
-        assert!(state.acquire("knowledge/refs/test.md"));
-        assert!(state.is_locked("knowledge/refs/test.md"));
-        assert!(!state.acquire("knowledge/refs/test.md"));
-        assert!(state.release("knowledge/refs/test.md"));
-        assert!(!state.is_locked("knowledge/refs/test.md"));
+        assert!(state.acquire("knowledge/ARTIFACTS/refs/test.md"));
+        assert!(state.is_locked("knowledge/ARTIFACTS/refs/test.md"));
+        assert!(!state.acquire("knowledge/ARTIFACTS/refs/test.md"));
+        assert!(state.release("knowledge/ARTIFACTS/refs/test.md"));
+        assert!(!state.is_locked("knowledge/ARTIFACTS/refs/test.md"));
     }
 }
 

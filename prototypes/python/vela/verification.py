@@ -13,7 +13,7 @@ from .paths import EVENT_LOG_PATH, REPO_ROOT, STARTER_PATH, VERIFICATION_STATUS_
 from .profiles import activate_profile, list_profiles, register_profile
 from .repo_watch import ingest_release
 
-TEST_SOVEREIGN_TARGET = "knowledge/proposals/TEST.Sovereign-Guardrail-Fixture.md"
+TEST_SOVEREIGN_TARGET = "knowledge/ARTIFACTS/proposals/TEST.Sovereign-Guardrail-Fixture.md"
 
 
 def _result(name: str, passed: bool, detail: str) -> dict[str, Any]:
@@ -56,7 +56,7 @@ def scenario_profiles() -> list[dict[str, Any]]:
         _result("custom-profile-active", after["active_profile"] == "custom-vela", "Custom profile should activate"),
         _result(
             "system-sots-unchanged",
-            (REPO_ROOT / "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md").exists(),
+            (REPO_ROOT / "knowledge/Cornerstone.Knosence-SoT.md").exists(),
             "System SoTs should stay intact while profile changes",
         ),
     ]
@@ -74,7 +74,7 @@ def scenario_routing() -> list[dict[str, Any]]:
         task_type="write",
         title="Operational Note",
         body="## This Note Documents a Non Sovereign Change\nThe pipeline should allow this draft to commit.",
-        target="knowledge/refs/operational-note.md",
+        target="knowledge/ARTIFACTS/refs/operational-note.md",
     )
     return [
         _result("reject-unsafe-direct-commit", not sovereign.committed, "Sovereign route should refuse unapproved commit"),
@@ -108,10 +108,10 @@ def scenario_governance() -> list[dict[str, Any]]:
 
 
 def scenario_repo_watch() -> list[dict[str, Any]]:
-    target = "knowledge/proposals/repo-watch-scenario-test.md"
+    target = "knowledge/ARTIFACTS/proposals/repo-watch-scenario-test.md"
     result = ingest_release(
         {"repo": "openai/openai-python", "version": "1.2.3", "notes": "Breaking API migration required for client construction."},
-        (REPO_ROOT / "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8"),
+        (REPO_ROOT / "knowledge/WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8"),
         target,
     )
     return [
@@ -156,7 +156,7 @@ def scenario_full() -> list[dict[str, Any]]:
 
 
 def write_verification_report(results: list[dict[str, Any]], scenario: str) -> Path:
-    report_dir = REPO_ROOT / "knowledge" / "refs"
+    report_dir = REPO_ROOT / "knowledge" / "ARTIFACTS" / "refs"
     report_dir.mkdir(parents=True, exist_ok=True)
     report_path = report_dir / f"verification-{scenario}.json"
     report_path.write_text(json.dumps(results, indent=2), encoding="utf-8")

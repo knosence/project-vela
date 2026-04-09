@@ -212,7 +212,7 @@ def _inventory_role_for_target(target: str) -> str:
         if str(item.get("path", "")) == target:
             return str(item.get("inventory_role", "branch-sot"))
     name = Path(target).name
-    if name == "Cornerstone.Project-Vela-SoT.md":
+    if name == "Cornerstone.Knosence-SoT.md":
         return "cornerstone"
     if name.startswith("WHO.") or "Identity-SoT" in name:
         return "agent-identity"

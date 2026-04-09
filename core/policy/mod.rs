@@ -3,9 +3,9 @@ use crate::models::ValidationFinding;
 
 pub fn is_sovereign_target(path: &str) -> bool {
     matches!(inferred_inventory_role_for_path(path), Some("cornerstone" | "agent-identity"))
-        || path == "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md"
-        || path == "knowledge/proposals/TEST.Sovereign-Guardrail-Fixture.md"
-        || path == "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md"
+        || path == "knowledge/Cornerstone.Knosence-SoT.md"
+        || path == "knowledge/ARTIFACTS/proposals/TEST.Sovereign-Guardrail-Fixture.md"
+        || path == "knowledge/WHAT.Repo-Watchlist-SoT.md"
 }
 
 pub fn requires_human_approval(path: &str) -> bool {
@@ -44,25 +44,25 @@ mod tests {
     #[test]
     fn sovereign_targets_require_approval() {
         let findings = validate_commit_policy(
-            "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md",
+            "knowledge/Cornerstone.Knosence-SoT.md",
             false,
         );
 
-        assert_eq!(route_for_target("write", "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md"), "sovereign-change");
+        assert_eq!(route_for_target("write", "knowledge/Cornerstone.Knosence-SoT.md"), "sovereign-change");
         assert!(findings.iter().any(|item| item.code == "SOVEREIGN_APPROVAL_REQUIRED"));
     }
 
     #[test]
     fn repo_release_routes_to_repo_watch() {
         assert_eq!(
-            route_for_target("repo-release", "knowledge/refs/repo-watch.md"),
+            route_for_target("repo-release", "knowledge/ARTIFACTS/refs/repo-watch.md"),
             "repo-watch"
         );
     }
 
     #[test]
     fn standard_targets_can_commit_without_approval() {
-        let findings = validate_commit_policy("knowledge/refs/operational-note.md", false);
+        let findings = validate_commit_policy("knowledge/ARTIFACTS/refs/operational-note.md", false);
         assert!(findings.is_empty());
     }
 }

@@ -122,7 +122,7 @@ mod tests {
             "vela",
             "verify",
             "scribe",
-            "knowledge/refs/test.md",
+            "knowledge/ARTIFACTS/refs/test.md",
             "committed",
             "test write",
         );

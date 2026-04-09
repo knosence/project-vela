@@ -12,12 +12,25 @@ pub fn discover_matrix_inventory(root: &Path) -> (Vec<MatrixSoT>, Vec<GovernedRe
 
 pub fn inventory_area_for_path(path: &str) -> Option<&'static str> {
     let normalized = path.replace('\\', "/");
-    if normalized.starts_with("knowledge/cornerstone/") {
+    if normalized == "knowledge/Cornerstone.Knosence-SoT.md" {
         Some("cornerstone")
-    } else if normalized.starts_with("knowledge/dimensions/") {
-        Some("dimensions")
-    } else if normalized.starts_with("knowledge/agents/") {
-        Some("agents")
+    } else if normalized.starts_with("knowledge/ARTIFACTS/refs/") {
+        Some("references")
+    } else if normalized.starts_with("knowledge/ARTIFACTS/") {
+        Some("artifacts")
+    } else if normalized.starts_with("knowledge/INBOX/") {
+        Some("inbox")
+    } else if normalized.starts_with("knowledge/") && normalized.ends_with("-SoT.md") {
+        let name = normalized.rsplit('/').next().unwrap_or(normalized.as_str());
+        if is_dimension_hub_name(name) {
+            Some("dimensions")
+        } else if name.starts_with("WHO.") && name.contains("Identity-SoT") {
+            Some("agents")
+        } else {
+            Some("knowledge")
+        }
+    } else if normalized.starts_with("knowledge/") {
+        Some("knowledge")
     } else {
         None
     }
@@ -25,13 +38,16 @@ pub fn inventory_area_for_path(path: &str) -> Option<&'static str> {
 
 pub fn inventory_role_for_path(path: &str) -> Option<&'static str> {
     let area = inventory_area_for_path(path)?;
+    if matches!(area, "artifacts" | "references" | "inbox") {
+        return None;
+    }
     Some(classify_sot_role(path, area))
 }
 
 pub fn inferred_inventory_role_for_path(path: &str) -> Option<&'static str> {
     inventory_role_for_path(path).or_else(|| {
         let name = path.rsplit('/').next().unwrap_or(path);
-        if name == "Cornerstone.Project-Vela-SoT.md" {
+        if name == "Cornerstone.Knosence-SoT.md" {
             Some("cornerstone")
         } else if (name.starts_with("WHO.") || name.contains("Identity-SoT")) && name.ends_with(".md") {
             Some("agent-identity")
@@ -52,22 +68,18 @@ fn discover_sots(root: &Path) -> Vec<MatrixSoT> {
 
     let mut entries = Vec::new();
     for path in paths {
-        if !path.to_string_lossy().ends_with("-SoT.md") {
+        if path.parent() != Some(&root.join("knowledge")) || !path.to_string_lossy().ends_with("-SoT.md") {
             continue;
         }
         let rel = relative_path(root, &path);
-        let mut parts = rel.split('/');
-        if parts.next() != Some("knowledge") {
-            continue;
-        }
-        let area = parts.next().unwrap_or_default().to_string();
-        if !matches!(area.as_str(), "cornerstone" | "dimensions" | "agents") {
+        if !rel.starts_with("knowledge/") {
             continue;
         }
         let Ok(text) = fs::read_to_string(&path) else {
             continue;
         };
         let frontmatter = parse_frontmatter(&text);
+        let area = inventory_area_for_path(&rel).unwrap_or("knowledge").to_string();
         let inventory_role = classify_sot_role(&rel, &area).to_string();
         entries.push(MatrixSoT {
             path: rel.clone(),
@@ -78,7 +90,7 @@ fn discover_sots(root: &Path) -> Vec<MatrixSoT> {
             domain: frontmatter_value(&frontmatter, "domain").unwrap_or("unknown").to_string(),
             status: frontmatter_value(&frontmatter, "status").unwrap_or("unknown").to_string(),
             area,
-            is_cornerstone: rel.ends_with("Cornerstone.Project-Vela-SoT.md"),
+            is_cornerstone: rel.ends_with("Cornerstone.Knosence-SoT.md"),
         });
     }
     entries
@@ -86,14 +98,14 @@ fn discover_sots(root: &Path) -> Vec<MatrixSoT> {
 
 fn discover_references(root: &Path) -> (Vec<GovernedReference>, Vec<ValidationFinding>) {
     let mut paths = Vec::new();
-    collect_files(&root.join("knowledge/refs"), &mut paths);
+    collect_files(&root.join("knowledge/ARTIFACTS/refs"), &mut paths);
     paths.sort();
 
     let mut references = Vec::new();
     let mut findings = Vec::new();
     for path in paths {
         let name = path.file_name().and_then(|item| item.to_str()).unwrap_or_default();
-        if !name.starts_with("Ref.") || !name.ends_with(".md") || name == "Index.Project-Vela-Matrix-Ref.md" {
+        if !name.starts_with("Ref.") || !name.ends_with(".md") || name == "Index.Knosence-Matrix-Ref.md" {
             continue;
         }
         let rel = relative_path(root, &path);
@@ -111,7 +123,7 @@ fn discover_references(root: &Path) -> (Vec<GovernedReference>, Vec<ValidationFi
 }
 
 fn classify_sot_role(path: &str, area: &str) -> &'static str {
-    if path.ends_with("Cornerstone.Project-Vela-SoT.md") {
+    if path.ends_with("Cornerstone.Knosence-SoT.md") {
         return "cornerstone";
     }
     if area == "dimensions" && is_dimension_hub(path) {
@@ -125,6 +137,10 @@ fn classify_sot_role(path: &str, area: &str) -> &'static str {
 
 fn is_dimension_hub(path: &str) -> bool {
     let name = path.rsplit('/').next().unwrap_or(path);
+    is_dimension_hub_name(name)
+}
+
+fn is_dimension_hub_name(name: &str) -> bool {
     let bytes = name.as_bytes();
     bytes.len() >= 12
         && bytes[0].is_ascii_digit()

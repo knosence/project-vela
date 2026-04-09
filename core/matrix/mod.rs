@@ -51,7 +51,7 @@ pub fn build_matrix_index(root: &Path) -> (Vec<MatrixSoT>, Vec<GovernedReference
 
 pub fn validate_sot_structure(path: &str, text: &str) -> Vec<ValidationFinding> {
     let frontmatter = parse_frontmatter(text);
-    let is_cornerstone = path.ends_with("Cornerstone.Project-Vela-SoT.md");
+    let is_cornerstone = path.ends_with("Cornerstone.Knosence-SoT.md");
     let mut findings = Vec::new();
 
     for field in REQUIRED_FRONTMATTER_FIELDS {
@@ -132,7 +132,10 @@ pub fn validate_parent_consistency(path: &str, text: &str) -> Vec<ValidationFind
             _ => inferred_inventory_role_for_path(path),
         })
         .unwrap_or("branch-sot");
-    let area = inventory_area_for_path(path).unwrap_or(domain);
+    let area = match inventory_area_for_path(path) {
+        Some("knowledge") | Some("artifacts") | None => domain,
+        Some(area) => area,
+    };
     let is_cornerstone = inventory_role == "cornerstone";
 
     let mut findings = Vec::new();
@@ -155,7 +158,7 @@ pub fn validate_parent_consistency(path: &str, text: &str) -> Vec<ValidationFind
     }
 
     if requires_hub_parent(inventory_role, area)
-        && fm_parent.contains("cornerstone.project-vela-sot#")
+        && fm_parent.contains("cornerstone.knosence-sot#")
     {
         findings.push(ValidationFinding::error(
             "MATRIX_HUB_PARENT_REQUIRED",
@@ -257,13 +260,13 @@ fn render_matrix_index(entries: &[MatrixSoT], refs: &[GovernedReference]) -> Str
         "sot-type: reference".to_string(),
         "created: 2026-04-08".to_string(),
         "last-rewritten: 2026-04-08".to_string(),
-        "parent: \"[[Cornerstone.Project-Vela-SoT#000.Index]]\"".to_string(),
+        "parent: \"[[Cornerstone.Knosence-SoT#000.Index]]\"".to_string(),
         "domain: matrix".to_string(),
         "status: active".to_string(),
         "tags: [\"matrix\",\"index\",\"reference\",\"registry\"]".to_string(),
         "---".to_string(),
         "".to_string(),
-        "# Project Vela Matrix Index".to_string(),
+        "# Knosence Matrix Index".to_string(),
         "".to_string(),
         "## This Registry Gives a Top Level View of Every Source of Truth in the Matrix".to_string(),
         "The index layer exists so the system can see the matrix as a whole, keep track of canonical homes, and verify that the tree still respects the root, parent, and indexing laws.".to_string(),
@@ -276,7 +279,7 @@ fn render_matrix_index(entries: &[MatrixSoT], refs: &[GovernedReference]) -> Str
         "".to_string(),
     ];
 
-    for area in ["agents", "cornerstone", "dimensions"] {
+    for area in ["agents", "cornerstone", "dimensions", "knowledge"] {
         let area_entries: Vec<&MatrixSoT> = entries.iter().filter(|item| item.area == area).collect();
         if area_entries.is_empty() {
             continue;
@@ -312,7 +315,7 @@ fn render_matrix_index(entries: &[MatrixSoT], refs: &[GovernedReference]) -> Str
 
     lines.extend([
         "## This Registry Points Back to the Root and the Governing Laws".to_string(),
-        "- Root: [[Cornerstone.Project-Vela-SoT]]".to_string(),
+        "- Root: [[Cornerstone.Knosence-SoT]]".to_string(),
         "- Laws: `docs/directives/matrix-laws.md`".to_string(),
         "".to_string(),
     ]);
@@ -429,7 +432,7 @@ mod tests {
 sot-type: system\n\
 created: 2026-04-08\n\
 last-rewritten: 2026-04-08\n\
-parent: \"[[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]\"\n\
+parent: \"[[Cornerstone.Knosence-SoT#100.WHO.Circle]]\"\n\
 domain: agents\n\
 status: active\n\
 tags: [\"agent\"]\n\
@@ -437,9 +440,9 @@ tags: [\"agent\"]\n\
 # Example\n\n\
 ## 000.Index\n\n\
 ### Subject Declaration\n\n\
-**Parent:** [[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]\n";
+**Parent:** [[Cornerstone.Knosence-SoT#100.WHO.Circle]]\n";
 
-        let findings = validate_parent_consistency("knowledge/agents/example/WHO.Example-Identity-SoT.md", text);
+        let findings = validate_parent_consistency("knowledge/WHO.Example-Identity-SoT.md", text);
         assert!(findings.iter().any(|item| item.code == "MATRIX_HUB_PARENT_REQUIRED"));
     }
 
@@ -449,7 +452,7 @@ tags: [\"agent\"]\n\
 sot-type: dimension\n\
 created: 2026-04-08\n\
 last-rewritten: 2026-04-08\n\
-parent: \"[[Cornerstone.Project-Vela-SoT#200.WHAT.Domain]]\"\n\
+parent: \"[[Cornerstone.Knosence-SoT#200.WHAT.Domain]]\"\n\
 domain: dimensions\n\
 status: active\n\
 tags: [\"dimension\"]\n\
@@ -457,9 +460,9 @@ tags: [\"dimension\"]\n\
 # Example\n\n\
 ## 000.Index\n\n\
 ### Subject Declaration\n\n\
-**Parent:** [[Cornerstone.Project-Vela-SoT#200.WHAT.Domain]]\n";
+**Parent:** [[Cornerstone.Knosence-SoT#200.WHAT.Domain]]\n";
 
-        let findings = validate_parent_consistency("knowledge/dimensions/WHAT.Example-Branch-SoT.md", text);
+        let findings = validate_parent_consistency("knowledge/WHAT.Example-Branch-SoT.md", text);
         assert!(findings.iter().any(|item| item.code == "MATRIX_HUB_PARENT_REQUIRED"));
     }
 
@@ -467,7 +470,7 @@ tags: [\"dimension\"]\n\
     fn rejects_missing_required_frontmatter_and_headings() {
         let text = "# Example\n\n## 000.Index\n\n### Subject Declaration\n\n**Parent:** None\n";
 
-        let findings = validate_sot_structure("knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md", text);
+        let findings = validate_sot_structure("knowledge/Cornerstone.Knosence-SoT.md", text);
         assert!(findings.iter().any(|item| item.code == "MATRIX_FRONTMATTER_REQUIRED"));
         assert!(findings.iter().any(|item| item.code == "MATRIX_HEADING_REQUIRED"));
     }
@@ -536,7 +539,7 @@ Compass preserves purpose and refusal.\n\n\
 ## 700.Archive\n\n\
 Archive preserves extracted history.\n";
 
-        let findings = validate_sot_structure("knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md", text);
+        let findings = validate_sot_structure("knowledge/Cornerstone.Knosence-SoT.md", text);
         assert!(findings.iter().any(|item| item.code == "MATRIX_ACTIVE_SECTION_REQUIRED"));
         assert!(findings.iter().any(|item| item.code == "MATRIX_INACTIVE_SECTION_REQUIRED"));
     }
@@ -547,8 +550,8 @@ Archive preserves extracted history.\n";
         let (entries, references, findings, markdown, snapshot_json) = build_matrix_index(root);
 
         assert!(!entries.is_empty());
-        assert!(markdown.contains("Project Vela Matrix Index"));
-        assert!(markdown.contains("Cornerstone.Project-Vela-SoT"));
+        assert!(markdown.contains("Knosence Matrix Index"));
+        assert!(markdown.contains("Cornerstone.Knosence-SoT"));
         assert!(snapshot_json.contains("\"entries\""));
         assert!(snapshot_json.contains("\"references\""));
         assert!(findings.is_empty() || findings.iter().all(|item| !item.code.is_empty()));

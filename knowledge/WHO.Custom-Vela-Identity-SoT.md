@@ -2,7 +2,7 @@
 sot-type: system
 created: 2026-04-08
 last-rewritten: 2026-04-08
-parent: "[[100.WHO.Circle-SoT#100.WHO.Identity]]"
+parent: "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]"
 domain: agents
 status: active
 tags: ["agent","identity","sot"]
@@ -14,16 +14,17 @@ tags: ["agent","identity","sot"]
 
 ### Subject Declaration
 
-**Subject:** Custom Vela is a replaceable assistant identity bound to the Project Vela system.
+**Subject:** Custom Vela is a replaceable assistant identity inside Knosence's shared knowledge matrix.
 **Type:** system
 **Created:** 2026-04-08
-**Parent:** [[100.WHO.Circle-SoT#100.WHO.Identity]]
+**Parent:** [[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]
 
 ### Links
 
-- Parent: [[100.WHO.Circle-SoT#100.WHO.Identity]]
+- Parent: [[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]
 - WHO hub: [[100.WHO.Circle-SoT]]
-- Cornerstone: [[Cornerstone.Project-Vela-SoT]]
+- Cornerstone: [[Cornerstone.Knosence-SoT]]
+- WHAT hub: [[200.WHAT.Domain-SoT]]
 
 ### Inbox
 
@@ -46,6 +47,7 @@ Active replaceable profile identity.
 ### Decisions
 
 - [2026-04-08] Profile identity SoT created.
+- [2026-04-08] Custom Vela remains a branch identity rather than the matrix cornerstone.
 
 ### Block Map — Single Source
 
@@ -66,8 +68,8 @@ Active replaceable profile identity.
 
 ### Active
 
-- custom-vela derives from `vela` and remains subordinate to system governance. (2026-04-08)
-  - This profile can become active without replacing the system root. [AGENT:gpt-5]
+- custom-vela derives from `vela` and remains a shared-knowledge agent branch under Knosence. (2026-04-08)
+  - The active profile may change without changing the human-root cornerstone. [AGENT:gpt-5]
 
 ### Inactive
 
@@ -79,8 +81,8 @@ Active replaceable profile identity.
 
 ### Active
 
-- Custom Vela defines a replaceable assistant binding. (2026-04-08)
-  - The profile exists as a branch identity in the matrix rather than as a second cornerstone. [AGENT:gpt-5]
+- Custom Vela defines a replaceable assistant binding inside one of Knosence's governed domains. (2026-04-08)
+  - The profile exists as a branch identity in a shared matrix rather than as a separate knowledge tree. [AGENT:gpt-5]
 
 ### Inactive
 
@@ -92,8 +94,8 @@ Active replaceable profile identity.
 
 ### Active
 
-- The persona manifest lives under `runtime/personas/custom-vela` and its identity SoT lives here. (2026-04-08)
-  - The profile has one home in runtime and one SoT home in knowledge. [AGENT:gpt-5]
+- The persona manifest lives under `runtime/personas/custom-vela` and its identity SoT lives in the flat `knowledge/` root. (2026-04-08)
+  - Runtime assets stay separated from shared knowledge while the SoT root remains flat. [AGENT:gpt-5]
 
 ### Inactive
 

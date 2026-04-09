@@ -2,7 +2,7 @@
 sot-type: dimension
 created: 2026-04-08
 last-rewritten: 2026-04-08
-parent: "[[200.WHAT.Domain-SoT#200.WHAT.Domain]]"
+parent: "[[200.WHAT.Domain-SoT#200.WHAT.Domains]]"
 domain: dimensions
 status: active
 tags: ["watchlist","repo","sot"]
@@ -14,16 +14,16 @@ tags: ["watchlist","repo","sot"]
 
 ### Subject Declaration
 
-**Subject:** This SoT defines the canonical repo watch scope for Project Vela.
+**Subject:** This SoT defines the canonical repo watch scope for Knosence.
 **Type:** dimension
 **Created:** 2026-04-08
-**Parent:** [[200.WHAT.Domain-SoT#200.WHAT.Domain]]
+**Parent:** [[200.WHAT.Domain-SoT#200.WHAT.Domains]]
 
 ### Links
 
-- Parent: [[200.WHAT.Domain-SoT#200.WHAT.Domain]]
+- Parent: [[200.WHAT.Domain-SoT#200.WHAT.Domains]]
 - Dimension hub: [[200.WHAT.Domain-SoT]]
-- Cornerstone: [[Cornerstone.Project-Vela-SoT]]
+- Cornerstone: [[Cornerstone.Knosence-SoT]]
 
 ### Inbox
 
@@ -66,7 +66,7 @@ Repo watch scope is active.
 
 ### Active
 
-- Project Vela owns this watchlist as the canonical home for repo monitoring scope. (2026-04-08)
+- Knosence owns this watchlist as the canonical home for repo monitoring scope. (2026-04-08)
   - The watchlist belongs to the system root rather than to a transient workflow. [AGENT:gpt-5]
 
 ### Inactive

@@ -1,10 +1,13 @@
 # Vela Matrix Constitution
 
-## This Constitution Maps the Universal Matrix Framework Onto Project Vela as a Local Jurisdiction
-The Matrix build kit is the governing framework. Project Vela is an implementation that applies that framework inside a governed assistant repository. Where the framework speaks universally, this constitution states how Vela obeys it concretely.
+## This Constitution Maps the Universal Matrix Framework Onto Knosence's Shared Knowledge Jurisdiction
+The Matrix build kit is the governing framework. Project Vela is one governed domain inside Knosence's repository and shared matrix. Where the framework speaks universally, this constitution states how this repository obeys it concretely.
 
-## This Constitution Establishes the Local Root, Registry, and Sovereign Surfaces
-The single cornerstone is [Cornerstone.Project-Vela-SoT.md](/home/knosence/vela/knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md). The top-level registry is [Index.Project-Vela-Matrix-Ref.md](/home/knosence/vela/knowledge/refs/Index.Project-Vela-Matrix-Ref.md). Sovereign surfaces include the cornerstone, identity SoTs, the canonical watchlist SoT, and local matrix laws.
+## This Constitution Establishes the Human Root, Registry, and Sovereign Surfaces
+The single cornerstone is [Cornerstone.Knosence-SoT.md](/home/knosence/vela/knowledge/Cornerstone.Knosence-SoT.md). The top-level registry is [Index.Knosence-Matrix-Ref.md](/home/knosence/vela/knowledge/ARTIFACTS/refs/Index.Knosence-Matrix-Ref.md). Sovereign surfaces include the cornerstone, identity SoTs, the canonical watchlist SoT, and local matrix laws.
+
+## This Constitution Keeps Sources of Truth Flat and Moves Operational Exhaust Elsewhere
+Canonical SoTs live directly under [knowledge](/home/knosence/vela/knowledge). Non-canonical artifacts such as refs, proposals, logs, archives, and templates live under [ARTIFACTS](/home/knosence/vela/knowledge/ARTIFACTS), and intake lands in [INBOX](/home/knosence/vela/knowledge/INBOX).
 
 ## This Constitution Registers Governed References Without Confusing Them for Sources of Truth
 SoTs remain the constitutional tree. Governed references such as release-intelligence refs are indexed as review surfaces with explicit parents, but they do not become root authorities or substitute for a SoT.

@@ -1,0 +1,135 @@
+---
+sot-type: system
+created: 2026-04-08
+last-rewritten: 2026-04-08
+parent: "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]"
+domain: agents
+status: active
+tags: ["agent","identity","vela","shared-knowledge","sot"]
+---
+
+# Vela Identity Source of Truth
+
+## 000.Index
+
+### Subject Declaration
+
+**Subject:** Vela is the default bundled assistant identity inside Knosence's Knosence domain.
+**Type:** system
+**Created:** 2026-04-08
+**Parent:** [[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]
+
+### Links
+
+- Parent: [[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]
+- WHO hub: [[100.WHO.Circle-SoT]]
+- Cornerstone: [[Cornerstone.Knosence-SoT]]
+- Knosence domain: [[200.WHAT.Domain-SoT#200.WHAT.Domains]]
+- Capabilities: [[WHAT.Vela-Capabilities-SoT]]
+- Intent: [[WHY.Vela-Intent-SoT]]
+
+### Inbox
+
+No pending items.
+
+### Status
+
+Vela is active as the default bundled profile and shares the matrix with the human root.
+
+### Open Questions
+
+- How much of Vela's branch should stay identity-level before it needs narrower child SoTs? (2026-04-08)
+  - Identity should stay compact even in a shared matrix. [AGENT:gpt-5]
+
+### Next Actions
+
+- Keep Vela aligned with governed profile activation and the shared-knowledge root model. (2026-04-08)
+  - The branch should stay close to Knosence without confusing branch authority for constitutional authority. [AGENT:gpt-5]
+
+### Decisions
+
+- [2026-04-08] Vela remains the default bundled assistant profile.
+- [2026-04-08] Vela's knowledge and Knosence's knowledge now share one canonical matrix.
+
+### Block Map — Single Source
+
+| ID | Question | Dimension | This SoT's Name |
+|----|----------|-----------|-----------------|
+| 000 | — | Index | Index |
+| 100 | Who | Identity | Identity |
+| 200 | What | Scope | Scope |
+| 300 | Where | Placement | Placement |
+| 400 | When | Timeline | Timeline |
+| 500 | How | Operation | Operation |
+| 600 | Why/Not | Rationale | Rationale |
+| 700 | — | Archive | Archive |
+
+## 100.WHO.Identity
+
+### Active
+
+- Vela is the default installed assistant profile under Knosence. (2026-04-08)
+  - The profile is close to the human root without replacing it. [HUMAN]
+
+### Inactive
+
+(No inactive entries.)
+
+## 200.WHAT.Scope
+
+### Active
+
+- Vela is an agent branch in the shared matrix and belongs to the Knosence domain. (2026-04-08)
+  - The assistant no longer carries a separate private knowledge tree. [HUMAN]
+
+### Inactive
+
+(No inactive entries.)
+
+## 300.WHERE.Placement
+
+### Active
+
+- Vela's persona assets live in `runtime/personas/vela` and its SoTs live in the flat `knowledge/` root. (2026-04-08)
+  - Runtime assets are separate, but canonical knowledge is shared. [AGENT:gpt-5]
+
+### Inactive
+
+(No inactive entries.)
+
+## 400.WHEN.Timeline
+
+### Active
+
+- Vela remained the default profile during the shift to a human-root matrix on 2026-04-08. (2026-04-08)
+  - The root changed while the default bundled assistant remained intact. [AGENT:gpt-5]
+
+### Inactive
+
+(No inactive entries.)
+
+## 500.HOW.Operation
+
+### Active
+
+- Vela is activated and switched through the governed profile registry. (2026-04-08)
+  - Profile selection stays procedural rather than ad hoc. [AGENT:gpt-5]
+
+### Inactive
+
+(No inactive entries.)
+
+## 600.WHY.Rationale
+
+### Active
+
+- Vela exists to provide a useful default assistant inside Knosence's matrix without claiming the cornerstone. (2026-04-08)
+  - Shared knowledge works because the branch stays subordinate to the root. [HUMAN]
+
+### Inactive
+
+(No inactive entries.)
+
+## 700.Archive
+
+(No archived entries.)

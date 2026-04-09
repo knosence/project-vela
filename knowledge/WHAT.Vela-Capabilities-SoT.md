@@ -22,7 +22,7 @@ tags: ["agent","capabilities","sot"]
 ### Links
 
 - Parent: [[WHO.Vela-Identity-SoT#200.WHAT.Scope]]
-- Cornerstone: [[Cornerstone.Project-Vela-SoT]]
+- Cornerstone: [[Cornerstone.Knosence-SoT]]
 
 ### Inbox
 
