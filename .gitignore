@@ -16,12 +16,14 @@ knowledge/proposals/*.assessment.json
 knowledge/proposals/*.packet.json
 knowledge/proposals/*.reflection.json
 knowledge/proposals/*.validation.json
+knowledge/proposals/Ref.*.Release-Intelligence.md
 knowledge/refs/event-log.md
 knowledge/refs/mock-release-summary.md
 knowledge/refs/*.assessment.json
 knowledge/refs/*.packet.json
 knowledge/refs/*.reflection.json
 knowledge/refs/*.validation.json
+knowledge/refs/Ref.*.Release-Intelligence.md
 knowledge/refs/operational-note.md
 knowledge/refs/repo-watch-test.md
 knowledge/refs/safe-note.md

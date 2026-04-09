@@ -128,6 +128,7 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue((REPO_ROOT / result["data"]["assessment_target"]).exists())
         self.assertTrue((REPO_ROOT / result["data"]["reflection_target"]).exists())
         self.assertTrue((REPO_ROOT / result["data"]["validation_target"]).exists())
+        self.assertTrue((REPO_ROOT / result["data"]["intelligence_target"]).exists())
         self.assertEqual(result["data"]["risk"]["level"], "high")
         self.assertEqual(result["data"]["relevance"]["level"], "high")
         self.assertEqual(result["data"]["local_impact"]["level"], "high")
@@ -135,10 +136,13 @@ class VelaSystemTest(unittest.TestCase):
         assessment_record = json.loads((REPO_ROOT / result["data"]["assessment_target"]).read_text(encoding="utf-8"))
         reflection_record = json.loads((REPO_ROOT / result["data"]["reflection_target"]).read_text(encoding="utf-8"))
         validation_record = json.loads((REPO_ROOT / result["data"]["validation_target"]).read_text(encoding="utf-8"))
+        intelligence_ref = (REPO_ROOT / result["data"]["intelligence_target"]).read_text(encoding="utf-8")
         self.assertEqual(packet_record["repo"], "openai/openai-python")
         self.assertEqual(assessment_record["risk"]["level"], "high")
         self.assertTrue(reflection_record["critique"])
         self.assertIn("findings", validation_record)
+        self.assertIn("Release Intelligence openai/openai-python 1.2.3", intelligence_ref)
+        self.assertIn(result["data"]["assessment_target"], intelligence_ref)
 
     def test_repo_watch_analysis_uses_watchlist_reasoning(self) -> None:
         watchlist = (REPO_ROOT / "knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8")

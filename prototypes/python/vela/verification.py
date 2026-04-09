@@ -121,6 +121,7 @@ def scenario_repo_watch() -> list[dict[str, Any]]:
         _result("release-assessment-target-exists", (REPO_ROOT / result["assessment_target"]).exists(), "Structured assessment artifact should exist"),
         _result("release-reflection-target-exists", (REPO_ROOT / result["reflection_target"]).exists(), "Structured reflection artifact should exist"),
         _result("release-validation-target-exists", (REPO_ROOT / result["validation_target"]).exists(), "Structured validation artifact should exist"),
+        _result("release-intelligence-target-exists", (REPO_ROOT / result["intelligence_target"]).exists(), "Release intelligence reference should exist"),
         _result("release-summary-criticized", bool(result["critique"]), "Reflector should produce critique notes"),
     ]
 
