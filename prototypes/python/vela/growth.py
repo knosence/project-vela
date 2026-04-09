@@ -214,7 +214,11 @@ def _inventory_role_for_target(target: str) -> str:
     name = Path(target).name
     if name == "Cornerstone.Knosence-SoT.md":
         return "cornerstone"
-    if "Identity-SoT" in name:
+    if name in {
+        "110.WHO.Vela-Identity-SoT.md",
+        "111.WHO.Custom-Vela-Identity-SoT.md",
+        "112.WHO.Test-Custom-Identity-SoT.md",
+    } or "Identity-SoT" in name:
         return "agent-identity"
     if name in {
         "100.WHO.Circle-SoT.md",
