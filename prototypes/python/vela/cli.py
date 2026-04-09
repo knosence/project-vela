@@ -5,6 +5,7 @@ import json
 import sys
 
 from .config import ensure_bootstrap_files, load_config, missing_required_fields, save_config, setup_complete
+from .governance import apply_growth_proposal
 from .matrix import write_matrix_index
 from .profiles import activate_profile, list_profiles
 from .server import VelaService, serve
@@ -68,6 +69,12 @@ def cmd_profiles_use(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_growth_apply(args: argparse.Namespace) -> int:
+    result = apply_growth_proposal(args.proposal, actor="scribe", approval_id=args.approval_id)
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     serve(host=args.host, port=args.port)
     return 0
@@ -105,6 +112,14 @@ def build_parser() -> argparse.ArgumentParser:
     profiles_use_parser = profiles_sub.add_parser("use")
     profiles_use_parser.add_argument("name")
     profiles_use_parser.set_defaults(func=cmd_profiles_use)
+
+    growth_parser = sub.add_parser("growth")
+    growth_sub = growth_parser.add_subparsers(dest="growth_command", required=True)
+
+    growth_apply_parser = growth_sub.add_parser("apply")
+    growth_apply_parser.add_argument("proposal")
+    growth_apply_parser.add_argument("--approval-id")
+    growth_apply_parser.set_defaults(func=cmd_growth_apply)
 
     serve_parser = sub.add_parser("serve")
     serve_parser.add_argument("--host", default="127.0.0.1")

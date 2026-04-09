@@ -6,7 +6,7 @@ from pathlib import Path
 
 from prototypes.python.vela.agents import SequentialPipeline
 from prototypes.python.vela.config import DEFAULT_CONFIG, ensure_bootstrap_files, load_config, missing_required_fields, save_config
-from prototypes.python.vela.governance import archive_dimension_entry, record_approval, write_text
+from prototypes.python.vela.governance import apply_growth_proposal, archive_dimension_entry, record_approval, write_text
 from prototypes.python.vela.growth import assess_growth
 from prototypes.python.vela.matrix import classify_change_zone
 from prototypes.python.vela.matrix import write_matrix_index
@@ -25,6 +25,19 @@ class VelaSystemTest(unittest.TestCase):
         save_config(json.loads(json.dumps(DEFAULT_CONFIG)))
         EVENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         EVENT_LOG_PATH.write_text("", encoding="utf-8")
+        self._cleanup_generated_artifacts()
+
+    def _cleanup_generated_artifacts(self) -> None:
+        for target in [
+            "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.Spawned-Child-SoT.md",
+            "knowledge/refs/Ref.WHAT.Vela-Capabilities.md",
+            "knowledge/refs/Ref.WHAT.Vela-Capabilities-SoT.md",
+            "knowledge/proposals/growth-apply-reference-test.md",
+            "knowledge/proposals/growth-apply-sovereign-test.md",
+        ]:
+            path = REPO_ROOT / target
+            if path.exists():
+                path.unlink()
 
     def test_config_boot(self) -> None:
         cfg = load_config()
@@ -200,6 +213,72 @@ class VelaSystemTest(unittest.TestCase):
         path.write_text(base.replace("- Vela routes, plans, drafts, critiques, validates, documents, and proposes growth under governed workflows. (2026-04-08)\n  - The profile is oriented toward structured assistance rather than unbounded autonomy. [AGENT:gpt-5]", repeated_entries) + ("\nOperational note.\n" * 340), encoding="utf-8")
         assessment = assess_growth(target)
         self.assertEqual(assessment.stage, "spawn")
+
+    def test_apply_growth_proposal_creates_execution_artifact(self) -> None:
+        proposal_target = "knowledge/proposals/growth-apply-reference-test.md"
+        proposal_path = REPO_ROOT / proposal_target
+        proposal_path.parent.mkdir(parents=True, exist_ok=True)
+        proposal_path.write_text(
+            "---\n"
+            "sot-type: proposal\n"
+            "created: 2026-04-09\n"
+            "last-rewritten: 2026-04-09\n"
+            'parent: "[[WHAT.Vela-Capabilities-SoT]]"\n'
+            "domain: governance\n"
+            "status: proposed\n"
+            'target: "knowledge/agents/vela/WHAT.Vela-Capabilities-SoT.md"\n'
+            'route: "standard"\n'
+            'recommended-stage: "reference-note"\n'
+            'tags: ["growth","proposal"]\n'
+            "---\n\n"
+            "# Growth Proposal\n\n"
+            "## This Proposal Records the Matrix Growth Assessment After the Main Task\n"
+            "Reference note extraction should happen.\n\n"
+            "## This Proposal States the Recommended Growth Path and the Reason for It\n"
+            "Recommended stage: `reference-note`.\n\n"
+            "Reason: The parent artifact needs a companion reference note.\n\n"
+            "## This Proposal Records the Signals That Triggered the Recommendation\n"
+            "- signals: `{'line_count': 280}`\n\n"
+            "## This Proposal Identifies the Artifact That Would Be Affected If Approved\n"
+            "- target: `knowledge/agents/vela/WHAT.Vela-Capabilities-SoT.md`\n",
+            encoding="utf-8",
+        )
+        result = apply_growth_proposal(proposal_target, actor="scribe")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["execution_kind"], "reference-note")
+        self.assertTrue((REPO_ROOT / result["execution_target"]).exists())
+
+    def test_apply_growth_proposal_blocks_sovereign_without_approval(self) -> None:
+        proposal_target = "knowledge/proposals/growth-apply-sovereign-test.md"
+        proposal_path = REPO_ROOT / proposal_target
+        proposal_path.parent.mkdir(parents=True, exist_ok=True)
+        proposal_path.write_text(
+            "---\n"
+            "sot-type: proposal\n"
+            "created: 2026-04-09\n"
+            "last-rewritten: 2026-04-09\n"
+            'parent: "[[Cornerstone.Project-Vela-SoT]]"\n'
+            "domain: governance\n"
+            "status: proposed\n"
+            'target: "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md"\n'
+            'route: "sovereign-change"\n'
+            'recommended-stage: "spawn"\n'
+            'tags: ["growth","proposal"]\n'
+            "---\n\n"
+            "# Growth Proposal\n\n"
+            "## This Proposal Records the Matrix Growth Assessment After the Main Task\n"
+            "Spawn should not execute without approval.\n\n"
+            "## This Proposal States the Recommended Growth Path and the Reason for It\n"
+            "Recommended stage: `spawn`.\n\n"
+            "Reason: The cornerstone branch needs protected review.\n",
+            encoding="utf-8",
+        )
+        denied = apply_growth_proposal(proposal_target, actor="scribe")
+        self.assertFalse(denied["ok"])
+        self.assertTrue(denied["approval_required"])
+        record_approval("approve_growth_sovereign", "approved", "human", "allow growth test", "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md")
+        allowed = apply_growth_proposal(proposal_target, actor="scribe", approval_id="approve_growth_sovereign")
+        self.assertTrue(allowed["ok"])
 
     def test_dry_boot_prompt(self) -> None:
         health = VelaService().health()

@@ -56,6 +56,9 @@ def discover_sots() -> list[MatrixSoT]:
     entries: list[MatrixSoT] = []
     for path in sorted((REPO_ROOT / "knowledge").rglob("*-SoT.md")):
         rel = str(path.relative_to(REPO_ROOT))
+        area = Path(rel).parts[1]
+        if area not in {"cornerstone", "dimensions", "agents"}:
+            continue
         text = path.read_text(encoding="utf-8")
         frontmatter = _parse_frontmatter(text)
         entries.append(
@@ -66,7 +69,7 @@ def discover_sots() -> list[MatrixSoT]:
                 parent=str(frontmatter.get("parent", "")),
                 domain=str(frontmatter.get("domain", "unknown")),
                 status=str(frontmatter.get("status", "unknown")),
-                area=Path(rel).parts[1],
+                area=area,
                 is_cornerstone=Path(rel).name == "Cornerstone.Project-Vela-SoT.md",
             )
         )

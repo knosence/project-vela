@@ -106,6 +106,9 @@ def render_growth_proposal(route: str, target: str, assessment: GrowthAssessment
         f'parent: "{parent_link}"\n'
         "domain: governance\n"
         "status: proposed\n"
+        f'target: "{target}"\n'
+        f'route: "{route}"\n'
+        f'recommended-stage: "{assessment.stage}"\n'
         'tags: ["growth","proposal","matrix","governance"]\n'
         "---\n\n"
         "# Growth Proposal\n\n"

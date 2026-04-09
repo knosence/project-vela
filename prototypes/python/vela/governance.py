@@ -14,6 +14,7 @@ from .paths import APPROVALS_PATH, BACKUP_DIR, EVENT_LOG_PATH, PROPOSALS_DIR, QU
 from .rust_bridge import route_for_target as rust_route_for_target
 from .rust_bridge import validate_event_payload
 from .rust_bridge import validate_target as rust_validate_target
+from .simple_yaml import loads
 
 
 DIRECTIVES = [
@@ -300,3 +301,215 @@ def _proposal_name(route: str, target: str) -> str:
     created = datetime.now(timezone.utc).date().isoformat()
     stem = re.sub(r"[^A-Za-z0-9.-]+", "-", Path(target).stem).strip("-") or "target"
     return f"Growth-Proposal.{created}.{route}.{stem}.md"
+
+
+def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | None = None) -> dict[str, Any]:
+    proposal_path = REPO_ROOT / proposal_target
+    if not proposal_path.exists():
+        finding = ValidationFinding("GROWTH_PROPOSAL_NOT_FOUND", f"Growth proposal not found: {proposal_target}")
+        return {"ok": False, "findings": [finding.as_dict()]}
+
+    proposal_text = proposal_path.read_text(encoding="utf-8")
+    frontmatter = _parse_frontmatter(proposal_text)
+    assessed_target = str(frontmatter.get("target", "")).strip().strip('"')
+    stage = str(frontmatter.get("recommended-stage", "")).strip().strip('"')
+    route = str(frontmatter.get("route", "")).strip().strip('"')
+
+    if not assessed_target or not stage:
+        finding = ValidationFinding(
+            "GROWTH_PROPOSAL_METADATA_INVALID",
+            f"{proposal_target} is missing required growth metadata",
+        )
+        return {"ok": False, "findings": [finding.as_dict()]}
+
+    if is_sovereign_target(assessed_target) and approval_status(approval_id) != "approved":
+        finding = ValidationFinding(
+            "SOVEREIGN_APPROVAL_REQUIRED",
+            "Growth execution targets a sovereign artifact and requires approval",
+        )
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="growth-apply",
+                actor=actor,
+                target=proposal_target,
+                status="blocked",
+                reason="growth execution requires sovereign approval",
+                artifacts=[proposal_target],
+                approval_required=True,
+                validation_summary={"assessed_target": assessed_target, "stage": stage, "route": route},
+            )
+        )
+        return {"ok": False, "findings": [finding.as_dict()], "approval_required": True}
+
+    execution = _build_growth_execution(stage=stage, assessed_target=assessed_target, proposal_target=proposal_target)
+    result = write_text(
+        execution["target"],
+        execution["content"],
+        actor=actor,
+        endpoint="growth-apply",
+        reason=f"apply growth proposal {proposal_target}",
+        approval_id=approval_id,
+    )
+    if not result["ok"]:
+        return {"ok": False, "findings": result["findings"], "execution_target": execution["target"]}
+
+    proposal_update = _mark_proposal_applied(proposal_text, execution["target"], stage)
+    proposal_result = write_text(
+        proposal_target,
+        proposal_update,
+        actor=actor,
+        endpoint="growth-apply",
+        reason=f"mark growth proposal applied {proposal_target}",
+    )
+
+    append_event(
+        EventRecord(
+            source="vela",
+            endpoint="growth-apply",
+            actor=actor,
+            target=proposal_target,
+            status="applied" if proposal_result["ok"] else "partially-applied",
+            reason=f"applied growth proposal stage {stage}",
+            artifacts=[proposal_target, execution["target"], *result.get("artifacts", [])],
+            approval_required=is_sovereign_target(assessed_target),
+            validation_summary={
+                "assessed_target": assessed_target,
+                "execution_target": execution["target"],
+                "stage": stage,
+                "route": route,
+                "execution_kind": execution["kind"],
+            },
+        )
+    )
+    return {
+        "ok": result["ok"] and proposal_result["ok"],
+        "proposal_target": proposal_target,
+        "execution_target": execution["target"],
+        "execution_kind": execution["kind"],
+        "stage": stage,
+        "findings": result["findings"] + proposal_result.get("findings", []),
+    }
+
+
+def _build_growth_execution(stage: str, assessed_target: str, proposal_target: str) -> dict[str, str]:
+    target_path = Path(assessed_target)
+    created = datetime.now(timezone.utc).date().isoformat()
+    stem = re.sub(r"[^A-Za-z0-9.-]+", "-", target_path.stem).strip("-") or "target"
+    proposal_name = Path(proposal_target).stem
+
+    if stage == "reference-note":
+        ref_stem = stem[:-4] if stem.endswith("-SoT") else stem
+        execution_target = f"knowledge/refs/Ref.{ref_stem}.md"
+        content = (
+            f"# Reference Note for {target_path.name}\n\n"
+            "## This Reference Note Exists Because the Parent Artifact Has Exceeded a Flat Shape\n"
+            f"The governed growth proposal `{proposal_target}` recommended extraction into a reference note.\n\n"
+            "## This Reference Note Points Back to the Assessed Parent Artifact\n"
+            f"- parent artifact: `{assessed_target}`\n"
+            f"- proposal: `{proposal_target}`\n"
+            f"- created: `{created}`\n"
+        )
+        return {"target": execution_target, "content": content, "kind": "reference-note"}
+
+    if stage == "spawn" and assessed_target.endswith("-SoT.md"):
+        execution_target = str(target_path.with_name(f"{stem}.Spawned-Child-SoT.md"))
+        content = _render_spawned_sot(execution_target, assessed_target, proposal_target, created)
+        return {"target": execution_target, "content": content, "kind": "spawned-sot"}
+
+    execution_target = f"knowledge/proposals/Applied.{proposal_name}.md"
+    content = (
+        "# Applied Growth Action\n\n"
+        "## This Artifact Records the Governed Structural Action Chosen from the Growth Proposal\n"
+        f"Proposal `{proposal_target}` was applied against `{assessed_target}`.\n\n"
+        f"Recommended stage: `{stage}`.\n\n"
+        "## This Artifact Records the Immediate Controlled Outcome\n"
+        f"- action kind: `{stage if stage else 'unknown'}`\n"
+        f"- assessed target: `{assessed_target}`\n"
+        "- direct canonical mutation was deferred in favor of a governed structural action artifact\n"
+    )
+    return {"target": execution_target, "content": content, "kind": "applied-action"}
+
+
+def _render_spawned_sot(execution_target: str, assessed_target: str, proposal_target: str, created: str) -> str:
+    parent_name = Path(assessed_target).stem
+    child_name = Path(execution_target).name
+    return (
+        "---\n"
+        "sot-type: system\n"
+        f"created: {created}\n"
+        f"last-rewritten: {created}\n"
+        f'parent: "[[{parent_name}]]"\n'
+        "domain: growth\n"
+        "status: active\n"
+        'tags: ["growth","spawned","sot"]\n'
+        "---\n\n"
+        f"# {child_name} Source of Truth\n\n"
+        "## 000.Index\n\n"
+        "### Subject Declaration\n\n"
+        f"**Subject:** {child_name} was spawned from a governed growth proposal.\n"
+        "**Type:** system\n"
+        f"**Created:** {created}\n"
+        f"**Parent:** [[{parent_name}]]\n\n"
+        "### Links\n\n"
+        f"- Parent: [[{parent_name}]]\n"
+        "- Cornerstone: [[Cornerstone.Project-Vela-SoT]]\n"
+        f"- Proposal: `{proposal_target}`\n\n"
+        "### Inbox\n\n"
+        "No pending items.\n\n"
+        "### Status\n\n"
+        "Newly spawned from a governed growth proposal.\n\n"
+        "### Open Questions\n\n"
+        "- What content should migrate here from the parent SoT? "
+        f"({created})\n"
+        "  - The spawn establishes the branch before extraction work begins. [AGENT:gpt-5]\n\n"
+        "### Next Actions\n\n"
+        f"- Extract the branch-specific material from `{assessed_target}`. ({created})\n"
+        "  - The new child should earn its content through governed extraction, not duplication. [AGENT:gpt-5]\n\n"
+        "### Decisions\n\n"
+        f"- [{created}] Spawned child SoT created from `{proposal_target}`.\n\n"
+        "### Block Map — Single Source\n\n"
+        "| ID | Question | Dimension | This SoT's Name |\n"
+        "|----|----------|-----------|-----------------|\n"
+        "| 000 | — | Index | Index |\n"
+        "| 100 | Who | Circle | Identity |\n"
+        "| 200 | What | Domain | Scope |\n"
+        "| 300 | Where | Terrain | Placement |\n"
+        "| 400 | When | Chronicle | Timeline |\n"
+        "| 500 | How | Method | Operation |\n"
+        "| 600 | Why/Not | Compass | Rationale |\n"
+        "| 700 | — | Archive | Archive |\n\n"
+        "---\n\n"
+        "## 100.WHO.Identity\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
+        "## 200.WHAT.Scope\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
+        "## 300.WHERE.Placement\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
+        "## 400.WHEN.Timeline\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
+        "## 500.HOW.Method\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
+        "## 600.WHY.Compass\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
+        "## 700.Archive\n\n(No archived entries.)\n"
+    )
+
+
+def _mark_proposal_applied(proposal_text: str, execution_target: str, stage: str) -> str:
+    updated = proposal_text.replace("status: proposed", "status: applied", 1)
+    if "## This Proposal Records the Applied Outcome" in updated:
+        return updated
+    if not updated.endswith("\n"):
+        updated += "\n"
+    updated += (
+        "\n## This Proposal Records the Applied Outcome\n"
+        f"- stage applied: `{stage}`\n"
+        f"- execution target: `{execution_target}`\n"
+        "- proposal status changed from `proposed` to `applied`\n"
+    )
+    return updated
+
+
+def _parse_frontmatter(text: str) -> dict[str, Any]:
+    if not text.startswith("---\n"):
+        return {}
+    try:
+        _, frontmatter, _ = text.split("---\n", 2)
+    except ValueError:
+        return {}
+    return loads(frontmatter)
