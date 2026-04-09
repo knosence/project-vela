@@ -77,3 +77,7 @@ def inspect_reference_payload(path: str, content: str) -> dict[str, Any]:
 
 def validate_parent_payload(path: str, content: str) -> dict[str, Any]:
     return _run(["validate-parent", path], stdin=content)
+
+
+def validate_sot_payload(path: str, content: str) -> dict[str, Any]:
+    return _run(["validate-sot", path], stdin=content)

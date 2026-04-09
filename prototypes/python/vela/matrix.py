@@ -10,6 +10,7 @@ from .models import ValidationFinding
 from .paths import MATRIX_INDEX_JSON_PATH, MATRIX_INDEX_PATH, REPO_ROOT
 from .rust_bridge import inspect_reference_payload
 from .rust_bridge import validate_parent_payload
+from .rust_bridge import validate_sot_payload
 from .simple_yaml import loads
 from .traceability import annotate_finding, annotate_findings
 
@@ -158,94 +159,10 @@ def validate_matrix_rules(entries: list[MatrixSoT] | None = None) -> list[Valida
 
 def validate_sot_structure(path: Path) -> list[ValidationFinding]:
     text = path.read_text(encoding="utf-8")
-    findings: list[ValidationFinding] = []
-    frontmatter = _parse_frontmatter(text)
-
-    required_fields = {"sot-type", "created", "last-rewritten", "domain", "status", "tags", "parent"}
-    for field in required_fields:
-        if field not in frontmatter:
-            findings.append(
-                annotate_finding(ValidationFinding(
-                    "MATRIX_FRONTMATTER_REQUIRED",
-                    f"{path.name} is missing required frontmatter field `{field}`",
-                    "error",
-                ))
-            )
-
-    is_cornerstone = path.name == "Cornerstone.Project-Vela-SoT.md"
-    if is_cornerstone and str(frontmatter.get("parent", None)) not in {"", "None", "none"}:
-        findings.append(
-            annotate_finding(ValidationFinding(
-                "MATRIX_CORNERSTONE_PARENT_MUST_BE_EMPTY",
-                f"{path.name} must declare an empty parent because the cornerstone is the root",
-                "error",
-            ))
-        )
-    if not is_cornerstone and not str(frontmatter.get("parent", "")).strip():
-        findings.append(
-            annotate_finding(ValidationFinding(
-                "MATRIX_PARENT_REQUIRED",
-                f"{path.name} must declare exactly one non-empty parent",
-                "error",
-            ))
-        )
-
-    required_headings = [
-        "## 000.Index",
-        "### Subject Declaration",
-        "### Links",
-        "### Inbox",
-        "### Status",
-        "### Open Questions",
-        "### Next Actions",
-        "### Decisions",
-        "### Block Map",
-        "## 100.",
-        "## 200.",
-        "## 300.",
-        "## 400.",
-        "## 500.",
-        "## 600.",
-        "## 700.",
-    ]
-    for heading in required_headings:
-        if heading not in text:
-            findings.append(
-                annotate_finding(ValidationFinding(
-                    "MATRIX_HEADING_REQUIRED",
-                    f"{path.name} is missing required heading `{heading}`",
-                    "error",
-                ))
-            )
-
-    for dimension in ["100", "200", "300", "400", "500", "600"]:
-        heading = f"## {dimension}."
-        start = text.find(heading)
-        if start == -1:
-            continue
-        next_start = min(
-            [pos for pos in [text.find(f"## {candidate}.", start + 1) for candidate in ["200", "300", "400", "500", "600", "700"]] if pos != -1]
-            or [len(text)]
-        )
-        section = text[start:next_start]
-        if "### Active" not in section:
-            findings.append(
-                annotate_finding(ValidationFinding(
-                    "MATRIX_ACTIVE_SECTION_REQUIRED",
-                    f"{path.name} is missing `### Active` in dimension {dimension}",
-                    "error",
-                ))
-            )
-        if "### Inactive" not in section:
-            findings.append(
-                annotate_finding(ValidationFinding(
-                    "MATRIX_INACTIVE_SECTION_REQUIRED",
-                    f"{path.name} is missing `### Inactive` in dimension {dimension}",
-                    "error",
-                ))
-            )
-
-    return findings
+    payload = validate_sot_payload(str(path.relative_to(REPO_ROOT)), text)
+    return annotate_findings(
+        [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
+    )
 
 
 def validate_matrix_structure(entries: list[MatrixSoT] | None = None) -> list[ValidationFinding]:

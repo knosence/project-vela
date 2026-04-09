@@ -98,6 +98,16 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
             "Pattern 3 Single Parent".to_string(),
             "Law 2 Every Non Cornerstone Source of Truth Shall Declare One Parent".to_string(),
         ],
+        "MATRIX_FRONTMATTER_REQUIRED" | "MATRIX_CORNERSTONE_PARENT_MUST_BE_EMPTY" => vec![
+            "Pattern 16 Frontmatter Contract".to_string(),
+            "Law 2 Every Non Cornerstone Source of Truth Shall Declare One Parent".to_string(),
+        ],
+        "MATRIX_HEADING_REQUIRED"
+        | "MATRIX_ACTIVE_SECTION_REQUIRED"
+        | "MATRIX_INACTIVE_SECTION_REQUIRED" => vec![
+            "Pattern 17 SoT-Native Output".to_string(),
+            "Pattern 7 Single Source Block Map".to_string(),
+        ],
         "NARRATIVE_HEADING_REQUIRED" | "NARRATIVE_HEADING_WEAK" | "NARRATIVE_OPENING_REQUIRED" => vec![
             "Pattern 17 SoT-Native Output".to_string(),
         ],
