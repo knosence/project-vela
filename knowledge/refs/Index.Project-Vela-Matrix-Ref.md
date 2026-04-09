@@ -14,7 +14,7 @@ tags: ["matrix","index","reference","registry"]
 The index layer exists so the system can see the matrix as a whole, keep track of canonical homes, and verify that the tree still respects the root, parent, and indexing laws.
 
 ## This Summary Shows the Current Shape of the Matrix at a Glance
-- total SoTs: 7
+- total SoTs: 13
 - total governed refs: 0
 - cornerstone count: 1
 - indexed areas: agents, cornerstone, dimensions
@@ -36,7 +36,13 @@ The index layer exists so the system can see the matrix as a whole, keep track o
 ## This Section Lists the Dimensions SoTs Registered in the Matrix
 | Title | Path | Type | Parent | Status |
 |---|---|---|---|---|
-| Repo Watchlist Source of Truth | `knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md` | `dimension` | `[[Cornerstone.Project-Vela-SoT#200.WHAT.Domain]]` | `active` |
+| 100.WHO.Circle Hub Source of Truth | `knowledge/dimensions/100.WHO.Circle-SoT.md` | `dimension` | `[[Cornerstone.Project-Vela-SoT#100.WHO.Circle]]` | `active` |
+| 200.WHAT.Domain Hub Source of Truth | `knowledge/dimensions/200.WHAT.Domain-SoT.md` | `dimension` | `[[Cornerstone.Project-Vela-SoT#200.WHAT.Domain]]` | `active` |
+| 300.WHERE.Terrain Hub Source of Truth | `knowledge/dimensions/300.WHERE.Terrain-SoT.md` | `dimension` | `[[Cornerstone.Project-Vela-SoT#300.WHERE.Terrain]]` | `active` |
+| 400.WHEN.Chronicle Hub Source of Truth | `knowledge/dimensions/400.WHEN.Chronicle-SoT.md` | `dimension` | `[[Cornerstone.Project-Vela-SoT#400.WHEN.Chronicle]]` | `active` |
+| 500.HOW.Method Hub Source of Truth | `knowledge/dimensions/500.HOW.Method-SoT.md` | `dimension` | `[[Cornerstone.Project-Vela-SoT#500.HOW.Method]]` | `active` |
+| 600.WHY.Compass Hub Source of Truth | `knowledge/dimensions/600.WHY.Compass-SoT.md` | `dimension` | `[[Cornerstone.Project-Vela-SoT#600.WHY.Compass]]` | `active` |
+| Repo Watchlist Source of Truth | `knowledge/dimensions/WHAT.Repo-Watchlist-SoT.md` | `dimension` | `[[200.WHAT.Domain-SoT#200.WHAT.Domain]]` | `active` |
 
 ## This Registry Points Back to the Root and the Governing Laws
 - Root: [[Cornerstone.Project-Vela-SoT]]

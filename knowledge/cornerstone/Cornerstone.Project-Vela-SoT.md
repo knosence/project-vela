@@ -22,6 +22,12 @@ tags: ["cornerstone","system","sot","matrix"]
 ### Links
 
 - Matrix index: [[Index.Project-Vela-Matrix-Ref]]
+- WHO hub: [[100.WHO.Circle-SoT]]
+- WHAT hub: [[200.WHAT.Domain-SoT]]
+- WHERE hub: [[300.WHERE.Terrain-SoT]]
+- WHEN hub: [[400.WHEN.Chronicle-SoT]]
+- HOW hub: [[500.HOW.Method-SoT]]
+- WHY hub: [[600.WHY.Compass-SoT]]
 - Repo watchlist: [[WHAT.Repo-Watchlist-SoT]]
 - Vela identity: [[WHO.Vela-Identity-SoT]]
 - Vela capabilities: [[WHAT.Vela-Capabilities-SoT]]
@@ -37,6 +43,8 @@ tags: ["cornerstone","system","sot","matrix"]
 
 - The matrix now has one cornerstone and a generated index layer. (2026-04-08)
   - The root has been narrowed to a single subject and the registry can see the SoTs from the top level. [AGENT:gpt-5]
+- The matrix now has explicit dimension hubs under `knowledge/dimensions/`. (2026-04-08)
+  - The branch points for WHO, WHAT, WHERE, WHEN, HOW, and WHY are now visible instead of implied. [AGENT:gpt-5]
 
 ### Open Questions
 
@@ -47,6 +55,8 @@ tags: ["cornerstone","system","sot","matrix"]
 
 - Expand matrix-native frontmatter and lineage coverage across branch SoTs. (2026-04-08)
   - The index layer can track SoTs more reliably once more branches expose explicit parent metadata. [AGENT:gpt-5]
+- Reparent downstream branches to the new dimension hubs where that creates cleaner lineage. (2026-04-08)
+  - The hubs exist now, but some branches still point directly to the cornerstone or local parents. [AGENT:gpt-5]
 
 ### Decisions
 
@@ -54,6 +64,8 @@ tags: ["cornerstone","system","sot","matrix"]
   - The cornerstone is the entry point to the matrix and cannot be pluralized into peer root files. [HUMAN]
 - The matrix requires an index layer to keep all SoTs visible from the top. (2026-04-08)
   - Governance weakens when the tree cannot be seen as a whole. [HUMAN]
+- The six live dimensions require explicit hub SoTs under `knowledge/dimensions/`. (2026-04-08)
+  - Dimension hubs are the visible branch points that organize non-root lineage. [HUMAN]
 
 ### Block Map — Single Source
 

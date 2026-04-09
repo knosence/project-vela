@@ -2,7 +2,7 @@
 sot-type: dimension
 created: 2026-04-08
 last-rewritten: 2026-04-08
-parent: "[[Cornerstone.Project-Vela-SoT#200.WHAT.Domain]]"
+parent: "[[200.WHAT.Domain-SoT#200.WHAT.Domain]]"
 domain: dimensions
 status: active
 tags: ["watchlist","repo","sot"]
@@ -17,11 +17,12 @@ tags: ["watchlist","repo","sot"]
 **Subject:** This SoT defines the canonical repo watch scope for Project Vela.
 **Type:** dimension
 **Created:** 2026-04-08
-**Parent:** [[Cornerstone.Project-Vela-SoT#200.WHAT.Domain]]
+**Parent:** [[200.WHAT.Domain-SoT#200.WHAT.Domain]]
 
 ### Links
 
-- Parent: [[Cornerstone.Project-Vela-SoT#200.WHAT.Domain]]
+- Parent: [[200.WHAT.Domain-SoT#200.WHAT.Domain]]
+- Dimension hub: [[200.WHAT.Domain-SoT]]
 - Cornerstone: [[Cornerstone.Project-Vela-SoT]]
 
 ### Inbox
