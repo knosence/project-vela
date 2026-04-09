@@ -6,3 +6,5 @@ The runtime exposes `/api/health` and `/api/n8n/*` endpoints. n8n sends machine-
 ## This Integration Preserves Sequential Governance Inside the Service Boundary
 Repo-release, validation, reflection, approval, verification, and profile activation requests all pass through internal governed logic rather than writing repository files directly from the workflow layer.
 
+## This Integration Also Exposes Governed Growth Proposal Execution
+`POST /api/n8n/growth/apply` accepts a proposal path plus an optional `approval_id` and applies the growth proposal through the same governed logic used by the CLI. The service blocks sovereign structural execution until approval exists, writes the resulting controlled artifact, updates the proposal status, and emits structured events.

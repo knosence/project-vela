@@ -33,6 +33,7 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/refs/Ref.WHAT.Vela-Capabilities.md",
             "knowledge/refs/Ref.WHAT.Vela-Capabilities-SoT.md",
             "knowledge/proposals/growth-apply-reference-test.md",
+            "knowledge/proposals/growth-apply-service-test.md",
             "knowledge/proposals/growth-apply-sovereign-test.md",
         ]:
             path = REPO_ROOT / target
@@ -279,6 +280,34 @@ class VelaSystemTest(unittest.TestCase):
         record_approval("approve_growth_sovereign", "approved", "human", "allow growth test", "knowledge/cornerstone/Cornerstone.Project-Vela-SoT.md")
         allowed = apply_growth_proposal(proposal_target, actor="scribe", approval_id="approve_growth_sovereign")
         self.assertTrue(allowed["ok"])
+
+    def test_growth_apply_service_endpoint(self) -> None:
+        proposal_target = "knowledge/proposals/growth-apply-service-test.md"
+        proposal_path = REPO_ROOT / proposal_target
+        proposal_path.parent.mkdir(parents=True, exist_ok=True)
+        proposal_path.write_text(
+            "---\n"
+            "sot-type: proposal\n"
+            "created: 2026-04-09\n"
+            "last-rewritten: 2026-04-09\n"
+            'parent: "[[WHAT.Vela-Capabilities-SoT]]"\n'
+            "domain: governance\n"
+            "status: proposed\n"
+            'target: "knowledge/agents/vela/WHAT.Vela-Capabilities-SoT.md"\n'
+            'route: "standard"\n'
+            'recommended-stage: "reference-note"\n'
+            'tags: ["growth","proposal"]\n'
+            "---\n\n"
+            "# Growth Proposal\n\n"
+            "## This Proposal Records the Matrix Growth Assessment After the Main Task\n"
+            "Service apply path should create a reference note.\n",
+            encoding="utf-8",
+        )
+        result = VelaService().growth_apply({"proposal": proposal_target, "actor": "n8n"})
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["endpoint"], "growth-apply")
+        self.assertEqual(result["status"], "accepted")
+        self.assertTrue((REPO_ROOT / result["data"]["execution_target"]).exists())
 
     def test_dry_boot_prompt(self) -> None:
         health = VelaService().health()
