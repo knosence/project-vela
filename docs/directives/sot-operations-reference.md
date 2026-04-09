@@ -32,3 +32,12 @@ This note records the active mechanical operating rules for Vela's local Matrix 
 - Grower may recommend spawn.
 - Scribe may execute spawn only after explicit approval is recorded.
 - Subject Declaration changes are blocked without explicit approval as well.
+
+## Patrol And Night Cycle Use Explicit Runtime Entry Points
+
+- `vela patrol run` executes the Warden patrol skeleton.
+- `vela night-cycle run` executes the DC night-cycle skeleton.
+- `/api/n8n/patrol/run` triggers patrol through the service layer.
+- `/api/n8n/night-cycle/run` triggers the night cycle through the service layer.
+- Patrol writes artifact-space reports only.
+- Night cycle packages patrol status, growth candidates, and blocked-pattern counts into a DC report.

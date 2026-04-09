@@ -8,6 +8,7 @@ from .config import ensure_bootstrap_files, load_config, missing_required_fields
 from .governance import apply_growth_proposal, create_cross_reference
 from .inbox import triage_inbox
 from .matrix import write_matrix_index
+from .operations_runtime import run_night_cycle, run_warden_patrol
 from .profiles import activate_profile, list_profiles
 from .server import VelaService, serve
 from .verification import run_scenario, write_verification_report
@@ -98,6 +99,18 @@ def cmd_cross_reference(args: argparse.Namespace) -> int:
     return 0 if result["ok"] else 1
 
 
+def cmd_patrol_run(_: argparse.Namespace) -> int:
+    result = run_warden_patrol(requested_by="human")
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
+def cmd_night_cycle_run(_: argparse.Namespace) -> int:
+    result = run_night_cycle(requested_by="human")
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     serve(host=args.host, port=args.port)
     return 0
@@ -160,6 +173,16 @@ def build_parser() -> argparse.ArgumentParser:
     cross_reference_parser.add_argument("--reason", default="create governed pointer entry")
     cross_reference_parser.add_argument("--approval-id")
     cross_reference_parser.set_defaults(func=cmd_cross_reference)
+
+    patrol_parser = sub.add_parser("patrol")
+    patrol_sub = patrol_parser.add_subparsers(dest="patrol_command", required=True)
+    patrol_run_parser = patrol_sub.add_parser("run")
+    patrol_run_parser.set_defaults(func=cmd_patrol_run)
+
+    night_cycle_parser = sub.add_parser("night-cycle")
+    night_cycle_sub = night_cycle_parser.add_subparsers(dest="night_cycle_command", required=True)
+    night_cycle_run_parser = night_cycle_sub.add_parser("run")
+    night_cycle_run_parser.set_defaults(func=cmd_night_cycle_run)
 
     serve_parser = sub.add_parser("serve")
     serve_parser.add_argument("--host", default="127.0.0.1")

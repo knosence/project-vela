@@ -21,6 +21,7 @@ from prototypes.python.vela.matrix import classify_change_zone
 from prototypes.python.vela.matrix import validate_canonical_graph_targets
 from prototypes.python.vela.matrix import write_matrix_index
 from prototypes.python.vela.matrix import validate_parent_consistency
+from prototypes.python.vela.operations_runtime import run_night_cycle, run_warden_patrol
 from prototypes.python.vela.paths import EVENT_LOG_PATH, PATCH_LOG_PATH, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
 from prototypes.python.vela.repo_watch import analyze_release
@@ -109,6 +110,10 @@ class VelaSystemTest(unittest.TestCase):
             path = REPO_ROOT / target
             if path.exists():
                 path.unlink()
+        for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("Warden-Patrol-*.md"):
+            path.unlink()
+        for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("DC-Night-Report-*.md"):
+            path.unlink()
         if PATCH_LOG_PATH.exists():
             PATCH_LOG_PATH.unlink()
 
@@ -776,6 +781,42 @@ class VelaSystemTest(unittest.TestCase):
         result = VelaService().inbox_triage({"file": "test-inbox-item.md", "actor": "n8n"})
         self.assertTrue(result["ok"])
         self.assertEqual(result["endpoint"], "inbox-triage")
+
+    def test_warden_patrol_writes_report(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
+        target_path = REPO_ROOT / target
+        target_path.write_text((REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-item.md"
+        inbox_path.write_text(
+            "# Inbox Item\n\n"
+            f"Target: [[{Path(target).name}]]\n\n"
+            "Capability update\n\n"
+            "The inbox item captures a component-level change that belongs in WHAT.\n",
+            encoding="utf-8",
+        )
+        triage_inbox(file_name="test-inbox-item.md", actor="vela")
+        result = run_warden_patrol(requested_by="human")
+        self.assertTrue(result["ok"])
+        self.assertGreaterEqual(result["files_checked"], 1)
+        report_text = (REPO_ROOT / result["report_target"]).read_text(encoding="utf-8")
+        self.assertIn("## Checked Targets", report_text)
+        self.assertIn("inbox-triage-target.md", report_text)
+
+    def test_night_cycle_writes_dc_report(self) -> None:
+        result = run_night_cycle(requested_by="human")
+        self.assertTrue(result["ok"])
+        report_text = (REPO_ROOT / result["report_target"]).read_text(encoding="utf-8")
+        self.assertIn("## Warden Patrol Summary", report_text)
+        self.assertIn("## Grower Activity", report_text)
+        self.assertIn("## Dreamer Activity", report_text)
+
+    def test_patrol_and_night_cycle_service_endpoints(self) -> None:
+        patrol = VelaService().patrol_run({"actor": "n8n"})
+        self.assertTrue(patrol["ok"])
+        self.assertEqual(patrol["endpoint"], "patrol-run")
+        night_cycle = VelaService().night_cycle_run({"actor": "n8n"})
+        self.assertTrue(night_cycle["ok"])
+        self.assertEqual(night_cycle["endpoint"], "night-cycle-run")
 
     def test_inbox_triage_moves_text_file_to_companion_and_links_it(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"

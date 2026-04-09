@@ -11,6 +11,7 @@ from .governance import apply_growth_proposal, create_cross_reference, record_ap
 from .inbox import triage_inbox
 from .models import ValidationFinding
 from .models import new_id
+from .operations_runtime import run_night_cycle, run_warden_patrol
 from .paths import REPO_ROOT, VERIFICATION_STATUS_PATH
 from .profiles import activate_profile, list_profiles
 from .repo_watch import ingest_release
@@ -160,6 +161,18 @@ class VelaService:
             return envelope(True, "cross-reference", "accepted", "Cross reference created", data=result)
         return envelope(False, "cross-reference", "rejected", "Cross reference creation blocked", data=result, errors=result.get("findings", []))
 
+    def patrol_run(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = run_warden_patrol(requested_by=payload.get("actor", "n8n"))
+        if result["ok"]:
+            return envelope(True, "patrol-run", "accepted", "Warden patrol completed", data=result)
+        return envelope(False, "patrol-run", "rejected", "Warden patrol blocked", data=result, errors=result.get("structural_flags", []))
+
+    def night_cycle_run(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = run_night_cycle(requested_by=payload.get("actor", "n8n"))
+        if result["ok"]:
+            return envelope(True, "night-cycle-run", "accepted", "Night cycle completed", data=result)
+        return envelope(False, "night-cycle-run", "rejected", "Night cycle blocked", data=result, errors=result.get("structural_flags", []))
+
     def profiles(self) -> dict[str, Any]:
         return envelope(True, "profiles", "accepted", "Profiles listed", data=list_profiles())
 
@@ -206,6 +219,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             "/api/n8n/growth/apply": self.service.growth_apply,
             "/api/n8n/inbox/triage": self.service.inbox_triage,
             "/api/n8n/cross-reference": self.service.cross_reference,
+            "/api/n8n/patrol/run": self.service.patrol_run,
+            "/api/n8n/night-cycle/run": self.service.night_cycle_run,
             "/api/n8n/profiles/use": self.service.profiles_use,
         }
         handler = routes.get(self.path)
