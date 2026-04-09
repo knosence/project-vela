@@ -185,6 +185,47 @@ def validate_reference_structure(entries: list[MatrixReference] | None = None) -
     return findings
 
 
+def validate_canonical_graph_targets() -> list[ValidationFinding]:
+    root = REPO_ROOT
+    canonical_files: list[Path] = list((root / "knowledge").glob("*.md"))
+    canonical_files.extend((root / "docs").rglob("*.md"))
+    readme = root / "README.md"
+    if readme.exists():
+        canonical_files.append(readme)
+
+    existing_targets = {
+        path.stem
+        for path in root.rglob("*.md")
+        if path.is_file() and "archive/backups" not in str(path)
+    }
+    link_pattern = re.compile(r"\[\[([^\]]+)\]\]")
+    findings: list[ValidationFinding] = []
+
+    for path in canonical_files:
+        text = path.read_text(encoding="utf-8")
+        if not text.strip():
+            findings.append(
+                annotate_finding(
+                    ValidationFinding(
+                        "GRAPH_EMPTY_FILE",
+                        f"{path.relative_to(root)} is empty and should not appear as a live graph node",
+                    )
+                )
+            )
+        for raw in link_pattern.findall(text):
+            target = raw.split("|", 1)[0].split("#", 1)[0].strip()
+            if target and target not in existing_targets:
+                findings.append(
+                    annotate_finding(
+                        ValidationFinding(
+                            "GRAPH_MISSING_TARGET",
+                            f"{path.relative_to(root)} points to missing graph target `{target}`",
+                        )
+                    )
+                )
+    return findings
+
+
 def validate_parent_consistency(path: Path) -> list[ValidationFinding]:
     text = path.read_text(encoding="utf-8")
     payload = validate_parent_payload(str(path.relative_to(REPO_ROOT)), text)

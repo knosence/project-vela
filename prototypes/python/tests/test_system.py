@@ -16,6 +16,7 @@ from prototypes.python.vela.governance import (
 )
 from prototypes.python.vela.growth import assess_growth
 from prototypes.python.vela.matrix import classify_change_zone
+from prototypes.python.vela.matrix import validate_canonical_graph_targets
 from prototypes.python.vela.matrix import write_matrix_index
 from prototypes.python.vela.matrix import validate_parent_consistency
 from prototypes.python.vela.paths import EVENT_LOG_PATH, REPO_ROOT, STARTER_PATH
@@ -677,6 +678,10 @@ class VelaSystemTest(unittest.TestCase):
         self.assertIn("Cornerstone.Knosence-SoT", contents)
         self.assertIn("references", json.loads((REPO_ROOT / result["json_path"]).read_text(encoding="utf-8")))
         self.assertFalse(result["findings"])
+
+    def test_canonical_graph_targets_are_resolved(self) -> None:
+        findings = validate_canonical_graph_targets()
+        self.assertFalse(findings, [item.as_dict() for item in findings])
 
     def test_matrix_index_registers_governed_release_reference(self) -> None:
         try:
