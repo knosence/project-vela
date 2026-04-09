@@ -10,6 +10,7 @@ knowledge/logs/*.jsonl
 knowledge/logs/*.tmp
 knowledge/archive/backups/*.md
 knowledge/proposals/Growth-Proposal.*.md
+knowledge/proposals/proposal-*.md
 knowledge/proposals/*-test.md
 knowledge/refs/event-log.md
 knowledge/refs/mock-release-summary.md
