@@ -93,14 +93,18 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/INBOX/test-inbox-item.md",
             "knowledge/INBOX/test-inbox-missing-target.md",
             "knowledge/INBOX/test-inbox-item.txt",
+            "knowledge/INBOX/test-inbox-item.csv",
+            "knowledge/INBOX/test-inbox-ambiguous.csv",
             "knowledge/INBOX/test-inbox-binary.png",
         ]:
             path = REPO_ROOT / target
             if path.exists():
                 path.unlink()
         for target in [
-            "knowledge/inbox-triage-target.txt",
-            "knowledge/inbox-triage-target-20260409.txt",
+            "knowledge/ARTIFACTS/proposals/inbox-triage-target.txt",
+            "knowledge/ARTIFACTS/proposals/inbox-triage-target-20260409.txt",
+            "knowledge/ARTIFACTS/proposals/inbox-triage-target.csv",
+            "knowledge/ARTIFACTS/proposals/inbox-triage-target-20260409.csv",
         ]:
             path = REPO_ROOT / target
             if path.exists():
@@ -736,6 +740,48 @@ class VelaSystemTest(unittest.TestCase):
         result = triage_inbox(file_name="test-inbox-binary.png", actor="vela")
         self.assertFalse(result["ok"])
         self.assertEqual(result["results"][0]["reason"], "unsupported-non-markdown")
+        self.assertTrue(inbox_path.exists())
+
+    def test_inbox_triage_moves_csv_file_to_companion_and_routes_rows(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
+        target_path = REPO_ROOT / target
+        target_path.write_text((REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        existing_companion = REPO_ROOT / "knowledge/ARTIFACTS/proposals/inbox-triage-target.csv"
+        existing_companion.write_text("existing,data\n", encoding="utf-8")
+        inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-item.csv"
+        inbox_path.write_text(
+            "# target: [[inbox-triage-target.md]]\n"
+            "value,context,dimension\n"
+            "Component watch update,Tracks a component-level update,200\n"
+            "Release rationale,Explains why the change matters,600\n",
+            encoding="utf-8",
+        )
+
+        result = triage_inbox(file_name="test-inbox-item.csv", actor="vela")
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(inbox_path.exists())
+        companion = REPO_ROOT / "knowledge/ARTIFACTS/proposals/inbox-triage-target-20260409.csv"
+        self.assertTrue(companion.exists())
+        updated = target_path.read_text(encoding="utf-8")
+        self.assertIn("Component watch update. (", updated)
+        self.assertIn("Tracks a component-level update See: [[inbox-triage-target-20260409.csv]]", updated)
+        self.assertIn("Release rationale. (", updated)
+        self.assertIn("Explains why the change matters See: [[inbox-triage-target-20260409.csv]]", updated)
+
+    def test_inbox_triage_flags_ambiguous_csv_row(self) -> None:
+        inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-ambiguous.csv"
+        inbox_path.write_text(
+            "# target: [[210.WHAT.Vela-Capabilities-SoT.md]]\n"
+            "value,context\n"
+            "Ambiguous note,Unsorted note needing review.\n",
+            encoding="utf-8",
+        )
+
+        result = triage_inbox(file_name="test-inbox-ambiguous.csv", actor="vela")
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["results"][0]["reason"], "unsorted-needs-review")
         self.assertTrue(inbox_path.exists())
 
     def test_dry_boot_prompt(self) -> None:

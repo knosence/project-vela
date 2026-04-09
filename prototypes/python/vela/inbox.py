@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +23,8 @@ def triage_inbox(file_name: str | None = None, actor: str = "vela") -> dict[str,
             results.append(_triage_markdown_file(path, actor=actor))
         elif path.suffix.lower() == ".txt":
             results.append(_triage_text_companion_file(path, actor=actor))
+        elif path.suffix.lower() == ".csv":
+            results.append(_triage_csv_companion_file(path, actor=actor))
         else:
             results.append(_flag_unsupported_inbox_file(path, actor=actor))
     return {
@@ -182,6 +185,83 @@ def _triage_text_companion_file(path: Path, actor: str) -> dict[str, Any]:
     }
 
 
+def _triage_csv_companion_file(path: Path, actor: str) -> dict[str, Any]:
+    relative_path = str(path.relative_to(REPO_ROOT))
+    text = path.read_text(encoding="utf-8")
+    target = _extract_target(text)
+    if not target:
+        return _flag_for_review(path, actor, "missing-target", "Missing target SoT for csv inbox item.")
+
+    target_path = REPO_ROOT / target
+    if not target_path.exists():
+        return _block_missing_target(path, actor, target, "")
+
+    rows = _parse_csv_rows(text)
+    if not rows:
+        return _flag_for_review(path, actor, "empty-csv", "CSV inbox item had no extractable rows.")
+
+    extracted_entries: list[dict[str, str]] = []
+    for row in rows:
+        entry = _entry_from_csv_row(row)
+        route_text = " ".join(part for part in [entry["value"], entry["context"]] if part).strip()
+        dimension = (row.get("dimension") or "").strip() or route_inbox_entry(route_text)
+        if not dimension:
+            return _flag_for_review(path, actor, "unsorted-needs-review", "CSV inbox row could not be classified.")
+        extracted_entries.append({"dimension": dimension, "value": entry["value"], "context": entry["context"]})
+
+    companion_path = _move_to_companion_path(path, target_path)
+    updated = target_path.read_text(encoding="utf-8")
+    for extracted in extracted_entries:
+        entry_payload = {
+            "value": extracted["value"],
+            "context": f"{extracted['context']} See: [[{companion_path.name}]]".strip(),
+        }
+        updated = _append_entry_to_dimension(updated, extracted["dimension"], entry_payload)
+
+    write_result = write_text(target, updated, actor=actor, endpoint="inbox-triage", reason=f"triage inbox item {relative_path}")
+    if not write_result["ok"]:
+        _append_patch_log("blocked", relative_path, f"Target write blocked for {target}.", actor)
+        return {
+            "ok": False,
+            "file": relative_path,
+            "status": "blocked",
+            "target": target,
+            "findings": write_result["findings"],
+        }
+
+    pointers = [
+        build_pointer_entry(extracted["value"], Path(target).stem, _dimension_anchor(updated, extracted["dimension"]), _today())
+        for extracted in extracted_entries
+    ]
+    _append_patch_log(
+        "applied",
+        relative_path,
+        f"Extracted {len(extracted_entries)} csv rows into {target} with companion {companion_path.relative_to(REPO_ROOT)}.",
+        actor,
+    )
+    append_event(
+        EventRecord(
+            source="vela",
+            endpoint="inbox-triage",
+            actor=actor,
+            target=target,
+            status="committed",
+            reason=f"inbox csv item {relative_path} extracted into {target}",
+            artifacts=[target, str(companion_path.relative_to(REPO_ROOT))],
+            validation_summary={"rows": len(extracted_entries), "source_file": relative_path, "pointers": pointers},
+        )
+    )
+    return {
+        "ok": True,
+        "file": relative_path,
+        "status": "applied",
+        "target": target,
+        "companion": str(companion_path.relative_to(REPO_ROOT)),
+        "rows": len(extracted_entries),
+        "pointers": pointers,
+    }
+
+
 def _flag_unsupported_inbox_file(path: Path, actor: str) -> dict[str, Any]:
     return _flag_for_review(path, actor, "unsupported-non-markdown", f"Unsupported inbox file type `{path.suffix}` requires richer extraction.")
 
@@ -233,9 +313,28 @@ def _extract_target(text: str) -> str | None:
             return _normalize_target(target_match.group(1))
     for line in text.splitlines():
         stripped = line.strip()
+        if stripped.startswith("#"):
+            stripped = stripped.lstrip("#").strip()
         if stripped.lower().startswith("target:"):
             return _normalize_target(stripped.split(":", 1)[1].strip())
     return None
+
+
+def _parse_csv_rows(text: str) -> list[dict[str, str]]:
+    lines = text.splitlines()
+    data_lines = [line for line in lines if not line.lstrip().startswith("#")]
+    if not data_lines:
+        return []
+    reader = csv.DictReader(data_lines)
+    rows: list[dict[str, str]] = []
+    for row in reader:
+        normalized = {
+            (key or "").strip().lower(): (value or "").strip()
+            for key, value in row.items()
+        }
+        if any(value for value in normalized.values()):
+            rows.append(normalized)
+    return rows
 
 
 def _normalize_target(value: str) -> str | None:
@@ -278,6 +377,18 @@ def _extract_entry(text: str, path: Path) -> dict[str, str]:
     context_lines = [line for line in lines[1:] if not line.startswith("#")]
     context = " ".join(context_lines).strip() if context_lines else "Extracted from Inbox during governed triage."
     return {"value": f"{value}. ({_today()})" if not re.search(r"\(\d{4}-\d{2}-\d{2}\)$", value) else value, "context": context}
+
+
+def _entry_from_csv_row(row: dict[str, str]) -> dict[str, str]:
+    value = row.get("value") or row.get("title") or row.get("subject") or ""
+    context = row.get("context") or row.get("detail") or row.get("notes") or ""
+    if not value:
+        value = "Inbox CSV entry"
+    if not re.search(r"\(\d{4}-\d{2}-\d{2}\)$", value):
+        value = f"{value}. ({_today()})"
+    if not context:
+        context = "Extracted from Inbox CSV during governed triage."
+    return {"value": value, "context": context}
 
 
 def _move_to_companion_path(source: Path, target_path: Path) -> Path:
