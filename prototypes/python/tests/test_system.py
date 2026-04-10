@@ -1068,6 +1068,73 @@ class VelaSystemTest(unittest.TestCase):
         self.assertEqual(len(result["data"]["workflow_changes"]), 1)
         self.assertEqual(result["data"]["workflow_changes"][0]["pattern_reason"], "triage route queue")
 
+    def test_dreamer_actions_service_filtered_endpoint(self) -> None:
+        DREAMER_ACTIONS_PATH.write_text(
+            json.dumps(
+                {
+                    "validator_changes": [
+                        {
+                            "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.validator.md",
+                            "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.validator.md",
+                            "pattern_reason": "frontmatter structure validation",
+                            "actor": "human",
+                            "execution_reason": "tighten validator behavior",
+                            "applied_at": "2026-04-10T00:00:00+00:00",
+                            "status": "inactive",
+                        }
+                    ],
+                    "workflow_changes": [
+                        {
+                            "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md",
+                            "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.workflow.md",
+                            "pattern_reason": "triage route queue",
+                            "actor": "human",
+                            "execution_reason": "tighten routing",
+                            "applied_at": "2026-04-10T00:00:00+00:00",
+                            "status": "active",
+                        }
+                    ],
+                    "refusal_tightenings": [],
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        result = VelaService().dreamer_actions_filtered(kind="workflow", status="active")
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(result["data"]["workflow_changes"]), 1)
+        self.assertEqual(result["data"]["workflow_changes"][0]["status"], "active")
+        self.assertEqual(result["data"]["validator_changes"], [])
+
+    def test_dreamer_actions_register_and_status_service_endpoints(self) -> None:
+        registered = VelaService().dreamer_register_action(
+            {
+                "kind": "workflow",
+                "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.service.md",
+                "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.service.md",
+                "pattern_reason": "service workflow queue",
+                "actor": "human",
+                "execution_reason": "tighten service workflow",
+                "status": "active",
+            }
+        )
+        self.assertTrue(registered["ok"])
+        self.assertEqual(registered["endpoint"], "dreamer-actions-register")
+        registry = json.loads(DREAMER_ACTIONS_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(len(registry["workflow_changes"]), 1)
+        self.assertEqual(registry["workflow_changes"][0]["pattern_reason"], "service workflow queue")
+
+        updated = VelaService().dreamer_update_action_status(
+            {
+                "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.service.md",
+                "status": "inactive",
+            }
+        )
+        self.assertTrue(updated["ok"])
+        self.assertEqual(updated["endpoint"], "dreamer-actions-status")
+        registry = json.loads(DREAMER_ACTIONS_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(registry["workflow_changes"][0]["status"], "inactive")
+
     def test_dreamer_follow_up_service_endpoint(self) -> None:
         for _ in range(3):
             write_text(

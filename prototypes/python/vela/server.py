@@ -3,10 +3,16 @@ from __future__ import annotations
 import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 from typing import Any
 
 from .config import load_config, missing_required_fields, setup_complete
-from .dreamer_actions import load_dreamer_actions
+from .dreamer_actions import (
+    filtered_dreamer_actions,
+    load_dreamer_actions,
+    register_dreamer_action,
+    update_dreamer_action_status,
+)
 from .matrix import validate_matrix_rules
 from .governance import apply_growth_proposal, create_cross_reference, record_approval
 from .inbox import triage_inbox
@@ -194,6 +200,38 @@ class VelaService:
     def dreamer_actions(self) -> dict[str, Any]:
         return envelope(True, "dreamer-actions", "accepted", "Dreamer action registry listed", data=load_dreamer_actions())
 
+    def dreamer_actions_filtered(self, kind: str | None = None, status: str | None = None) -> dict[str, Any]:
+        return envelope(
+            True,
+            "dreamer-actions",
+            "accepted",
+            "Dreamer action registry listed",
+            data=filtered_dreamer_actions(kind=kind, status=status),
+        )
+
+    def dreamer_register_action(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = register_dreamer_action(
+            kind=payload["kind"],
+            follow_up_target=payload["follow_up_target"],
+            execution_target=payload["execution_target"],
+            pattern_reason=payload["pattern_reason"],
+            actor=payload.get("actor", "human"),
+            execution_reason=payload.get("execution_reason", ""),
+            status=payload.get("status", "active"),
+        )
+        if result["ok"]:
+            return envelope(True, "dreamer-actions-register", "accepted", "Dreamer action registered", data=result)
+        return envelope(False, "dreamer-actions-register", "rejected", "Dreamer action registration blocked", data=result, errors=result.get("findings", []))
+
+    def dreamer_update_action_status(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = update_dreamer_action_status(
+            follow_up_target=payload["follow_up_target"],
+            status=payload["status"],
+        )
+        if result["ok"]:
+            return envelope(True, "dreamer-actions-status", "accepted", "Dreamer action status updated", data=result)
+        return envelope(False, "dreamer-actions-status", "rejected", "Dreamer action status update blocked", data=result, errors=result.get("findings", []))
+
     def dreamer_follow_ups(self) -> dict[str, Any]:
         return envelope(True, "dreamer-follow-ups", "accepted", "Dreamer follow up queue listed", data=list_dreamer_follow_ups())
 
@@ -242,19 +280,23 @@ class RequestHandler(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(length).decode("utf-8") or "{}")
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.path == "/api/health":
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/health":
             self._send(self.service.health())
             return
-        if self.path == "/api/n8n/profiles":
+        if parsed.path == "/api/n8n/profiles":
             self._send(self.service.profiles())
             return
-        if self.path == "/api/n8n/dreamer/queue":
+        if parsed.path == "/api/n8n/dreamer/queue":
             self._send(self.service.dreamer_queue())
             return
-        if self.path == "/api/n8n/dreamer/actions":
-            self._send(self.service.dreamer_actions())
+        if parsed.path == "/api/n8n/dreamer/actions":
+            query = parse_qs(parsed.query)
+            kind = query.get("kind", [None])[0]
+            status = query.get("status", [None])[0]
+            self._send(self.service.dreamer_actions_filtered(kind=kind, status=status))
             return
-        if self.path == "/api/n8n/dreamer/follow-ups":
+        if parsed.path == "/api/n8n/dreamer/follow-ups":
             self._send(self.service.dreamer_follow_ups())
             return
         self._send(envelope(False, "unknown", "rejected", "Endpoint not found", errors=[{"code": "NOT_FOUND", "detail": self.path}]), HTTPStatus.NOT_FOUND)
@@ -277,6 +319,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             "/api/n8n/night-cycle/run": self.service.night_cycle_run,
             "/api/n8n/dreamer/review": self.service.dreamer_review,
             "/api/n8n/dreamer/follow-ups/apply": self.service.dreamer_apply_follow_up,
+            "/api/n8n/dreamer/actions/register": self.service.dreamer_register_action,
+            "/api/n8n/dreamer/actions/status": self.service.dreamer_update_action_status,
             "/api/n8n/profiles/use": self.service.profiles_use,
         }
         handler = routes.get(self.path)

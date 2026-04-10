@@ -24,6 +24,37 @@ def load_dreamer_actions() -> dict[str, Any]:
     return dict(payload.get("registry", {}))
 
 
+def filtered_dreamer_actions(*, kind: str | None = None, status: str | None = None) -> dict[str, Any]:
+    data = load_dreamer_actions()
+    if kind is None and status is None:
+        return data
+
+    bucket_map = {
+        "validator": "validator_changes",
+        "workflow": "workflow_changes",
+        "refusal": "refusal_tightenings",
+        "validator_changes": "validator_changes",
+        "workflow_changes": "workflow_changes",
+        "refusal_tightenings": "refusal_tightenings",
+    }
+    selected_buckets = (
+        [bucket_map[kind]]
+        if kind in bucket_map
+        else ["validator_changes", "workflow_changes", "refusal_tightenings"]
+    )
+    filtered = {
+        "validator_changes": [],
+        "workflow_changes": [],
+        "refusal_tightenings": [],
+    }
+    for bucket in selected_buckets:
+        entries = list(data.get(bucket, []))
+        if status is not None:
+            entries = [item for item in entries if item.get("status") == status]
+        filtered[bucket] = entries
+    return filtered
+
+
 def matching_validator_actions(target: str, endpoint: str, reason: str, content: str) -> list[dict[str, Any]]:
     return _matching_actions("validator", target=target, endpoint=endpoint, reason=reason, text=content)
 

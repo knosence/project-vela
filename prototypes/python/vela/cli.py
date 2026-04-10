@@ -5,7 +5,7 @@ import json
 import sys
 
 from .config import ensure_bootstrap_files, load_config, missing_required_fields, save_config, setup_complete
-from .dreamer_actions import load_dreamer_actions
+from .dreamer_actions import filtered_dreamer_actions, load_dreamer_actions, register_dreamer_action, update_dreamer_action_status
 from .governance import apply_growth_proposal, create_cross_reference
 from .inbox import triage_inbox
 from .matrix import write_matrix_index
@@ -129,6 +129,34 @@ def cmd_dreamer_actions(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dreamer_actions_filtered(args: argparse.Namespace) -> int:
+    print(json.dumps(filtered_dreamer_actions(kind=args.kind, status=args.status), indent=2))
+    return 0
+
+
+def cmd_dreamer_register_action(args: argparse.Namespace) -> int:
+    result = register_dreamer_action(
+        kind=args.kind,
+        follow_up_target=args.follow_up_target,
+        execution_target=args.execution_target,
+        pattern_reason=args.pattern_reason,
+        actor="human",
+        execution_reason=args.execution_reason,
+        status=args.status,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
+def cmd_dreamer_set_action_status(args: argparse.Namespace) -> int:
+    result = update_dreamer_action_status(
+        follow_up_target=args.follow_up_target,
+        status=args.status,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
 def cmd_dreamer_review(args: argparse.Namespace) -> int:
     result = review_dreamer_proposal(target=args.target, decision=args.decision, actor="human", reason=args.reason)
     print(json.dumps(result, indent=2))
@@ -225,6 +253,22 @@ def build_parser() -> argparse.ArgumentParser:
     dreamer_queue_parser.set_defaults(func=cmd_dreamer_queue)
     dreamer_actions_parser = dreamer_sub.add_parser("actions")
     dreamer_actions_parser.set_defaults(func=cmd_dreamer_actions)
+    dreamer_actions_filter_parser = dreamer_sub.add_parser("actions-filter")
+    dreamer_actions_filter_parser.add_argument("--kind")
+    dreamer_actions_filter_parser.add_argument("--status")
+    dreamer_actions_filter_parser.set_defaults(func=cmd_dreamer_actions_filtered)
+    dreamer_register_action_parser = dreamer_sub.add_parser("register-action")
+    dreamer_register_action_parser.add_argument("kind")
+    dreamer_register_action_parser.add_argument("follow_up_target")
+    dreamer_register_action_parser.add_argument("execution_target")
+    dreamer_register_action_parser.add_argument("pattern_reason")
+    dreamer_register_action_parser.add_argument("--execution-reason", default="")
+    dreamer_register_action_parser.add_argument("--status", default="active")
+    dreamer_register_action_parser.set_defaults(func=cmd_dreamer_register_action)
+    dreamer_set_action_status_parser = dreamer_sub.add_parser("set-action-status")
+    dreamer_set_action_status_parser.add_argument("follow_up_target")
+    dreamer_set_action_status_parser.add_argument("status")
+    dreamer_set_action_status_parser.set_defaults(func=cmd_dreamer_set_action_status)
     dreamer_review_parser = dreamer_sub.add_parser("review")
     dreamer_review_parser.add_argument("target")
     dreamer_review_parser.add_argument("decision")
