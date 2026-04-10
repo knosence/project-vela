@@ -265,6 +265,106 @@ class VelaSystemTest(unittest.TestCase):
         config_finding = next(item for item in result["data"]["findings"] if item["code"] == "CONFIG_REQUIRED")
         self.assertIn("Vela Setup Rule: Setup Mode Honesty", config_finding["rule_refs"])
 
+    def test_dreamer_validator_action_annotates_validation(self) -> None:
+        DREAMER_ACTIONS_PATH.write_text(
+            json.dumps(
+                {
+                    "validator_changes": [
+                        {
+                            "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.validator.md",
+                            "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.validator.md",
+                            "pattern_reason": "frontmatter structure validation",
+                            "actor": "human",
+                            "execution_reason": "tighten validator behavior",
+                            "applied_at": "2026-04-09T00:00:00+00:00",
+                            "status": "active",
+                        }
+                    ],
+                    "workflow_changes": [],
+                    "refusal_tightenings": [],
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        findings = write_text(
+            "knowledge/ARTIFACTS/proposals/validator-action-test.md",
+            (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
+            actor="scribe",
+            endpoint="test",
+            reason="validator structure check",
+        )
+        self.assertTrue(findings["ok"])
+        self.assertTrue(any(item["code"] == "DREAMER_VALIDATOR_CHANGE_ACTIVE" for item in findings["findings"]))
+
+    def test_dreamer_workflow_action_is_visible_during_inbox_routing(self) -> None:
+        DREAMER_ACTIONS_PATH.write_text(
+            json.dumps(
+                {
+                    "validator_changes": [],
+                    "workflow_changes": [
+                        {
+                            "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md",
+                            "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.workflow.md",
+                            "pattern_reason": "triage route queue",
+                            "actor": "human",
+                            "execution_reason": "tighten routing review",
+                            "applied_at": "2026-04-09T00:00:00+00:00",
+                            "status": "active",
+                        }
+                    ],
+                    "refusal_tightenings": [],
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
+        (REPO_ROOT / target).write_text((REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-item.md"
+        inbox_path.write_text(
+            "Target: [[inbox-triage-target.md]]\n\n"
+            "Route queue update\n\n"
+            "This triage route should remain visible to workflow review.\n",
+            encoding="utf-8",
+        )
+        result = triage_inbox(file_name="test-inbox-item.md", actor="vela")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["results"][0]["workflow_actions"], ["triage route queue"])
+
+    def test_dreamer_refusal_tightening_blocks_matching_write(self) -> None:
+        DREAMER_ACTIONS_PATH.write_text(
+            json.dumps(
+                {
+                    "validator_changes": [],
+                    "workflow_changes": [],
+                    "refusal_tightenings": [
+                        {
+                            "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.refusal.md",
+                            "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.refusal.md",
+                            "pattern_reason": "cross reference pointer",
+                            "actor": "human",
+                            "execution_reason": "tighten refusal on risky pointer writes",
+                            "applied_at": "2026-04-09T00:00:00+00:00",
+                            "status": "active",
+                        }
+                    ],
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        result = write_text(
+            "knowledge/ARTIFACTS/proposals/refusal-tightening-test.md",
+            "# Refusal Tightening Test\n\n## This Write Should Be Blocked\nCross reference pointer write.\n",
+            actor="scribe",
+            endpoint="cross-reference",
+            reason="cross reference pointer update",
+        )
+        self.assertFalse(result["ok"])
+        finding = next(item for item in result["findings"] if item["code"] == "DREAMER_REFUSAL_TIGHTENING_ACTIVE")
+        self.assertTrue(any("Immutable Rules" in rule for rule in finding["rule_refs"]))
+
     def test_rust_bridge_findings_include_rule_refs(self) -> None:
         payload = validate_target_payload(
             "knowledge/Cornerstone.Knosence-SoT.md",

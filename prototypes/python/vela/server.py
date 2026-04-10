@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from .config import load_config, missing_required_fields, setup_complete
+from .dreamer_actions import load_dreamer_actions
 from .matrix import validate_matrix_rules
 from .governance import apply_growth_proposal, create_cross_reference, record_approval
 from .inbox import triage_inbox
@@ -91,7 +92,14 @@ class VelaService:
             findings.append({"code": "NARRATIVE_VALIDATOR_ACTIVE", "detail": "Narrative validator executed", "severity": "info", "rule_refs": []})
         ok = not any(item["code"] == "CONFIG_REQUIRED" for item in findings) or mode == "report"
         status = "accepted" if ok else "rejected"
-        return envelope(ok, "validate", status, "Validation finished", data={"scope": scope, "mode": mode, "findings": findings}, errors=[] if ok else findings)
+        return envelope(
+            ok,
+            "validate",
+            status,
+            "Validation finished",
+            data={"scope": scope, "mode": mode, "findings": findings, "dreamer_actions": load_dreamer_actions()},
+            errors=[] if ok else findings,
+        )
 
     def reflect(self, payload: dict[str, Any]) -> dict[str, Any]:
         proposals = [

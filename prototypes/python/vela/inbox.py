@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .dreamer_actions import matching_workflow_actions
 from .governance import append_event, build_pointer_entry, route_inbox_entry, write_text
 from .models import EventRecord
 from .paths import INBOX_DIR, PATCH_LOG_PATH, REPO_ROOT
@@ -39,6 +40,7 @@ def _triage_markdown_file(path: Path, actor: str) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8")
     target = _extract_target(text)
     dimension = route_inbox_entry(text)
+    workflow_actions = matching_workflow_actions(text)
 
     if not dimension:
         _append_patch_log("flagged", relative_path, "Unsorted — needs review.", actor)
@@ -54,7 +56,13 @@ def _triage_markdown_file(path: Path, actor: str) -> dict[str, Any]:
                 validation_summary={"reason": "unsorted-needs-review"},
             )
         )
-        return {"ok": False, "file": relative_path, "status": "flagged", "reason": "unsorted-needs-review"}
+        return {
+            "ok": False,
+            "file": relative_path,
+            "status": "flagged",
+            "reason": "unsorted-needs-review",
+            "workflow_actions": [item["pattern_reason"] for item in workflow_actions],
+        }
 
     if not target:
         _append_patch_log("flagged", relative_path, f"Missing target SoT for dimension {dimension}.", actor)
@@ -126,6 +134,7 @@ def _triage_markdown_file(path: Path, actor: str) -> dict[str, Any]:
         "dimension": dimension,
         "target": target,
         "pointer": pointer,
+        "workflow_actions": [item["pattern_reason"] for item in workflow_actions],
     }
 
 
@@ -134,6 +143,7 @@ def _triage_text_companion_file(path: Path, actor: str) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8")
     target = _extract_target(text)
     dimension = route_inbox_entry(text)
+    workflow_actions = matching_workflow_actions(text)
 
     if not dimension:
         return _flag_for_review(path, actor, "unsorted-needs-review", "dimension router could not classify inbox item")
@@ -182,6 +192,7 @@ def _triage_text_companion_file(path: Path, actor: str) -> dict[str, Any]:
         "target": target,
         "companion": str(companion_path.relative_to(REPO_ROOT)),
         "pointer": pointer,
+        "workflow_actions": [item["pattern_reason"] for item in workflow_actions],
     }
 
 
@@ -197,6 +208,7 @@ def _triage_csv_companion_file(path: Path, actor: str) -> dict[str, Any]:
         return _block_missing_target(path, actor, target, "")
 
     rows = _parse_csv_rows(text)
+    workflow_actions = matching_workflow_actions(text)
     if not rows:
         return _flag_for_review(path, actor, "empty-csv", "CSV inbox item had no extractable rows.")
 
@@ -259,6 +271,7 @@ def _triage_csv_companion_file(path: Path, actor: str) -> dict[str, Any]:
         "companion": str(companion_path.relative_to(REPO_ROOT)),
         "rows": len(extracted_entries),
         "pointers": pointers,
+        "workflow_actions": [item["pattern_reason"] for item in workflow_actions],
     }
 
 

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import load_config
+from .dreamer_actions import matching_refusal_actions, matching_validator_actions
 from .matrix import classify_change_zone
 from .models import EventRecord, ValidationFinding
 from .paths import APPROVALS_PATH, BACKUP_DIR, EVENT_LOG_PATH, PROPOSALS_DIR, QUEUE_DIR, REPO_ROOT
@@ -129,9 +130,20 @@ def validate_target(target: str, content: str, approval_id: str | None = None) -
             [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
         )
     payload = rust_validate_target(target, content, approval_status(approval_id) or "missing")
-    return annotate_findings(
+    findings = annotate_findings(
         [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
     )
+    for action in matching_validator_actions(target, content):
+        findings.append(
+            annotate_finding(
+                ValidationFinding(
+                    "DREAMER_VALIDATOR_CHANGE_ACTIVE",
+                    f"Active Dreamer validator action applies: {action['pattern_reason']}",
+                    severity="warning",
+                )
+            )
+        )
+    return findings
 
 
 def append_event(record: EventRecord) -> None:
@@ -175,6 +187,16 @@ def write_text(target: str, content: str, actor: str, endpoint: str, reason: str
     role_failure = enforce_actor_operation(actor, "write-text", target=target, endpoint=endpoint)
     if role_failure:
         local_findings.append(role_failure)
+    if endpoint != "dreamer-follow-up-apply":
+        for action in matching_refusal_actions(target, endpoint, reason, content):
+            local_findings.append(
+                annotate_finding(
+                    ValidationFinding(
+                        "DREAMER_REFUSAL_TIGHTENING_ACTIVE",
+                        f"Active Dreamer refusal tightening blocks this operation: {action['pattern_reason']}",
+                    )
+                )
+            )
     if previous:
         subject_payload = validate_subject_declaration_payload(previous, content, approval_status(approval_id) or "missing")
         local_findings.extend(

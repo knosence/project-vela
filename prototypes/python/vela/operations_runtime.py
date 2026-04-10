@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .dreamer_actions import load_dreamer_actions
 from .governance import append_event, record_approval, validate_target, write_text
 from .growth import assess_growth
 from .models import EventRecord
@@ -685,13 +686,7 @@ def _existing_execution_target(text: str) -> str | None:
 
 
 def _load_dreamer_actions() -> dict[str, Any]:
-    if not DREAMER_ACTIONS_PATH.exists():
-        return {
-            "validator_changes": [],
-            "workflow_changes": [],
-            "refusal_tightenings": [],
-        }
-    return json.loads(DREAMER_ACTIONS_PATH.read_text(encoding="utf-8"))
+    return load_dreamer_actions()
 
 
 def _register_dreamer_action(

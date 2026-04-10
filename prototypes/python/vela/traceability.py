@@ -93,6 +93,14 @@ RULE_MAP: dict[str, list[str]] = {
         "Role Purity",
         "SoT Operations Reference: Agent Boundary Table",
     ],
+    "DREAMER_VALIDATOR_CHANGE_ACTIVE": [
+        "SoT Operations Reference: Dreamer Feedback Loop",
+        "SoT Operations Reference: Three-Tier Vault Maintenance",
+    ],
+    "DREAMER_REFUSAL_TIGHTENING_ACTIVE": [
+        "SoT Operations Reference: Dreamer Feedback Loop",
+        "SoT Operations Reference: Immutable Rules",
+    ],
 }
 
 
