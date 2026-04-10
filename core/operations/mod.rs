@@ -1,5 +1,11 @@
 use crate::models::ValidationFinding;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DreamerActionMatch {
+    pub pattern_reason: String,
+    pub status: String,
+}
+
 pub fn route_inbox_entry(text: &str) -> Option<&'static str> {
     let lowered = text.to_lowercase();
     let rules: [(&str, &[&str]); 6] = [
@@ -57,6 +63,79 @@ pub fn validate_archive_postconditions(
         Some(detail) => vec![ValidationFinding::error("ARCHIVE_POSTCONDITION_FAILED", detail)],
         None => Vec::new(),
     }
+}
+
+pub fn match_dreamer_actions(
+    registry_json: &str,
+    mode: &str,
+    target: &str,
+    endpoint: &str,
+    reason: &str,
+    content: &str,
+) -> Vec<DreamerActionMatch> {
+    let bucket = match mode {
+        "validator" => "validator_changes",
+        "workflow" => "workflow_changes",
+        "refusal" => "refusal_tightenings",
+        _ => return Vec::new(),
+    };
+    let haystack = format!("{target} {endpoint} {reason} {content}").to_lowercase();
+    extract_bucket_entries(registry_json, bucket)
+        .into_iter()
+        .filter(|item| item.status == "active")
+        .filter(|item| {
+            let tokens = meaningful_tokens(&item.pattern_reason);
+            !tokens.is_empty() && tokens.iter().any(|token| haystack.contains(token))
+        })
+        .collect()
+}
+
+fn extract_bucket_entries(registry_json: &str, bucket: &str) -> Vec<DreamerActionMatch> {
+    let marker = format!("\"{bucket}\": [");
+    let Some(start) = registry_json.find(&marker) else {
+        return Vec::new();
+    };
+    let slice = &registry_json[start + marker.len()..];
+    let Some(end) = slice.find(']') else {
+        return Vec::new();
+    };
+    let section = &slice[..end];
+    let mut matches = Vec::new();
+    for object in section.split("},") {
+        let pattern_reason = extract_json_string(object, "pattern_reason").unwrap_or_default();
+        let status = extract_json_string(object, "status").unwrap_or_default();
+        if !pattern_reason.is_empty() {
+            matches.push(DreamerActionMatch { pattern_reason, status });
+        }
+    }
+    matches
+}
+
+fn extract_json_string(text: &str, key: &str) -> Option<String> {
+    let marker = format!("\"{key}\":");
+    let start = text.find(&marker)? + marker.len();
+    let remainder = text[start..].trim_start();
+    let remainder = remainder.strip_prefix('"')?;
+    let end = remainder.find('"')?;
+    Some(remainder[..end].to_string())
+}
+
+fn meaningful_tokens(value: &str) -> Vec<String> {
+    let stopwords = [
+        "the", "and", "for", "with", "that", "this", "from", "into", "through", "when", "then",
+        "than", "path", "change", "review", "blocked", "reason",
+    ];
+    let mut tokens: Vec<String> = Vec::new();
+    for token in value
+        .to_lowercase()
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|token| token.len() > 3 && !stopwords.contains(token))
+    {
+        if !tokens.iter().any(|item| item == token) {
+            tokens.push(token.to_string());
+        }
+    }
+    tokens
 }
 
 fn subject_declaration_block(text: &str) -> String {
@@ -155,5 +234,53 @@ mod tests {
             "## 100.WHO.Identity",
         );
         assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn matches_validator_actions_from_registry() {
+        let registry = r#"{
+  "validator_changes": [
+    {
+      "pattern_reason": "frontmatter structure validation",
+      "status": "active"
+    }
+  ],
+  "workflow_changes": [],
+  "refusal_tightenings": []
+}"#;
+        let matches = match_dreamer_actions(
+            registry,
+            "validator",
+            "knowledge/210.WHAT.Vela-Capabilities-SoT.md",
+            "test",
+            "validator structure check",
+            "frontmatter structure validation matters here",
+        );
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].pattern_reason, "frontmatter structure validation");
+    }
+
+    #[test]
+    fn matches_refusal_actions_from_registry() {
+        let registry = r#"{
+  "validator_changes": [],
+  "workflow_changes": [],
+  "refusal_tightenings": [
+    {
+      "pattern_reason": "cross reference pointer",
+      "status": "active"
+    }
+  ]
+}"#;
+        let matches = match_dreamer_actions(
+            registry,
+            "refusal",
+            "knowledge/ARTIFACTS/proposals/test.md",
+            "cross-reference",
+            "cross reference pointer update",
+            "Cross reference pointer write.",
+        );
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].pattern_reason, "cross reference pointer");
     }
 }

@@ -169,6 +169,14 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
         | "EVENT_REASON_REQUIRED" => vec![
             "Directive 8 Event Log Everything Important".to_string(),
         ],
+        "DREAMER_VALIDATOR_CHANGE_ACTIVE" => vec![
+            "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
+            "SoT Operations Reference: Three-Tier Vault Maintenance".to_string(),
+        ],
+        "DREAMER_REFUSAL_TIGHTENING_ACTIVE" => vec![
+            "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
+            "SoT Operations Reference: Immutable Rules".to_string(),
+        ],
         _ => Vec::new(),
     }
 }

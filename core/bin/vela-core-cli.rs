@@ -10,6 +10,7 @@ use vela_core::matrix::{
 };
 use vela_core::models::{OnboardingConfig, Severity, ValidationFinding};
 use vela_core::operations::{
+    match_dreamer_actions as match_dreamer_actions_policy,
     route_inbox_entry as route_inbox_dimension,
     validate_archive_postconditions as validate_archive_outcome,
     validate_growth_stage as validate_growth_stage_policy,
@@ -93,6 +94,32 @@ fn run() -> Result<(), String> {
                 .map_err(|err| format!("failed reading stdin: {err}"))?;
             let findings = validate_archive_outcome(&content, &entry_value, &archived_reason, &dimension_heading);
             print_findings(&findings, None);
+        }
+        "match-dreamer-actions" => {
+            let mode = args.next().ok_or_else(|| "missing mode".to_string())?;
+            let target = args.next().unwrap_or_default();
+            let endpoint = args.next().unwrap_or_default();
+            let reason = args.next().unwrap_or_default();
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (registry_json, text) = content
+                .split_once("\n===INPUT===\n")
+                .ok_or_else(|| "missing dreamer action split marker".to_string())?;
+            let matches = match_dreamer_actions_policy(registry_json, &mode, &target, &endpoint, &reason, text);
+            println!(
+                "{{\"ok\":true,\"matches\":[{}]}}",
+                matches
+                    .iter()
+                    .map(|item| format!(
+                        "{{\"pattern_reason\":\"{}\",\"status\":\"{}\"}}",
+                        escape_json(&item.pattern_reason),
+                        escape_json(&item.status),
+                    ))
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
         }
         "validate-config" => {
             let owner_name = args.next().ok_or_else(|| "missing owner name".to_string())?;

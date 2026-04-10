@@ -29,6 +29,20 @@ def route_for_target(task_type: str, target: str) -> str:
     return str(payload["route"])
 
 
+def match_dreamer_actions_payload(
+    registry_json: str,
+    mode: str,
+    target: str,
+    endpoint: str,
+    reason: str,
+    content: str,
+) -> dict[str, Any]:
+    return _run(
+        ["match-dreamer-actions", mode, target, endpoint, reason],
+        stdin=f"{registry_json}\n===INPUT===\n{content}",
+    )
+
+
 def route_inbox_payload(content: str) -> dict[str, Any]:
     return _run(["route-inbox"], stdin=content)
 

@@ -11,10 +11,14 @@
             "id": "3e08b19d68062871",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "type": "markdown",
+              "state": {
+                "file": "knowledge/ARTIFACTS/refs/Index.Knosence-Matrix-Ref.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Index.Knosence-Matrix-Ref"
             }
           }
         ]
@@ -90,6 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "knowledge/ARTIFACTS/refs/Index.Knosence-Matrix-Ref.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -99,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks"
+              "title": "Backlinks for Index.Knosence-Matrix-Ref"
             }
           },
           {
@@ -108,11 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "knowledge/ARTIFACTS/refs/Index.Knosence-Matrix-Ref.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links"
+              "title": "Outgoing links from Index.Knosence-Matrix-Ref"
             }
           },
           {
@@ -150,12 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
+                "file": "knowledge/ARTIFACTS/refs/Index.Knosence-Matrix-Ref.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline"
+              "title": "Outline of Index.Knosence-Matrix-Ref"
             }
           }
         ]
@@ -176,44 +183,43 @@
       "bases:Create new base": false
     }
   },
-  "active": "ef1abfaab7880acc",
+  "active": "3e08b19d68062871",
   "lastOpenFiles": [
-    "knowledge/ARTIFACTS/refs/Warden-Patrol-20260410-0016.md",
+    "knowledge/ARTIFACTS/refs/Warden-Patrol-20260410-0020.md",
     "knowledge/ARTIFACTS/logs/Vela-Patch-Log.md",
+    "runtime/queues/b7afeb1f5f88cd6e30e0de38351d4086c9b3ef7a.lock",
     "knowledge/INBOX/test-inbox-item.md",
     "knowledge/ARTIFACTS/proposals/inbox-triage-target.md",
+    "knowledge/ARTIFACTS/archive/backups/202604100020(subject-declaration-test.md)Backup.md",
+    "runtime/queues/0b5fbeefbe9092a0fd96c4446c7acf1a958e81ce.lock",
+    "knowledge/ARTIFACTS/archive/backups/202604100020(TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
+    "runtime/queues/ccff0fc4998eae81fc573fc4b8f74fcc8fddde94.lock",
+    "knowledge/ARTIFACTS/archive/backups/202604100020(Growth-Proposal.2026-04-10.sovereign-change.TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
     "knowledge/ARTIFACTS/proposals/Ref.repo-watch-test.Release-Intelligence.md",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.validation.json",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.reflection.json",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.md",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.assessment.json",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.packet.json",
-    "knowledge/ARTIFACTS/refs/DC-Night-Report-20260410-0016.md",
-    "knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-20260410-0016.md",
-    "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.20260410-0016.force-blocked-pattern-for-night-report.md",
+    "runtime/queues/e548038da459d56066852511ffbab58dcf925176.lock",
+    "knowledge/ARTIFACTS/archive/backups/202604100020(protected-zone-test.md)Backup.md",
+    "knowledge/ARTIFACTS/refs/DC-Night-Report-20260410-0020.md",
+    "runtime/queues/078999db355a69f0aef65bb8f69def5bef0f0ee3.lock",
+    "knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-20260410-0020.md",
+    "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.20260410-0020.force-blocked-pattern-for-night-report.md",
     "knowledge/ARTIFACTS/proposals/direct-root-dimension-branch-test.md",
-    "knowledge/ARTIFACTS/proposals/direct-root-agent-branch-test.md",
     "knowledge/ARTIFACTS/refs/Ref.indexed-release-summary.Release-Intelligence.md",
     "knowledge/ARTIFACTS/refs/indexed-release-summary.validation.json",
-    "knowledge/ARTIFACTS/refs/indexed-release-summary.reflection.json",
     "knowledge/ARTIFACTS/refs/indexed-release-summary.md",
-    "knowledge/ARTIFACTS/refs/indexed-release-summary.assessment.json",
-    "knowledge/ARTIFACTS/refs/indexed-release-summary.packet.json",
-    "knowledge/ARTIFACTS/proposals/inbox-triage-target-20260410.txt",
-    "knowledge/INBOX/test-inbox-item.txt",
+    "knowledge/INBOX/test-inbox-binary.png",
     "knowledge/INBOX/test-inbox-missing-target.md",
     "knowledge/ARTIFACTS/proposals/Synthetic-Identity-SoT.md",
-    "knowledge/ARTIFACTS/archive/backups/202604100016(growth-apply-service-test.md)Backup.md",
+    "knowledge/ARTIFACTS/archive/backups/202604100020(growth-apply-service-test.md)Backup.md",
     "knowledge/ARTIFACTS/refs/Ref.service-source.md",
     "knowledge/ARTIFACTS/proposals/growth-apply-service-test.md",
     "knowledge/ARTIFACTS/proposals/service-source-SoT.md",
     "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
     "knowledge/ARTIFACTS/proposals/spawn-source-SoT.md",
-    "knowledge/ARTIFACTS/archive/backups/202604100016(Dreamer-Proposal.20260410-0016.force-blocked-pattern-for-dreamer-service-queue.md)Backup.md",
-    "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.20260410-0016.force-blocked-pattern-for-dreamer-service-queue.md",
-    "knowledge/ARTIFACTS/archive/backups/202604100016(Dreamer-Follow-Up.20260410-0016.force-blocked-pattern-for-dreamer-queue.md)Backup.md",
-    "knowledge/ARTIFACTS/refs/Dreamer-Execution.20260410-0016.force-blocked-pattern-for-dreamer-queue.md",
-    "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.20260410-0016.force-blocked-pattern-for-dreamer-queue.md",
-    "knowledge/INBOX/test-inbox-binary.png"
+    "knowledge/ARTIFACTS/archive/backups/202604100020(inbox-triage-target.md)Backup.md"
   ]
 }
