@@ -191,6 +191,9 @@ class VelaService:
     def dreamer_queue(self) -> dict[str, Any]:
         return envelope(True, "dreamer-queue", "accepted", "Dreamer queue listed", data=list_dreamer_queue())
 
+    def dreamer_actions(self) -> dict[str, Any]:
+        return envelope(True, "dreamer-actions", "accepted", "Dreamer action registry listed", data=load_dreamer_actions())
+
     def dreamer_follow_ups(self) -> dict[str, Any]:
         return envelope(True, "dreamer-follow-ups", "accepted", "Dreamer follow up queue listed", data=list_dreamer_follow_ups())
 
@@ -247,6 +250,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/n8n/dreamer/queue":
             self._send(self.service.dreamer_queue())
+            return
+        if self.path == "/api/n8n/dreamer/actions":
+            self._send(self.service.dreamer_actions())
             return
         if self.path == "/api/n8n/dreamer/follow-ups":
             self._send(self.service.dreamer_follow_ups())

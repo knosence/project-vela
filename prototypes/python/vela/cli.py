@@ -5,6 +5,7 @@ import json
 import sys
 
 from .config import ensure_bootstrap_files, load_config, missing_required_fields, save_config, setup_complete
+from .dreamer_actions import load_dreamer_actions
 from .governance import apply_growth_proposal, create_cross_reference
 from .inbox import triage_inbox
 from .matrix import write_matrix_index
@@ -123,6 +124,11 @@ def cmd_dreamer_queue(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dreamer_actions(_: argparse.Namespace) -> int:
+    print(json.dumps(load_dreamer_actions(), indent=2))
+    return 0
+
+
 def cmd_dreamer_review(args: argparse.Namespace) -> int:
     result = review_dreamer_proposal(target=args.target, decision=args.decision, actor="human", reason=args.reason)
     print(json.dumps(result, indent=2))
@@ -217,6 +223,8 @@ def build_parser() -> argparse.ArgumentParser:
     dreamer_sub = dreamer_parser.add_subparsers(dest="dreamer_command", required=True)
     dreamer_queue_parser = dreamer_sub.add_parser("queue")
     dreamer_queue_parser.set_defaults(func=cmd_dreamer_queue)
+    dreamer_actions_parser = dreamer_sub.add_parser("actions")
+    dreamer_actions_parser.set_defaults(func=cmd_dreamer_actions)
     dreamer_review_parser = dreamer_sub.add_parser("review")
     dreamer_review_parser.add_argument("target")
     dreamer_review_parser.add_argument("decision")

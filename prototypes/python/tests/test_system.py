@@ -1040,6 +1040,34 @@ class VelaSystemTest(unittest.TestCase):
         self.assertEqual(review["endpoint"], "dreamer-review")
         self.assertIsNone(review["data"]["follow_up_target"])
 
+    def test_dreamer_actions_service_endpoint(self) -> None:
+        DREAMER_ACTIONS_PATH.write_text(
+            json.dumps(
+                {
+                    "validator_changes": [],
+                    "workflow_changes": [
+                        {
+                            "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md",
+                            "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.workflow.md",
+                            "pattern_reason": "triage route queue",
+                            "actor": "human",
+                            "execution_reason": "tighten routing",
+                            "applied_at": "2026-04-10T00:00:00+00:00",
+                            "status": "active",
+                        }
+                    ],
+                    "refusal_tightenings": [],
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        result = VelaService().dreamer_actions()
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["endpoint"], "dreamer-actions")
+        self.assertEqual(len(result["data"]["workflow_changes"]), 1)
+        self.assertEqual(result["data"]["workflow_changes"][0]["pattern_reason"], "triage route queue")
+
     def test_dreamer_follow_up_service_endpoint(self) -> None:
         for _ in range(3):
             write_text(
