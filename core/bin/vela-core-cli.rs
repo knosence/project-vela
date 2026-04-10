@@ -11,6 +11,7 @@ use vela_core::matrix::{
 use vela_core::models::{OnboardingConfig, Severity, ValidationFinding};
 use vela_core::operations::{
     match_dreamer_actions as match_dreamer_actions_policy,
+    parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     route_inbox_entry as route_inbox_dimension,
     validate_archive_postconditions as validate_archive_outcome,
     validate_growth_stage as validate_growth_stage_policy,
@@ -119,6 +120,21 @@ fn run() -> Result<(), String> {
                     ))
                     .collect::<Vec<String>>()
                     .join(",")
+            );
+        }
+        "parse-dreamer-actions" => {
+            let mut registry_json = String::new();
+            io::stdin()
+                .read_to_string(&mut registry_json)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (registry, findings) = parse_dreamer_action_registry_policy(&registry_json);
+            println!(
+                "{{\"ok\":{},\"registry\":{{\"validator_changes\":[{}],\"workflow_changes\":[{}],\"refusal_tightenings\":[{}]}},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) { "true" } else { "false" },
+                registry.validator_changes.iter().map(render_dreamer_action).collect::<Vec<String>>().join(","),
+                registry.workflow_changes.iter().map(render_dreamer_action).collect::<Vec<String>>().join(","),
+                registry.refusal_tightenings.iter().map(render_dreamer_action).collect::<Vec<String>>().join(","),
+                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
             );
         }
         "validate-config" => {
@@ -373,6 +389,19 @@ fn render_finding(finding: &ValidationFinding) -> String {
             .map(|item| format!("\"{}\"", escape_json(item)))
             .collect::<Vec<String>>()
             .join(",")
+    )
+}
+
+fn render_dreamer_action(action: &vela_core::models::DreamerAction) -> String {
+    format!(
+        "{{\"follow_up_target\":\"{}\",\"execution_target\":\"{}\",\"pattern_reason\":\"{}\",\"actor\":\"{}\",\"execution_reason\":\"{}\",\"applied_at\":\"{}\",\"status\":\"{}\"}}",
+        escape_json(&action.follow_up_target),
+        escape_json(&action.execution_target),
+        escape_json(&action.pattern_reason),
+        escape_json(&action.actor),
+        escape_json(&action.execution_reason),
+        escape_json(&action.applied_at),
+        escape_json(&action.status),
     )
 }
 

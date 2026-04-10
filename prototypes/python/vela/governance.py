@@ -119,7 +119,14 @@ def narrative_findings(text: str) -> list[ValidationFinding]:
     )
 
 
-def validate_target(target: str, content: str, approval_id: str | None = None) -> list[ValidationFinding]:
+def validate_target(
+    target: str,
+    content: str,
+    approval_id: str | None = None,
+    *,
+    endpoint: str = "",
+    reason: str = "",
+) -> list[ValidationFinding]:
     if target.endswith(".json"):
         payload = rust_validate_target(
             target,
@@ -133,7 +140,7 @@ def validate_target(target: str, content: str, approval_id: str | None = None) -
     findings = annotate_findings(
         [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
     )
-    for action in matching_validator_actions(target, content):
+    for action in matching_validator_actions(target, endpoint or "validate-target", reason, content):
         findings.append(
             annotate_finding(
                 ValidationFinding(
@@ -204,7 +211,7 @@ def write_text(target: str, content: str, actor: str, endpoint: str, reason: str
                 [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in subject_payload["findings"]]
             )
         )
-    findings = local_findings + validate_target(target, content, approval_id=approval_id)
+    findings = local_findings + validate_target(target, content, approval_id=approval_id, endpoint=endpoint, reason=reason)
     blocking = [item for item in findings if item.severity == "error"]
     approval_required = any(item.code == "SOVEREIGN_APPROVAL_REQUIRED" for item in findings)
     if blocking:

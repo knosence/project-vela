@@ -1,9 +1,44 @@
-use crate::models::ValidationFinding;
+use crate::models::{DreamerAction, DreamerActionRegistry, ValidationFinding};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DreamerActionMatch {
     pub pattern_reason: String,
     pub status: String,
+}
+
+pub fn parse_dreamer_action_registry(registry_json: &str) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
+    let validator_changes = extract_bucket_entries(registry_json, "validator_changes");
+    let workflow_changes = extract_bucket_entries(registry_json, "workflow_changes");
+    let refusal_tightenings = extract_bucket_entries(registry_json, "refusal_tightenings");
+    let registry = DreamerActionRegistry {
+        validator_changes,
+        workflow_changes,
+        refusal_tightenings,
+    };
+
+    let mut findings = Vec::new();
+    for (bucket, actions) in [
+        ("validator_changes", &registry.validator_changes),
+        ("workflow_changes", &registry.workflow_changes),
+        ("refusal_tightenings", &registry.refusal_tightenings),
+    ] {
+        for action in actions {
+            if action.pattern_reason.trim().is_empty() {
+                findings.push(ValidationFinding::error(
+                    "DREAMER_ACTION_PATTERN_REQUIRED",
+                    format!("Dreamer action in `{bucket}` is missing pattern_reason"),
+                ));
+            }
+            if action.status.trim().is_empty() {
+                findings.push(ValidationFinding::error(
+                    "DREAMER_ACTION_STATUS_REQUIRED",
+                    format!("Dreamer action in `{bucket}` is missing status"),
+                ));
+            }
+        }
+    }
+
+    (registry, findings)
 }
 
 pub fn route_inbox_entry(text: &str) -> Option<&'static str> {
@@ -73,24 +108,32 @@ pub fn match_dreamer_actions(
     reason: &str,
     content: &str,
 ) -> Vec<DreamerActionMatch> {
-    let bucket = match mode {
-        "validator" => "validator_changes",
-        "workflow" => "workflow_changes",
-        "refusal" => "refusal_tightenings",
-        _ => return Vec::new(),
-    };
+    let (registry, _) = parse_dreamer_action_registry(registry_json);
     let haystack = format!("{target} {endpoint} {reason} {content}").to_lowercase();
-    extract_bucket_entries(registry_json, bucket)
+    bucket_entries(&registry, mode)
         .into_iter()
         .filter(|item| item.status == "active")
         .filter(|item| {
             let tokens = meaningful_tokens(&item.pattern_reason);
             !tokens.is_empty() && tokens.iter().any(|token| haystack.contains(token))
         })
+        .map(|item| DreamerActionMatch {
+            pattern_reason: item.pattern_reason.clone(),
+            status: item.status.clone(),
+        })
         .collect()
 }
 
-fn extract_bucket_entries(registry_json: &str, bucket: &str) -> Vec<DreamerActionMatch> {
+fn bucket_entries<'a>(registry: &'a DreamerActionRegistry, mode: &str) -> &'a [DreamerAction] {
+    match mode {
+        "validator" => &registry.validator_changes,
+        "workflow" => &registry.workflow_changes,
+        "refusal" => &registry.refusal_tightenings,
+        _ => &[],
+    }
+}
+
+fn extract_bucket_entries(registry_json: &str, bucket: &str) -> Vec<DreamerAction> {
     let marker = format!("\"{bucket}\": [");
     let Some(start) = registry_json.find(&marker) else {
         return Vec::new();
@@ -104,8 +147,16 @@ fn extract_bucket_entries(registry_json: &str, bucket: &str) -> Vec<DreamerActio
     for object in section.split("},") {
         let pattern_reason = extract_json_string(object, "pattern_reason").unwrap_or_default();
         let status = extract_json_string(object, "status").unwrap_or_default();
-        if !pattern_reason.is_empty() {
-            matches.push(DreamerActionMatch { pattern_reason, status });
+        if !pattern_reason.is_empty() || !status.is_empty() {
+            matches.push(DreamerAction {
+                follow_up_target: extract_json_string(object, "follow_up_target").unwrap_or_default(),
+                execution_target: extract_json_string(object, "execution_target").unwrap_or_default(),
+                pattern_reason,
+                actor: extract_json_string(object, "actor").unwrap_or_default(),
+                execution_reason: extract_json_string(object, "execution_reason").unwrap_or_default(),
+                applied_at: extract_json_string(object, "applied_at").unwrap_or_default(),
+                status,
+            });
         }
     }
     matches
@@ -241,7 +292,12 @@ mod tests {
         let registry = r#"{
   "validator_changes": [
     {
+      "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.validator.md",
+      "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.validator.md",
       "pattern_reason": "frontmatter structure validation",
+      "actor": "human",
+      "execution_reason": "tighten validator behavior",
+      "applied_at": "2026-04-09T00:00:00+00:00",
       "status": "active"
     }
   ],
@@ -267,7 +323,12 @@ mod tests {
   "workflow_changes": [],
   "refusal_tightenings": [
     {
+      "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.refusal.md",
+      "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.refusal.md",
       "pattern_reason": "cross reference pointer",
+      "actor": "human",
+      "execution_reason": "tighten refusal behavior",
+      "applied_at": "2026-04-09T00:00:00+00:00",
       "status": "active"
     }
   ]
@@ -282,5 +343,31 @@ mod tests {
         );
         assert_eq!(matches.len(), 1);
         assert_eq!(matches[0].pattern_reason, "cross reference pointer");
+    }
+
+    #[test]
+    fn parses_dreamer_action_registry() {
+        let registry = r#"{
+  "validator_changes": [
+    {
+      "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.validator.md",
+      "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.validator.md",
+      "pattern_reason": "frontmatter structure validation",
+      "actor": "human",
+      "execution_reason": "tighten validator behavior",
+      "applied_at": "2026-04-09T00:00:00+00:00",
+      "status": "active"
+    }
+  ],
+  "workflow_changes": [],
+  "refusal_tightenings": []
+}"#;
+        let (parsed, findings) = parse_dreamer_action_registry(registry);
+        assert!(findings.is_empty());
+        assert_eq!(parsed.validator_changes.len(), 1);
+        assert_eq!(
+            parsed.validator_changes[0].execution_target,
+            "knowledge/ARTIFACTS/refs/Dreamer-Execution.validator.md"
+        );
     }
 }

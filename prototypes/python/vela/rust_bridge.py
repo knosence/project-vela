@@ -43,6 +43,10 @@ def match_dreamer_actions_payload(
     )
 
 
+def parse_dreamer_actions_payload(registry_json: str) -> dict[str, Any]:
+    return _run(["parse-dreamer-actions"], stdin=registry_json)
+
+
 def route_inbox_payload(content: str) -> dict[str, Any]:
     return _run(["route-inbox"], stdin=content)
 

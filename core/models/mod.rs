@@ -59,6 +59,24 @@ pub struct MatrixSoT {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DreamerAction {
+    pub follow_up_target: String,
+    pub execution_target: String,
+    pub pattern_reason: String,
+    pub actor: String,
+    pub execution_reason: String,
+    pub applied_at: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DreamerActionRegistry {
+    pub validator_changes: Vec<DreamerAction>,
+    pub workflow_changes: Vec<DreamerAction>,
+    pub refusal_tightenings: Vec<DreamerAction>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationFinding {
     pub code: String,
     pub detail: String,
@@ -176,6 +194,10 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
         "DREAMER_REFUSAL_TIGHTENING_ACTIVE" => vec![
             "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
             "SoT Operations Reference: Immutable Rules".to_string(),
+        ],
+        "DREAMER_ACTION_PATTERN_REQUIRED" | "DREAMER_ACTION_STATUS_REQUIRED" => vec![
+            "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
+            "Directive 8 Event Log Everything Important".to_string(),
         ],
         _ => Vec::new(),
     }
