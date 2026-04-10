@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[500.HOW.Method-SoT#500.HOW.Method]]"
+domain: integrations
+status: active
+tags: ["n8n","integration","reference"]
+---
+
 # n8n Integration
 
 ## This Integration Uses a Small Governed HTTP Contract Rather Than Raw File Mutation

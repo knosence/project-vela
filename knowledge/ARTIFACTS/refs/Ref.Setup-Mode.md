@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[500.HOW.Method-SoT#500.HOW.Method]]"
+domain: onboarding
+status: active
+tags: ["setup","onboarding","reference"]
+---
+
 # Setup Mode
 
 ## This Onboarding Flow Keeps the System Honest While Configuration Is Incomplete
@@ -5,4 +15,3 @@ The system starts in setup mode until required values exist in `runtime/config/p
 
 ## This Onboarding Flow Supports Keeping, Customizing, or Replacing Vela
 The runtime defaults to the bundled `vela` profile, allows derived or custom profiles, and keeps system SoTs separate from agent-specific SoTs.
-

@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[200.WHAT.Domain-SoT#200.WHAT.Domain]]"
+domain: matrix
+status: active
+tags: ["sot","framework","reference"]
+---
+
 # SoT Framework Reference
 
 ## This Reference States the Current Structural Contract for Sources of Truth

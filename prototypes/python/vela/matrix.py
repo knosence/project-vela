@@ -188,7 +188,9 @@ def validate_reference_structure(entries: list[MatrixReference] | None = None) -
 def validate_canonical_graph_targets() -> list[ValidationFinding]:
     root = REPO_ROOT
     canonical_files: list[Path] = list((root / "knowledge").glob("*.md"))
-    canonical_files.extend((root / "docs").rglob("*.md"))
+    canonical_files.extend((root / "knowledge" / "ARTIFACTS" / "refs").glob("Ref.*.md"))
+    if MATRIX_INDEX_PATH.exists():
+        canonical_files.append(MATRIX_INDEX_PATH)
     readme = root / "README.md"
     if readme.exists():
         canonical_files.append(readme)
@@ -341,7 +343,7 @@ def render_matrix_index(entries: list[MatrixSoT], refs: list[MatrixReference]) -
         [
             "## This Registry Points Back to the Root and the Governing Laws",
             "- Root: [[Cornerstone.Knosence-SoT]]",
-            "- Laws: `docs/directives/matrix-laws.md`",
+            "- Laws: [[Ref.Matrix-Laws]]",
             "",
         ]
     )

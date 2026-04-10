@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[Cornerstone.Knosence-SoT#000.Index]]"
+domain: matrix
+status: active
+tags: ["matrix","constitution","reference"]
+---
+
 # Vela Matrix Constitution
 
 ## This Constitution Maps the Universal Matrix Framework Onto Knosence's Shared Knowledge Jurisdiction

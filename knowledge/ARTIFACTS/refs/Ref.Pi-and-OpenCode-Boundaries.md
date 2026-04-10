@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[500.HOW.Method-SoT#500.HOW.Method]]"
+domain: architecture
+status: active
+tags: ["pi","opencode","boundaries","reference"]
+---
+
 # Adapter and Donor Boundaries
 
 ## This Boundary Keeps Pi in the Adapter Layer Rather Than the Constitutional Layer
@@ -5,4 +15,3 @@ Pi may translate requests, host user experience affordances, or bridge integrati
 
 ## This Boundary Allows OpenCode to Donate Mechanics Without Owning Meaning
 CLI harness, session management, server patterns, GitHub automation, and MCP mechanics may be borrowed or reimplemented from OpenCode patterns, but Source of Truth governance, profile identity, and core workflow architecture remain native to Project Vela.
-

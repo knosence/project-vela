@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[500.HOW.Method-SoT#500.HOW.Method]]"
+domain: governance
+status: active
+tags: ["governance","directives","reference"]
+---
+
 # Core Directives
 
 ## This Document Names the Directives That All Implementations Must Respect
@@ -7,4 +17,4 @@ The system enforces SoT supremacy, single-writer discipline, role purity, reflec
 Tests, validators, and runtime gates are expected to prove the directives through observed behavior rather than through wording alone.
 
 ## This Document Works Alongside Explicit Matrix Laws for Root and Index Governance
-See `docs/directives/matrix-laws.md` for the single-cornerstone, single-parent, and index-visibility laws that govern the matrix as a tree.
+See [[Ref.Matrix-Laws]] for the single-cornerstone, single-parent, and index-visibility laws that govern the matrix as a tree.

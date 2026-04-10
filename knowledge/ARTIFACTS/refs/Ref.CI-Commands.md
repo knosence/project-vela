@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[500.HOW.Method-SoT#500.HOW.Method]]"
+domain: testing
+status: active
+tags: ["testing","ci","reference"]
+---
+
 # CI Commands
 
 ## This Repository Uses Simple Commands That Fit Early CI Without Hidden Tooling
@@ -5,4 +15,3 @@ Run `python3 -m unittest discover -s prototypes/python/tests -v` for the verific
 
 ## This Repository Exposes the Same Flows Through the CLI for Scenario Testing
 Run `python3 -m prototypes.python.vela.cli init`, `python3 -m prototypes.python.vela.cli setup`, `python3 -m prototypes.python.vela.cli dry-boot`, and `python3 -m prototypes.python.vela.cli verify --scenario full`.
-

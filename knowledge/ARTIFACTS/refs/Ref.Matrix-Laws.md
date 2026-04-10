@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[Cornerstone.Knosence-SoT#000.Index]]"
+domain: matrix
+status: active
+tags: ["matrix","laws","reference"]
+---
+
 # Matrix Laws
 
 ## This Document Declares the Governance Laws That Keep the Matrix Coherent

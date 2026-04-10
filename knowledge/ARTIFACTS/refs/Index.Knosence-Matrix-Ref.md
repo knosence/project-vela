@@ -15,7 +15,7 @@ The index layer exists so the system can see the matrix as a whole, keep track o
 
 ## This Summary Shows the Current Shape of the Matrix at a Glance
 - total SoTs: 15
-- total governed refs: 0
+- total governed refs: 15
 - cornerstone count: 1
 - indexed areas: agents, cornerstone, dimensions, knowledge
 
@@ -50,6 +50,25 @@ The index layer exists so the system can see the matrix as a whole, keep track o
 | Repo Watchlist Source of Truth | `knowledge/220.WHAT.Repo-Watchlist-SoT.md` | `dimension` | `[[200.WHAT.Domain-SoT#200.WHAT.Domains]]` | `active` |
 | Vela Intent Source of Truth | `knowledge/610.WHY.Vela-Intent-SoT.md` | `system` | `[[110.WHO.Vela-Identity-SoT#600.WHY.Compass]]` | `active` |
 
+## This Section Lists Governed References Registered in the Matrix
+| Title | Path | Type | Parent | Status |
+|---|---|---|---|---|
+| Agent Contracts | `knowledge/ARTIFACTS/refs/Ref.Agent-Contracts.md` | `reference` | `[[500.HOW.Method-SoT#500.HOW.Method]]` | `active` |
+| Architecture Overview | `knowledge/ARTIFACTS/refs/Ref.Architecture-Overview.md` | `reference` | `[[500.HOW.Method-SoT#500.HOW.Method]]` | `active` |
+| CI Commands | `knowledge/ARTIFACTS/refs/Ref.CI-Commands.md` | `reference` | `[[500.HOW.Method-SoT#500.HOW.Method]]` | `active` |
+| Core Directives | `knowledge/ARTIFACTS/refs/Ref.Core-Directives.md` | `reference` | `[[500.HOW.Method-SoT#500.HOW.Method]]` | `active` |
+| Index Layer | `knowledge/ARTIFACTS/refs/Ref.Index-Layer.md` | `reference` | `[[500.HOW.Method-SoT#500.HOW.Method]]` | `active` |
+| Matrix Laws | `knowledge/ARTIFACTS/refs/Ref.Matrix-Laws.md` | `reference` | `[[Cornerstone.Knosence-SoT#000.Index]]` | `active` |
+| n8n Integration | `knowledge/ARTIFACTS/refs/Ref.N8N-Integration.md` | `reference` | `[[500.HOW.Method-SoT#500.HOW.Method]]` | `active` |
+| Adapter and Donor Boundaries | `knowledge/ARTIFACTS/refs/Ref.Pi-and-OpenCode-Boundaries.md` | `reference` | `[[500.HOW.Method-SoT#500.HOW.Method]]` | `active` |
+| Profile Replacement | `knowledge/ARTIFACTS/refs/Ref.Profile-Replacement.md` | `reference` | `[[100.WHO.Circle-SoT#100.WHO.Circle]]` | `active` |
+| Setup Mode | `knowledge/ARTIFACTS/refs/Ref.Setup-Mode.md` | `reference` | `[[500.HOW.Method-SoT#500.HOW.Method]]` | `active` |
+| SoT Framework Reference | `knowledge/ARTIFACTS/refs/Ref.SoT-Framework.md` | `reference` | `[[200.WHAT.Domain-SoT#200.WHAT.Domain]]` | `active` |
+| SoT Operations Reference | `knowledge/ARTIFACTS/refs/Ref.SoT-Operations.md` | `reference` | `[[500.HOW.Method-SoT#500.HOW.Method]]` | `active` |
+| ADR 0001 Vela First Governed Architecture | `knowledge/ARTIFACTS/refs/Ref.Vela-First-Governed-Architecture.md` | `reference` | `[[Cornerstone.Knosence-SoT#000.Index]]` | `active` |
+| Vela Matrix Constitution | `knowledge/ARTIFACTS/refs/Ref.Vela-Matrix-Constitution.md` | `reference` | `[[Cornerstone.Knosence-SoT#000.Index]]` | `active` |
+| Verification Strategy | `knowledge/ARTIFACTS/refs/Ref.Verification.md` | `reference` | `[[500.HOW.Method-SoT#500.HOW.Method]]` | `active` |
+
 ## This Registry Points Back to the Root and the Governing Laws
 - Root: [[Cornerstone.Knosence-SoT]]
-- Laws: `docs/directives/matrix-laws.md`
+- Laws: [[Ref.Matrix-Laws]]

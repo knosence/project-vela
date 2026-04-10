@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[500.HOW.Method-SoT#500.HOW.Method]]"
+domain: architecture
+status: active
+tags: ["architecture","overview","reference"]
+---
+
 # Architecture Overview
 
 ## This Architecture Keeps Governance in the Center and Adapters at the Edge
@@ -8,4 +18,3 @@ Python under `prototypes/python` provides the working runtime, CLI, server, and 
 
 ## This Architecture Reserves n8n for Orchestration Rather Than Constitutional Authority
 `workflows/n8n/` describes the orchestration layer and endpoint contracts. n8n may trigger governed actions, but cannot bypass approval, validation, or profile registry rules.
-

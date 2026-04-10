@@ -30,15 +30,25 @@ pub fn inspect_reference(path: &str, text: &str) -> (Option<GovernedReference>, 
         ));
     }
 
-    for heading in [
-        "## This Reference Declares the Release Packet and the Review Chain",
-        "## This Reference Links the Governing Inputs and Outputs",
-        "## This Reference States the Release Judgment Clearly",
-    ] {
-        if !text.contains(heading) {
+    if path.contains("Release-Intelligence") {
+        for heading in [
+            "## This Reference Declares the Release Packet and the Review Chain",
+            "## This Reference Links the Governing Inputs and Outputs",
+            "## This Reference States the Release Judgment Clearly",
+        ] {
+            if !text.contains(heading) {
+                findings.push(ValidationFinding::error(
+                    "MATRIX_REFERENCE_HEADING_REQUIRED",
+                    format!("{path} is missing required heading `{heading}`"),
+                ));
+            }
+        }
+    } else {
+        let h2_count = text.lines().filter(|line| line.starts_with("## ")).count();
+        if h2_count < 2 {
             findings.push(ValidationFinding::error(
                 "MATRIX_REFERENCE_HEADING_REQUIRED",
-                format!("{path} is missing required heading `{heading}`"),
+                format!("{path} must declare at least two level-two headings"),
             ));
         }
     }
@@ -165,6 +175,29 @@ The packet exists.\n\n\
 
         let (reference, findings) =
             inspect_reference("knowledge/ARTIFACTS/refs/Ref.example.Release-Intelligence.md", text);
+
+        assert!(findings.is_empty());
+        assert!(reference.is_some());
+    }
+
+    #[test]
+    fn inspects_general_governed_reference() {
+        let text = "---\n\
+sot-type: reference\n\
+created: 2026-04-08\n\
+last-rewritten: 2026-04-10\n\
+parent: \"[[500.HOW.Method-SoT#500.HOW.Method]]\"\n\
+domain: matrix\n\
+status: active\n\
+---\n\n\
+# Matrix Laws\n\n\
+## This Reference Declares the Governing Laws\n\
+The laws keep the matrix coherent.\n\n\
+## This Reference States the Active Root Constraints\n\
+- One cornerstone.\n";
+
+        let (reference, findings) =
+            inspect_reference("knowledge/ARTIFACTS/refs/Ref.Matrix-Laws.md", text);
 
         assert!(findings.is_empty());
         assert!(reference.is_some());

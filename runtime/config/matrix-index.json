@@ -166,6 +166,142 @@
       "is_cornerstone": true
     }
   ],
-  "references": [],
+  "references": [
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.Agent-Contracts.md",
+      "title": "Agent Contracts",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[500.HOW.Method-SoT#500.HOW.Method]]",
+      "domain": "agents",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.Architecture-Overview.md",
+      "title": "Architecture Overview",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[500.HOW.Method-SoT#500.HOW.Method]]",
+      "domain": "architecture",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.CI-Commands.md",
+      "title": "CI Commands",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[500.HOW.Method-SoT#500.HOW.Method]]",
+      "domain": "testing",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.Core-Directives.md",
+      "title": "Core Directives",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[500.HOW.Method-SoT#500.HOW.Method]]",
+      "domain": "governance",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.Index-Layer.md",
+      "title": "Index Layer",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[500.HOW.Method-SoT#500.HOW.Method]]",
+      "domain": "matrix",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.Matrix-Laws.md",
+      "title": "Matrix Laws",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[Cornerstone.Knosence-SoT#000.Index]]",
+      "domain": "matrix",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.N8N-Integration.md",
+      "title": "n8n Integration",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[500.HOW.Method-SoT#500.HOW.Method]]",
+      "domain": "integrations",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.Pi-and-OpenCode-Boundaries.md",
+      "title": "Adapter and Donor Boundaries",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[500.HOW.Method-SoT#500.HOW.Method]]",
+      "domain": "architecture",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.Profile-Replacement.md",
+      "title": "Profile Replacement",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[100.WHO.Circle-SoT#100.WHO.Circle]]",
+      "domain": "profiles",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.Setup-Mode.md",
+      "title": "Setup Mode",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[500.HOW.Method-SoT#500.HOW.Method]]",
+      "domain": "onboarding",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.SoT-Framework.md",
+      "title": "SoT Framework Reference",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[200.WHAT.Domain-SoT#200.WHAT.Domain]]",
+      "domain": "matrix",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.SoT-Operations.md",
+      "title": "SoT Operations Reference",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[500.HOW.Method-SoT#500.HOW.Method]]",
+      "domain": "operations",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.Vela-First-Governed-Architecture.md",
+      "title": "ADR 0001 Vela First Governed Architecture",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[Cornerstone.Knosence-SoT#000.Index]]",
+      "domain": "architecture",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.Vela-Matrix-Constitution.md",
+      "title": "Vela Matrix Constitution",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[Cornerstone.Knosence-SoT#000.Index]]",
+      "domain": "matrix",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/ARTIFACTS/refs/Ref.Verification.md",
+      "title": "Verification Strategy",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[500.HOW.Method-SoT#500.HOW.Method]]",
+      "domain": "testing",
+      "status": "active"
+    }
+  ],
   "findings": []
 }

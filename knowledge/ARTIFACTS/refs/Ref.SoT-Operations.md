@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[500.HOW.Method-SoT#500.HOW.Method]]"
+domain: operations
+status: active
+tags: ["sot","operations","reference"]
+---
+
 # SoT Operations Reference
 
 This note records the active mechanical operating rules for Vela's local Matrix implementation.

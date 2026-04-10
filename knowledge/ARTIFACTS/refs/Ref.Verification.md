@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[500.HOW.Method-SoT#500.HOW.Method]]"
+domain: testing
+status: active
+tags: ["testing","verification","reference"]
+---
+
 # Verification Strategy
 
 ## This Verification Stack Starts With Fast Unit Checks and Ends With Dry Boot Behavior

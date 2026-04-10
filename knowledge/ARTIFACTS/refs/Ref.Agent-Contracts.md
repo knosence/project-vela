@@ -1,3 +1,13 @@
+---
+sot-type: reference
+created: 2026-04-08
+last-rewritten: 2026-04-10
+parent: "[[500.HOW.Method-SoT#500.HOW.Method]]"
+domain: agents
+status: active
+tags: ["agents","contracts","reference"]
+---
+
 # Agent Contracts
 
 ## This Contract Assigns Narrow Responsibilities to Each Agent
@@ -5,4 +15,3 @@ Router reads and classifies. Planner decomposes. Worker drafts. Reflector critiq
 
 ## This Contract Preserves Role Purity and Single Writer Discipline
 Only the Scribe performs final writes, and only after the Warden allows the change or a required human approval has been recorded.
-
