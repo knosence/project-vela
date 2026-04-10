@@ -10,7 +10,7 @@ from typing import Any
 from .governance import append_event, record_approval, validate_target, write_text
 from .growth import assess_growth
 from .models import EventRecord
-from .paths import EVENT_LOG_PATH, PATCH_LOG_PATH, REFS_DIR, REPO_ROOT
+from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, PATCH_LOG_PATH, REFS_DIR, REPO_ROOT
 from .rust_bridge import matrix_inventory_payload
 
 
@@ -237,6 +237,15 @@ def apply_dreamer_follow_up(target: str, actor: str, reason: str) -> dict[str, A
     if not execution_result["ok"]:
         return {"ok": False, "findings": execution_result.get("findings", [])}
 
+    registry_result = _register_dreamer_action(
+        follow_up_target=target,
+        execution_target=execution["target"],
+        kind=kind,
+        pattern_reason=follow_up_reason,
+        actor=actor,
+        execution_reason=reason,
+    )
+
     updated = _mark_dreamer_follow_up_applied(current, actor, reason, execution["target"])
     follow_up_result = write_text(
         target,
@@ -256,18 +265,20 @@ def apply_dreamer_follow_up(target: str, actor: str, reason: str) -> dict[str, A
             artifacts=[
                 target,
                 execution["target"],
+                registry_result["target"],
                 *execution_result.get("artifacts", [execution["target"]]),
                 *follow_up_result.get("artifacts", [target]),
             ],
-            validation_summary={"kind": kind, "execution_target": execution["target"]},
+            validation_summary={"kind": kind, "execution_target": execution["target"], "registry_target": registry_result["target"]},
         )
     )
     return {
-        "ok": execution_result["ok"] and follow_up_result["ok"],
+        "ok": execution_result["ok"] and follow_up_result["ok"] and registry_result["ok"],
         "target": target,
         "execution_target": execution["target"],
+        "registry_target": registry_result["target"],
         "kind": kind,
-        "findings": execution_result.get("findings", []) + follow_up_result.get("findings", []),
+        "findings": execution_result.get("findings", []) + follow_up_result.get("findings", []) + registry_result.get("findings", []),
     }
 
 
@@ -671,6 +682,48 @@ def _existing_execution_target(text: str) -> str | None:
         if line.startswith("- execution:"):
             return line.split("[[", 1)[1].split("]]", 1)[0]
     return None
+
+
+def _load_dreamer_actions() -> dict[str, Any]:
+    if not DREAMER_ACTIONS_PATH.exists():
+        return {
+            "validator_changes": [],
+            "workflow_changes": [],
+            "refusal_tightenings": [],
+        }
+    return json.loads(DREAMER_ACTIONS_PATH.read_text(encoding="utf-8"))
+
+
+def _register_dreamer_action(
+    *,
+    follow_up_target: str,
+    execution_target: str,
+    kind: str,
+    pattern_reason: str,
+    actor: str,
+    execution_reason: str,
+) -> dict[str, Any]:
+    data = _load_dreamer_actions()
+    key = {
+        "validator-change": "validator_changes",
+        "workflow-change": "workflow_changes",
+        "refusal-tightening": "refusal_tightenings",
+    }.get(kind, "workflow_changes")
+    record = {
+        "follow_up_target": follow_up_target,
+        "execution_target": execution_target,
+        "pattern_reason": pattern_reason,
+        "actor": actor,
+        "execution_reason": execution_reason,
+        "applied_at": datetime.now(timezone.utc).isoformat(),
+        "status": "active",
+    }
+    bucket = data.setdefault(key, [])
+    if not any(item.get("follow_up_target") == follow_up_target for item in bucket):
+        bucket.append(record)
+    DREAMER_ACTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    DREAMER_ACTIONS_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return {"ok": True, "target": str(DREAMER_ACTIONS_PATH.relative_to(REPO_ROOT)), "findings": []}
 
 
 def _stamp() -> str:

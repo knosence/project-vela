@@ -29,7 +29,7 @@ from prototypes.python.vela.operations_runtime import (
     run_night_cycle,
     run_warden_patrol,
 )
-from prototypes.python.vela.paths import EVENT_LOG_PATH, PATCH_LOG_PATH, REPO_ROOT, STARTER_PATH
+from prototypes.python.vela.paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, PATCH_LOG_PATH, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
 from prototypes.python.vela.repo_watch import analyze_release
 from prototypes.python.vela.rust_bridge import (
@@ -55,6 +55,18 @@ class VelaSystemTest(unittest.TestCase):
         save_config(json.loads(json.dumps(DEFAULT_CONFIG)))
         EVENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         EVENT_LOG_PATH.write_text("", encoding="utf-8")
+        DREAMER_ACTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        DREAMER_ACTIONS_PATH.write_text(
+            json.dumps(
+                {
+                    "validator_changes": [],
+                    "workflow_changes": [],
+                    "refusal_tightenings": [],
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
         self._cleanup_generated_artifacts()
 
     def tearDown(self) -> None:
@@ -111,14 +123,11 @@ class VelaSystemTest(unittest.TestCase):
             path = REPO_ROOT / target
             if path.exists():
                 path.unlink()
-        for target in [
-            "knowledge/ARTIFACTS/proposals/inbox-triage-target.txt",
-            "knowledge/ARTIFACTS/proposals/inbox-triage-target-20260409.txt",
-            "knowledge/ARTIFACTS/proposals/inbox-triage-target.csv",
-            "knowledge/ARTIFACTS/proposals/inbox-triage-target-20260409.csv",
+        for pattern in [
+            "inbox-triage-target*.txt",
+            "inbox-triage-target*.csv",
         ]:
-            path = REPO_ROOT / target
-            if path.exists():
+            for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob(pattern):
                 path.unlink()
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("Warden-Patrol-*.md"):
             path.unlink()
@@ -897,9 +906,13 @@ class VelaSystemTest(unittest.TestCase):
         self.assertEqual(applied["kind"], "workflow-change")
         execution = (REPO_ROOT / applied["execution_target"]).read_text(encoding="utf-8")
         updated_follow_up = (REPO_ROOT / review["follow_up_target"]).read_text(encoding="utf-8")
+        registry = json.loads(DREAMER_ACTIONS_PATH.read_text(encoding="utf-8"))
         self.assertIn("# Dreamer Execution", execution)
         self.assertIn("status: applied", updated_follow_up)
         self.assertIn("## Execution Outcome", updated_follow_up)
+        self.assertEqual(applied["registry_target"], "runtime/config/dreamer-actions.json")
+        self.assertEqual(len(registry["workflow_changes"]), 1)
+        self.assertEqual(registry["workflow_changes"][0]["follow_up_target"], review["follow_up_target"])
 
     def test_dreamer_queue_service_and_review_endpoint(self) -> None:
         for _ in range(3):
@@ -951,7 +964,14 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(apply_result["ok"])
         self.assertEqual(apply_result["endpoint"], "dreamer-follow-up-apply")
         execution = (REPO_ROOT / apply_result["data"]["execution_target"]).read_text(encoding="utf-8")
+        registry = json.loads(DREAMER_ACTIONS_PATH.read_text(encoding="utf-8"))
         self.assertIn("queue item", execution)
+        bucket = {
+            "validator-change": "validator_changes",
+            "workflow-change": "workflow_changes",
+            "refusal-tightening": "refusal_tightenings",
+        }[apply_result["data"]["kind"]]
+        self.assertEqual(len(registry[bucket]), 1)
 
     def test_inbox_triage_moves_text_file_to_companion_and_links_it(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
@@ -969,10 +989,10 @@ class VelaSystemTest(unittest.TestCase):
         result = triage_inbox(file_name="test-inbox-item.txt", actor="vela")
         self.assertTrue(result["ok"])
         self.assertFalse(inbox_path.exists())
-        companion = REPO_ROOT / "knowledge/ARTIFACTS/proposals/inbox-triage-target-20260409.txt"
+        companion = REPO_ROOT / result["results"][0]["companion"]
         self.assertTrue(companion.exists())
         updated = target_path.read_text(encoding="utf-8")
-        self.assertIn("See: [[inbox-triage-target-20260409.txt]]", updated)
+        self.assertIn(f"See: [[{companion.name}]]", updated)
 
     def test_inbox_triage_flags_unsupported_binary_file(self) -> None:
         inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-binary.png"
@@ -1001,13 +1021,13 @@ class VelaSystemTest(unittest.TestCase):
 
         self.assertTrue(result["ok"])
         self.assertFalse(inbox_path.exists())
-        companion = REPO_ROOT / "knowledge/ARTIFACTS/proposals/inbox-triage-target-20260409.csv"
+        companion = REPO_ROOT / result["results"][0]["companion"]
         self.assertTrue(companion.exists())
         updated = target_path.read_text(encoding="utf-8")
         self.assertIn("Component watch update. (", updated)
-        self.assertIn("Tracks a component-level update See: [[inbox-triage-target-20260409.csv]]", updated)
+        self.assertIn(f"Tracks a component-level update See: [[{companion.name}]]", updated)
         self.assertIn("Release rationale. (", updated)
-        self.assertIn("Explains why the change matters See: [[inbox-triage-target-20260409.csv]]", updated)
+        self.assertIn(f"Explains why the change matters See: [[{companion.name}]]", updated)
 
     def test_inbox_triage_flags_ambiguous_csv_row(self) -> None:
         inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-ambiguous.csv"
