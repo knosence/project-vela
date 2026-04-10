@@ -35,8 +35,11 @@ from prototypes.python.vela.repo_watch import analyze_release
 from prototypes.python.vela.rust_bridge import (
     inspect_reference_payload,
     matrix_inventory_payload,
+    parse_dreamer_actions_payload,
+    register_dreamer_action_payload,
     route_for_target,
     route_inbox_payload,
+    update_dreamer_action_status_payload,
     validate_archive_postconditions_payload,
     validate_config_payload,
     validate_growth_stage_payload,
@@ -1209,6 +1212,40 @@ class VelaSystemTest(unittest.TestCase):
             "## 100.WHO.Identity",
         )
         self.assertTrue(archive_payload["ok"])
+
+        registry_payload = parse_dreamer_actions_payload(
+            json.dumps(
+                {
+                    "validator_changes": [],
+                    "workflow_changes": [],
+                    "refusal_tightenings": [],
+                },
+                indent=2,
+            )
+        )
+        self.assertTrue(registry_payload["ok"])
+
+        registered = register_dreamer_action_payload(
+            json.dumps(registry_payload["registry"], indent=2),
+            "workflow",
+            "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md",
+            "knowledge/ARTIFACTS/refs/Dreamer-Execution.workflow.md",
+            "triage route queue",
+            "human",
+            "tighten routing",
+            "2026-04-09T00:00:00+00:00",
+            "active",
+        )
+        self.assertTrue(registered["ok"])
+        self.assertEqual(len(registered["registry"]["workflow_changes"]), 1)
+
+        updated = update_dreamer_action_status_payload(
+            json.dumps(registered["registry"], indent=2),
+            "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md",
+            "inactive",
+        )
+        self.assertTrue(updated["ok"])
+        self.assertEqual(updated["registry"]["workflow_changes"][0]["status"], "inactive")
 
     def test_matrix_parent_rule_rejects_direct_root_attachment_for_agent_branch(self) -> None:
         target = REPO_ROOT / "knowledge/ARTIFACTS/proposals/direct-root-agent-branch-test.md"

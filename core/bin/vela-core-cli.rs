@@ -12,7 +12,9 @@ use vela_core::models::{OnboardingConfig, Severity, ValidationFinding};
 use vela_core::operations::{
     match_dreamer_actions as match_dreamer_actions_policy,
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
+    register_dreamer_action as register_dreamer_action_policy,
     route_inbox_entry as route_inbox_dimension,
+    update_dreamer_action_status as update_dreamer_action_status_policy,
     validate_archive_postconditions as validate_archive_outcome,
     validate_growth_stage as validate_growth_stage_policy,
     validate_subject_declaration_change as validate_subject_declaration_policy,
@@ -136,6 +138,45 @@ fn run() -> Result<(), String> {
                 registry.refusal_tightenings.iter().map(render_dreamer_action).collect::<Vec<String>>().join(","),
                 findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
             );
+        }
+        "register-dreamer-action" => {
+            let kind = args.next().ok_or_else(|| "missing kind".to_string())?;
+            let follow_up_target = args.next().ok_or_else(|| "missing follow up target".to_string())?;
+            let execution_target = args.next().ok_or_else(|| "missing execution target".to_string())?;
+            let pattern_reason = args.next().ok_or_else(|| "missing pattern reason".to_string())?;
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let execution_reason = args.next().ok_or_else(|| "missing execution reason".to_string())?;
+            let applied_at = args.next().ok_or_else(|| "missing applied_at".to_string())?;
+            let status = args.next().ok_or_else(|| "missing status".to_string())?;
+            let mut registry_json = String::new();
+            io::stdin()
+                .read_to_string(&mut registry_json)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (registry, findings) = register_dreamer_action_policy(
+                &registry_json,
+                &kind,
+                vela_core::models::DreamerAction {
+                    follow_up_target,
+                    execution_target,
+                    pattern_reason,
+                    actor,
+                    execution_reason,
+                    applied_at,
+                    status,
+                },
+            );
+            print_dreamer_registry(&registry, &findings);
+        }
+        "update-dreamer-action-status" => {
+            let follow_up_target = args.next().ok_or_else(|| "missing follow up target".to_string())?;
+            let status = args.next().ok_or_else(|| "missing status".to_string())?;
+            let mut registry_json = String::new();
+            io::stdin()
+                .read_to_string(&mut registry_json)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (registry, findings) =
+                update_dreamer_action_status_policy(&registry_json, &follow_up_target, &status);
+            print_dreamer_registry(&registry, &findings);
         }
         "validate-config" => {
             let owner_name = args.next().ok_or_else(|| "missing owner name".to_string())?;
@@ -403,6 +444,20 @@ fn render_dreamer_action(action: &vela_core::models::DreamerAction) -> String {
         escape_json(&action.applied_at),
         escape_json(&action.status),
     )
+}
+
+fn print_dreamer_registry(
+    registry: &vela_core::models::DreamerActionRegistry,
+    findings: &[ValidationFinding],
+) {
+    println!(
+        "{{\"ok\":{},\"registry\":{{\"validator_changes\":[{}],\"workflow_changes\":[{}],\"refusal_tightenings\":[{}]}},\"findings\":[{}]}}",
+        if !has_blocking_findings(findings) { "true" } else { "false" },
+        registry.validator_changes.iter().map(render_dreamer_action).collect::<Vec<String>>().join(","),
+        registry.workflow_changes.iter().map(render_dreamer_action).collect::<Vec<String>>().join(","),
+        registry.refusal_tightenings.iter().map(render_dreamer_action).collect::<Vec<String>>().join(","),
+        findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+    );
 }
 
 fn render_matrix_sot(item: &vela_core::models::MatrixSoT) -> String {

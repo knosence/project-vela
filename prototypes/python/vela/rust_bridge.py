@@ -47,6 +47,44 @@ def parse_dreamer_actions_payload(registry_json: str) -> dict[str, Any]:
     return _run(["parse-dreamer-actions"], stdin=registry_json)
 
 
+def register_dreamer_action_payload(
+    registry_json: str,
+    kind: str,
+    follow_up_target: str,
+    execution_target: str,
+    pattern_reason: str,
+    actor: str,
+    execution_reason: str,
+    applied_at: str,
+    status: str,
+) -> dict[str, Any]:
+    return _run(
+        [
+            "register-dreamer-action",
+            kind,
+            follow_up_target,
+            execution_target,
+            pattern_reason,
+            actor,
+            execution_reason,
+            applied_at,
+            status,
+        ],
+        stdin=registry_json,
+    )
+
+
+def update_dreamer_action_status_payload(
+    registry_json: str,
+    follow_up_target: str,
+    status: str,
+) -> dict[str, Any]:
+    return _run(
+        ["update-dreamer-action-status", follow_up_target, status],
+        stdin=registry_json,
+    )
+
+
 def route_inbox_payload(content: str) -> dict[str, Any]:
     return _run(["route-inbox"], stdin=content)
 

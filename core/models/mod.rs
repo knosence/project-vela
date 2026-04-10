@@ -199,6 +199,10 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
             "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
             "Directive 8 Event Log Everything Important".to_string(),
         ],
+        "DREAMER_ACTION_KIND_INVALID" | "DREAMER_ACTION_NOT_FOUND" => vec![
+            "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
+            "Role Purity".to_string(),
+        ],
         _ => Vec::new(),
     }
 }

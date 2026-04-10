@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .dreamer_actions import load_dreamer_actions
+from .dreamer_actions import register_dreamer_action as register_dreamer_action_runtime
 from .governance import append_event, record_approval, validate_target, write_text
 from .growth import assess_growth
 from .models import EventRecord
@@ -698,27 +699,24 @@ def _register_dreamer_action(
     actor: str,
     execution_reason: str,
 ) -> dict[str, Any]:
-    data = _load_dreamer_actions()
-    key = {
-        "validator-change": "validator_changes",
-        "workflow-change": "workflow_changes",
-        "refusal-tightening": "refusal_tightenings",
-    }.get(kind, "workflow_changes")
-    record = {
-        "follow_up_target": follow_up_target,
-        "execution_target": execution_target,
-        "pattern_reason": pattern_reason,
-        "actor": actor,
-        "execution_reason": execution_reason,
-        "applied_at": datetime.now(timezone.utc).isoformat(),
-        "status": "active",
+    mode = {
+        "validator-change": "validator",
+        "workflow-change": "workflow",
+        "refusal-tightening": "refusal",
+    }.get(kind, "workflow")
+    result = register_dreamer_action_runtime(
+        kind=mode,
+        follow_up_target=follow_up_target,
+        execution_target=execution_target,
+        pattern_reason=pattern_reason,
+        actor=actor,
+        execution_reason=execution_reason,
+    )
+    return {
+        "ok": result["ok"],
+        "target": str(DREAMER_ACTIONS_PATH.relative_to(REPO_ROOT)),
+        "findings": result.get("findings", []),
     }
-    bucket = data.setdefault(key, [])
-    if not any(item.get("follow_up_target") == follow_up_target for item in bucket):
-        bucket.append(record)
-    DREAMER_ACTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    DREAMER_ACTIONS_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    return {"ok": True, "target": str(DREAMER_ACTIONS_PATH.relative_to(REPO_ROOT)), "findings": []}
 
 
 def _stamp() -> str:

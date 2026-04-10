@@ -41,6 +41,57 @@ pub fn parse_dreamer_action_registry(registry_json: &str) -> (DreamerActionRegis
     (registry, findings)
 }
 
+pub fn register_dreamer_action(
+    registry_json: &str,
+    kind: &str,
+    action: DreamerAction,
+) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
+    let (mut registry, mut findings) = parse_dreamer_action_registry(registry_json);
+    let bucket = bucket_entries_mut(&mut registry, kind);
+    if bucket.is_empty() && !matches!(kind, "validator" | "workflow" | "refusal") {
+        findings.push(ValidationFinding::error(
+            "DREAMER_ACTION_KIND_INVALID",
+            format!("Unsupported Dreamer action kind: {kind}"),
+        ));
+        return (registry, findings);
+    }
+    if !bucket
+        .iter()
+        .any(|item| item.follow_up_target == action.follow_up_target)
+    {
+        bucket.push(action);
+    }
+    (registry, findings)
+}
+
+pub fn update_dreamer_action_status(
+    registry_json: &str,
+    follow_up_target: &str,
+    status: &str,
+) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
+    let (mut registry, mut findings) = parse_dreamer_action_registry(registry_json);
+    let mut updated = false;
+    for bucket in [
+        &mut registry.validator_changes,
+        &mut registry.workflow_changes,
+        &mut registry.refusal_tightenings,
+    ] {
+        for action in bucket.iter_mut() {
+            if action.follow_up_target == follow_up_target {
+                action.status = status.to_string();
+                updated = true;
+            }
+        }
+    }
+    if !updated {
+        findings.push(ValidationFinding::error(
+            "DREAMER_ACTION_NOT_FOUND",
+            format!("Dreamer action not found for follow up target: {follow_up_target}"),
+        ));
+    }
+    (registry, findings)
+}
+
 pub fn route_inbox_entry(text: &str) -> Option<&'static str> {
     let lowered = text.to_lowercase();
     let rules: [(&str, &[&str]); 6] = [
@@ -130,6 +181,15 @@ fn bucket_entries<'a>(registry: &'a DreamerActionRegistry, mode: &str) -> &'a [D
         "workflow" => &registry.workflow_changes,
         "refusal" => &registry.refusal_tightenings,
         _ => &[],
+    }
+}
+
+fn bucket_entries_mut<'a>(registry: &'a mut DreamerActionRegistry, mode: &str) -> &'a mut Vec<DreamerAction> {
+    match mode {
+        "validator" => &mut registry.validator_changes,
+        "workflow" => &mut registry.workflow_changes,
+        "refusal" => &mut registry.refusal_tightenings,
+        _ => &mut registry.workflow_changes,
     }
 }
 
@@ -369,5 +429,52 @@ mod tests {
             parsed.validator_changes[0].execution_target,
             "knowledge/ARTIFACTS/refs/Dreamer-Execution.validator.md"
         );
+    }
+
+    #[test]
+    fn registers_dreamer_action() {
+        let registry = r#"{
+  "validator_changes": [],
+  "workflow_changes": [],
+  "refusal_tightenings": []
+}"#;
+        let (updated, findings) = register_dreamer_action(
+            registry,
+            "workflow",
+            DreamerAction {
+                follow_up_target: "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md".to_string(),
+                execution_target: "knowledge/ARTIFACTS/refs/Dreamer-Execution.workflow.md".to_string(),
+                pattern_reason: "triage route queue".to_string(),
+                actor: "human".to_string(),
+                execution_reason: "tighten routing".to_string(),
+                applied_at: "2026-04-09T00:00:00+00:00".to_string(),
+                status: "active".to_string(),
+            },
+        );
+        assert!(findings.is_empty());
+        assert_eq!(updated.workflow_changes.len(), 1);
+    }
+
+    #[test]
+    fn updates_dreamer_action_status() {
+        let registry = r#"{
+  "validator_changes": [],
+  "workflow_changes": [
+    {
+      "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md",
+      "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.workflow.md",
+      "pattern_reason": "triage route queue",
+      "actor": "human",
+      "execution_reason": "tighten routing",
+      "applied_at": "2026-04-09T00:00:00+00:00",
+      "status": "active"
+    }
+  ],
+  "refusal_tightenings": []
+}"#;
+        let (updated, findings) =
+            update_dreamer_action_status(registry, "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md", "inactive");
+        assert!(findings.is_empty());
+        assert_eq!(updated.workflow_changes[0].status, "inactive");
     }
 }
