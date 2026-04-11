@@ -50,6 +50,7 @@ from prototypes.python.vela.rust_bridge import (
     plan_event_append_payload,
     plan_night_cycle_payload,
     plan_dreamer_follow_up_apply_payload,
+    plan_dreamer_proposals_payload,
     plan_dreamer_review_payload,
     plan_operation_start_payload,
     plan_operation_state_update_payload,
@@ -1867,6 +1868,32 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(patrol_event_plan["ok"])
         self.assertIn("\"endpoint\":\"patrol\"", patrol_event_plan["plan"]["line"])
         self.assertIn("\"actor\":\"warden\"", patrol_event_plan["plan"]["line"])
+        proposal_candidates = plan_dreamer_proposals_payload(
+            "20260411-0300",
+            [
+                {
+                    "target": "knowledge/ARTIFACTS/proposals/example.md",
+                    "endpoint": "validate",
+                    "actor": "dreamer",
+                    "reason": "validator rule drift",
+                },
+                {
+                    "target": "knowledge/ARTIFACTS/proposals/example.md",
+                    "endpoint": "validate",
+                    "actor": "dreamer",
+                    "reason": "validator rule drift",
+                },
+                {
+                    "target": "knowledge/ARTIFACTS/proposals/example.md",
+                    "endpoint": "validate",
+                    "actor": "dreamer",
+                    "reason": "validator rule drift",
+                },
+            ],
+        )
+        self.assertTrue(proposal_candidates["ok"])
+        self.assertEqual(len(proposal_candidates["items"]), 1)
+        self.assertIn("Dreamer-Proposal.20260411-0300.validator-rule-drift.md", proposal_candidates["items"][0]["target"])
 
         proposal_rendered = render_dreamer_proposal_payload(
             "2026-04-11",

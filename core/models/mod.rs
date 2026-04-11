@@ -85,6 +85,13 @@ pub struct DreamerProposalSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DreamerProposalCandidate {
+    pub target: String,
+    pub reason: String,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DreamerFollowUpSummary {
     pub target: String,
     pub status: String,

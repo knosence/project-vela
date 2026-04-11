@@ -1,10 +1,11 @@
 use crate::events::{plan_event_append, EventRecord, ValidationSummary};
 use crate::models::{
     DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
-    DreamerProposalSummary, DreamerReviewPlan, NightCyclePlan, OperationLifecyclePlan,
-    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan,
-    ValidationFinding,
+    DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan, NightCyclePlan,
+    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan,
+    SchedulerPlan, ValidationFinding,
 };
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -243,6 +244,32 @@ pub fn plan_operation_audit_event(
         };
     }
     plan_event_append(&record, artifacts_json, validation_summary_json)
+}
+
+pub fn plan_dreamer_proposals(
+    stamp: &str,
+    blocked_items_json: &str,
+) -> Vec<DreamerProposalCandidate> {
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for block in extract_object_blocks(blocked_items_json) {
+        if let Some(reason) = extract_json_string(&block, "reason") {
+            if !reason.trim().is_empty() {
+                *counts.entry(reason).or_insert(0) += 1;
+            }
+        }
+    }
+    counts
+        .into_iter()
+        .filter(|(_, count)| *count >= 3)
+        .map(|(reason, count)| DreamerProposalCandidate {
+            target: format!(
+                "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.{stamp}.{}.md",
+                slugify(&reason)
+            ),
+            reason,
+            count,
+        })
+        .collect()
 }
 
 pub fn validate_operation_lock(
@@ -1500,6 +1527,26 @@ fn escape_json(value: &str) -> String {
         .replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\n', "\\n")
+}
+
+fn slugify(value: &str) -> String {
+    let mut slug = String::new();
+    let mut previous_dash = false;
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            previous_dash = false;
+        } else if !previous_dash {
+            slug.push('-');
+            previous_dash = true;
+        }
+    }
+    let trimmed = slug.trim_matches('-').to_string();
+    if trimmed.is_empty() {
+        "pattern".to_string()
+    } else {
+        trimmed
+    }
 }
 
 fn extract_operation_state_entry(

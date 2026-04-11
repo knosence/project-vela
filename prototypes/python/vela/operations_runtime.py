@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 import time
@@ -26,6 +25,7 @@ from .rust_bridge import (
     plan_operation_start_payload,
     plan_operation_state_update_payload,
     plan_operation_audit_event_payload,
+    plan_dreamer_proposals_payload,
     plan_scheduler_run_payload,
     plan_warden_patrol_payload,
     render_dc_night_report_payload,
@@ -247,9 +247,9 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
         }
     growth_candidates = _growth_candidates()
     blocked_items = _blocked_items()
-    dreamer_patterns = _dreamer_patterns(blocked_items)
     stamp = _stamp()
-    dreamer_proposals = _write_dreamer_proposals(stamp, requested_by, dreamer_patterns, blocked_items)
+    dreamer_proposals = _write_dreamer_proposals(stamp, requested_by, blocked_items)
+    dreamer_patterns = _dreamer_patterns(dreamer_proposals)
     plan_payload = plan_night_cycle_payload(
         stamp,
         requested_by,
@@ -633,25 +633,23 @@ def _blocked_items() -> list[dict[str, str]]:
     return items
 
 
-def _dreamer_patterns(blocked_items: list[dict[str, str]]) -> dict[str, int]:
-    counts: Counter[str] = Counter()
-    for item in blocked_items:
-        counts[item["reason"]] += 1
-    return dict(counts)
+def _dreamer_patterns(dreamer_proposals: list[dict[str, Any]]) -> dict[str, int]:
+    return {str(item["reason"]): int(item["count"]) for item in dreamer_proposals}
 
 
 def _write_dreamer_proposals(
     stamp: str,
     requested_by: str,
-    dreamer_patterns: dict[str, int],
     blocked_items: list[dict[str, str]],
 ) -> list[dict[str, Any]]:
     proposals: list[dict[str, Any]] = []
-    for reason, count in sorted(dreamer_patterns.items()):
-        if count < 3:
+    plan_payload = plan_dreamer_proposals_payload(stamp, blocked_items)
+    for item in plan_payload.get("items", []):
+        reason = str(item.get("reason", ""))
+        count = int(item.get("count", 0))
+        target = str(item.get("target", ""))
+        if not target:
             continue
-        slug = _slug(reason)
-        target = f"knowledge/ARTIFACTS/proposals/Dreamer-Proposal.{stamp}.{slug}.md"
         content = _render_dreamer_proposal(stamp, requested_by, reason, count, blocked_items)
         result = write_text(target, content, actor="reflector", endpoint="night-cycle", reason="dreamer proposal")
         proposals.append(

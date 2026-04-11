@@ -11,8 +11,8 @@ use vela_core::matrix::{
     validate_sot_structure as validate_matrix_sot_structure,
 };
 use vela_core::models::{
-    OnboardingConfig, OperationLifecyclePlan, OperationLockRecord, OperationStateEntry,
-    OperationsState, SchedulerPlan, Severity, ValidationFinding,
+    DreamerProposalCandidate, OnboardingConfig, OperationLifecyclePlan, OperationLockRecord,
+    OperationStateEntry, OperationsState, SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
     classify_dreamer_follow_up as classify_dreamer_follow_up_policy,
@@ -28,6 +28,7 @@ use vela_core::operations::{
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
     plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
+    plan_dreamer_proposals as plan_dreamer_proposals_policy,
     plan_dreamer_review as plan_dreamer_review_policy, plan_night_cycle as plan_night_cycle_policy,
     plan_operation_audit_event as plan_operation_audit_event_policy,
     plan_operation_start as plan_operation_start_policy,
@@ -1092,6 +1093,22 @@ fn run() -> Result<(), String> {
                     .join(",")
             );
         }
+        "plan-dreamer-proposals" => {
+            let stamp = args.next().ok_or_else(|| "missing stamp".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let items = plan_dreamer_proposals_policy(&stamp, &content);
+            println!(
+                "{{\"ok\":true,\"items\":[{}]}}",
+                items
+                    .iter()
+                    .map(render_dreamer_proposal_candidate)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "validate-config" => {
             let owner_name = args
                 .next()
@@ -1601,6 +1618,15 @@ fn render_dreamer_proposal_summary(item: &vela_core::models::DreamerProposalSumm
         escape_json(&item.status),
         escape_json(&item.created),
         escape_json(&item.reason),
+    )
+}
+
+fn render_dreamer_proposal_candidate(item: &DreamerProposalCandidate) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"reason\":\"{}\",\"count\":{}}}",
+        escape_json(&item.target),
+        escape_json(&item.reason),
+        item.count,
     )
 }
 

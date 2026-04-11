@@ -338,6 +338,13 @@ def plan_operation_audit_event_payload(
     )
 
 
+def plan_dreamer_proposals_payload(
+    stamp: str,
+    blocked_items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return _run(["plan-dreamer-proposals", stamp], stdin=json.dumps(blocked_items))
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 
