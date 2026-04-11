@@ -17,9 +17,10 @@ use vela_core::models::{
     ArchiveTransactionPlan, BlockedItemSummary, CompanionPathPlan, CrossReferencePlan,
     CsvInboxPlan, DimensionAppendPlan, DreamerProposalCandidate, GrowthAssessment,
     GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan, GrowthTarget,
-    InboxTriagePlan, MergeCandidateSummary, OnboardingConfig, OperationLifecyclePlan,
-    OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan,
-    Severity, ValidationFinding,
+    InboxTriagePlan, MergeApplyPlan, MergeCandidateSummary, MergeFollowUpSummary,
+    MergeReviewPlan, OnboardingConfig, OperationLifecyclePlan, OperationLockRecord,
+    OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan, Severity,
+    ValidationFinding,
 };
 use vela_core::operations::{
     apply_growth_source_update as apply_growth_source_update_policy,
@@ -34,6 +35,7 @@ use vela_core::operations::{
     list_dreamer_follow_ups as list_dreamer_follow_ups_policy,
     list_dreamer_proposals as list_dreamer_proposals_policy,
     list_merge_candidates as list_merge_candidates_policy,
+    list_merge_follow_ups as list_merge_follow_ups_policy,
     match_dreamer_actions as match_dreamer_actions_policy,
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
@@ -44,6 +46,8 @@ use vela_core::operations::{
     plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
     plan_dreamer_proposals as plan_dreamer_proposals_policy,
     plan_dreamer_review as plan_dreamer_review_policy,
+    plan_merge_follow_up_apply as plan_merge_follow_up_apply_policy,
+    plan_merge_review as plan_merge_review_policy,
     plan_growth_execution as plan_growth_execution_policy,
     plan_growth_source_update as plan_growth_source_update_policy,
     plan_inbox_entry as plan_inbox_entry_policy, plan_night_cycle as plan_night_cycle_policy,
@@ -1116,6 +1120,21 @@ fn run() -> Result<(), String> {
                     .join(",")
             );
         }
+        "list-merge-follow-ups" => {
+            let repo_root = env::current_dir()
+                .map_err(|err| format!("failed reading current dir: {err}"))?
+                .to_string_lossy()
+                .to_string();
+            let items = list_merge_follow_ups_policy(&repo_root);
+            println!(
+                "{{\"ok\":true,\"items\":[{}]}}",
+                items
+                    .iter()
+                    .map(render_merge_follow_up_summary)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "inspect-dreamer-follow-up" => {
             let mut content = String::new();
             io::stdin()
@@ -1226,6 +1245,52 @@ fn run() -> Result<(), String> {
                     .map(render_finding)
                     .collect::<Vec<String>>()
                     .join(",")
+            );
+        }
+        "plan-merge-review" => {
+            let target = args.next().ok_or_else(|| "missing target".to_string())?;
+            let decision = args.next().ok_or_else(|| "missing decision".to_string())?;
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let created = args.next().ok_or_else(|| "missing created".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let repo_root = env::current_dir()
+                .map_err(|err| format!("failed reading current dir: {err}"))?;
+            let (plan, findings) = plan_merge_review_policy(
+                &repo_root,
+                &target,
+                &content,
+                &decision,
+                &actor,
+                &reason,
+                &created,
+            );
+            println!(
+                "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) { "true" } else { "false" },
+                plan.as_ref().map(render_merge_review_plan).unwrap_or_else(|| "null".to_string()),
+                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+            );
+        }
+        "plan-merge-follow-up-apply" => {
+            let target = args.next().ok_or_else(|| "missing target".to_string())?;
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let repo_root = env::current_dir()
+                .map_err(|err| format!("failed reading current dir: {err}"))?;
+            let (plan, findings) =
+                plan_merge_follow_up_apply_policy(&repo_root, &target, &content, &actor);
+            println!(
+                "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) { "true" } else { "false" },
+                plan.as_ref().map(render_merge_apply_plan).unwrap_or_else(|| "null".to_string()),
+                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
             );
         }
         "plan-warden-patrol" => {
@@ -2263,6 +2328,41 @@ fn render_dreamer_apply_plan(item: &vela_core::models::DreamerApplyPlan) -> Stri
         escape_json(&item.target),
         escape_json(&item.kind),
         escape_json(&item.execution_target),
+        escape_json(&item.execution_content),
+        escape_json(&item.updated_follow_up_content),
+        if item.already_applied { "true" } else { "false" },
+    )
+}
+
+fn render_merge_follow_up_summary(item: &MergeFollowUpSummary) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"status\":\"{}\",\"ref_target\":\"{}\",\"suggested_target\":\"{}\"}}",
+        escape_json(&item.target),
+        escape_json(&item.status),
+        escape_json(&item.ref_target),
+        escape_json(&item.suggested_target),
+    )
+}
+
+fn render_merge_review_plan(item: &MergeReviewPlan) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"decision\":\"{}\",\"follow_up_target\":\"{}\",\"suggested_target\":\"{}\",\"updated_content\":\"{}\",\"follow_up_content\":\"{}\"}}",
+        escape_json(&item.target),
+        escape_json(&item.decision),
+        escape_json(&item.follow_up_target),
+        escape_json(&item.suggested_target),
+        escape_json(&item.updated_content),
+        escape_json(&item.follow_up_content),
+    )
+}
+
+fn render_merge_apply_plan(item: &MergeApplyPlan) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"execution_target\":\"{}\",\"ref_target\":\"{}\",\"owners\":[{}],\"execution_content\":\"{}\",\"updated_follow_up_content\":\"{}\",\"already_applied\":{}}}",
+        escape_json(&item.target),
+        escape_json(&item.execution_target),
+        escape_json(&item.ref_target),
+        item.owners.iter().map(|owner| format!("\"{}\"", escape_json(owner))).collect::<Vec<String>>().join(","),
         escape_json(&item.execution_content),
         escape_json(&item.updated_follow_up_content),
         if item.already_applied { "true" } else { "false" },

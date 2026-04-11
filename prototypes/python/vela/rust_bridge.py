@@ -396,6 +396,10 @@ def list_merge_candidates_payload() -> dict[str, Any]:
     return _run(["list-merge-candidates"])
 
 
+def list_merge_follow_ups_payload() -> dict[str, Any]:
+    return _run(["list-merge-follow-ups"])
+
+
 def assess_growth_payload(target: str) -> dict[str, Any]:
     return _run(["assess-growth-target", target])
 
@@ -407,6 +411,31 @@ def plan_growth_execution_payload(
     subject_hint: str = "",
 ) -> dict[str, Any]:
     return _run(["plan-growth-execution", stage, assessed_target, proposal_target, subject_hint])
+
+
+def plan_merge_review_payload(
+    target: str,
+    content: str,
+    decision: str,
+    actor: str,
+    reason: str,
+    created: str,
+) -> dict[str, Any]:
+    return _run(
+        ["plan-merge-review", target, decision, actor, reason, created],
+        stdin=content,
+    )
+
+
+def plan_merge_follow_up_apply_payload(
+    target: str,
+    content: str,
+    actor: str,
+) -> dict[str, Any]:
+    return _run(
+        ["plan-merge-follow-up-apply", target, actor],
+        stdin=content,
+    )
 
 
 def plan_growth_source_update_payload(

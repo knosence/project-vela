@@ -10,9 +10,9 @@ use crate::models::{
     DimensionAppendPlan, DreamerAction, DreamerActionRegistry, DreamerApplyPlan,
     DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan,
     GrowthAssessment, GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan,
-    InboxTriagePlan, MergeCandidateSummary, NightCyclePlan, OperationLifecyclePlan,
-    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan,
-    ValidationFinding,
+    InboxTriagePlan, MergeApplyPlan, MergeCandidateSummary, MergeFollowUpSummary,
+    MergeReviewPlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
+    OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -1627,6 +1627,376 @@ pub fn list_dreamer_follow_ups(repo_root: &str) -> Vec<DreamerFollowUpSummary> {
             reason: dreamer_follow_up_reason(&text),
         })
         .collect()
+}
+
+pub fn list_merge_follow_ups(repo_root: &str) -> Vec<MergeFollowUpSummary> {
+    discover_dreamer_files(repo_root, "Merge-Follow-Up.")
+        .into_iter()
+        .map(|(target, text)| MergeFollowUpSummary {
+            target,
+            status: extract_frontmatter_value(&text, "status")
+                .unwrap_or_else(|| "unknown".to_string()),
+            ref_target: extract_frontmatter_value(&text, "ref-target").unwrap_or_default(),
+            suggested_target: extract_frontmatter_value(&text, "suggested-target").unwrap_or_default(),
+        })
+        .collect()
+}
+
+pub fn render_reviewed_merge_proposal(
+    text: &str,
+    decision: &str,
+    actor: &str,
+    reason: &str,
+    follow_up_target: Option<&str>,
+) -> String {
+    let updated = replace_frontmatter_status(text, decision);
+    let mut review_section = format!(
+        "\n## Review Outcome\n\n- decision: `{decision}`\n- actor: `{actor}`\n- reason: {reason}\n"
+    );
+    if let Some(target) = follow_up_target {
+        review_section.push_str(&format!("- follow up: `[[{}]]`\n", stem_or_empty(target)));
+    }
+    replace_or_append_section(&updated, "## Review Outcome", &review_section)
+}
+
+pub fn render_merge_follow_up(
+    created: &str,
+    proposal_target: &str,
+    ref_target: &str,
+    count: usize,
+    actor: &str,
+    reason: &str,
+    suggested_target: &str,
+) -> String {
+    format!(
+        "---\n\
+sot-type: proposal\n\
+created: {created}\n\
+last-rewritten: {created}\n\
+parent: \"[[{}]]\"\n\
+domain: governance\n\
+status: proposed\n\
+ref-target: \"{ref_target}\"\n\
+entity-count: \"{count}\"\n\
+suggested-target: \"{suggested_target}\"\n\
+tags: [\"merge\",\"follow-up\",\"matrix\",\"governance\"]\n\
+---\n\n\
+# Merge Follow Up\n\n\
+## This Follow Up Reserves The Governed Consolidation Step\n\
+The repeated ref `[[{}]]` has been approved for merge review and now needs a canonical SoT home.\n\n\
+## This Follow Up Records The Suggested Canonical Target\n\n\
+- suggested target: `[[{}]]`\n\
+- source proposal: `[[{}]]`\n\
+- repeated entity count: `{count}`\n\n\
+## This Follow Up Records The Review Context\n\n\
+- reviewer: `{actor}`\n\
+- reason: {reason}\n\n\
+## This Follow Up Leaves Apply Work For Governed Execution\n\n\
+- next step: create the canonical SoT at the suggested target, then repoint the prior entities to that SoT through governed mutation.\n",
+        stem_or_empty(proposal_target),
+        stem_or_empty(ref_target),
+        stem_or_empty(suggested_target),
+        stem_or_empty(proposal_target),
+    )
+}
+
+pub fn render_applied_merge_follow_up(
+    text: &str,
+    execution_target: &str,
+    owners: &[String],
+) -> String {
+    let updated = replace_frontmatter_status(text, "applied");
+    let owner_lines = if owners.is_empty() {
+        "- repointed owner: (none)".to_string()
+    } else {
+        owners
+            .iter()
+            .map(|owner| format!("- repointed owner: `[[{}]]`", stem_or_empty(owner)))
+            .collect::<Vec<String>>()
+            .join("\n")
+    };
+    let execution_section = format!(
+        "\n## Execution Outcome\n\n- canonical target: `[[{}]]`\n{}\n",
+        stem_or_empty(execution_target),
+        owner_lines,
+    );
+    replace_or_append_section(&updated, "## Execution Outcome", &execution_section)
+}
+
+pub fn render_merge_spawned_sot(
+    execution_target: &str,
+    ref_target: &str,
+    owners: &[String],
+) -> String {
+    let created = today_utc();
+    let parent_link = spawned_parent_link(execution_target)
+        .unwrap_or_else(|| "[[200.WHAT.Domain-SoT#200.WHAT.Domain]]".to_string());
+    let child_name = Path::new(execution_target)
+        .file_name()
+        .and_then(|item| item.to_str())
+        .unwrap_or(execution_target);
+    let child_subject = Path::new(execution_target)
+        .file_stem()
+        .and_then(|item| item.to_str())
+        .and_then(matrix_subject_for_name)
+        .unwrap_or_else(|| child_name.trim_end_matches(".md").to_string());
+    let owner_lines = if owners.is_empty() {
+        "- Source owner: (no owners recorded)".to_string()
+    } else {
+        owners
+            .iter()
+            .map(|owner| format!("- Source owner: [[{}]]", stem_or_empty(owner)))
+            .collect::<Vec<String>>()
+            .join("\n")
+    };
+    format!(
+        "---\n\
+sot-type: system\n\
+created: {created}\n\
+last-rewritten: {created}\n\
+parent: \"{parent_link}\"\n\
+domain: merge\n\
+status: active\n\
+tags: [\"merge\",\"canonical\",\"sot\"]\n\
+---\n\n\
+# {child_subject} Source of Truth\n\n\
+## 000.Index\n\n\
+### Subject Declaration\n\n\
+**Subject:** This SoT is the canonical home for `{child_subject}` after governed merge consolidation.\n\
+**Type:** system\n\
+**Created:** {created}\n\
+**Parent:** {parent_link}\n\n\
+### Links\n\n\
+- Parent: {parent_link}\n\
+- Cornerstone: [[Cornerstone.Knosence-SoT]]\n\
+- Origin Ref: [[{}]]\n\
+{owner_lines}\n\n\
+### Inbox\n\n\
+No pending items.\n\n\
+### Status\n\n\
+- `{child_subject}` has been merged into one canonical SoT. ({created})\n\
+  - Repeated refs across multiple entities triggered governed consolidation. [HUMAN]\n\n\
+### Open Questions\n\n\
+- Which details from the prior owners should remain here as dense canonical content? ({created})\n\
+  - The merged SoT should deepen directly rather than re-fragment into repeated refs. [HUMAN]\n\n\
+### Next Actions\n\n\
+- Consolidate the repeated subject here and keep the former owners as one-line pointers only. ({created})\n\
+  - Merge before spawn wins once a subject repeats broadly enough. [HUMAN]\n\n\
+### Decisions\n\n\
+- [{created}] Canonical merge SoT created from repeated ref `[[{}]]`.\n\n\
+### Block Map — Single Source\n\n\
+| ID | Question | Dimension | This SoT's Name |\n\
+|----|----------|-----------|-----------------|\n\
+| 000 | — | Index | Index |\n\
+| 100 | Who | Circle | Circle |\n\
+| 200 | What | Domain | Domain |\n\
+| 300 | Where | Terrain | Terrain |\n\
+| 400 | When | Chronicle | Chronicle |\n\
+| 500 | How | Method | Method |\n\
+| 600 | Why/Not | Compass | Compass |\n\
+| 700 | — | Archive | Archive |\n\n\
+---\n\n\
+## 100.WHO.Circle\n\n### Active\n\n\
+- `{child_subject}` is now treated as one governed subject rather than a repeated ref. ({created})\n\
+  - The merge establishes one canonical identity for the subject inside this matrix. [HUMAN]\n\n\
+### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 200.WHAT.Domain\n\n### Active\n\n\
+- This SoT is the canonical home for content previously referenced through `[[{}]]`. ({created})\n\
+  - Prior entities should now point here instead of carrying the repeated ref. [HUMAN]\n\n\
+### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 300.WHERE.Terrain\n\n### Active\n\n\
+- Canonical merged knowledge lives in the flat matrix root with position determined by ID, context, and suffix. ({created})\n\
+  - The matrix stays flat while the numbering carries structure. [HUMAN]\n\n\
+### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 400.WHEN.Chronicle\n\n### Active\n\n\
+- This subject became a canonical SoT through merge governance on {created}. ({created})\n\
+  - The merge threshold was triggered by repeated references across multiple entities. [AGENT:gpt-5]\n\n\
+### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 500.HOW.Method\n\n### Active\n\n\
+- Future updates should be merged here directly unless the growth ladder later justifies fractal, ref, or spawn. ({created})\n\
+  - Merge happens before new proliferation. [HUMAN]\n\n\
+### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 600.WHY.Compass\n\n### Active\n\n\
+- This SoT exists to prevent fragmentation and restore one canonical place to look. ({created})\n\
+  - The matrix stays coherent when repeated subjects consolidate. [HUMAN]\n\n\
+### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 700.Archive\n\n(No archived entries.)\n",
+        stem_or_empty(ref_target),
+        stem_or_empty(ref_target),
+        stem_or_empty(ref_target),
+    )
+}
+
+pub fn merge_follow_up_ref_target(text: &str) -> String {
+    extract_frontmatter_value(text, "ref-target").unwrap_or_default()
+}
+
+pub fn merge_follow_up_suggested_target(text: &str) -> String {
+    extract_frontmatter_value(text, "suggested-target").unwrap_or_default()
+}
+
+pub fn suggest_merge_target(root: &Path, ref_target: &str) -> Option<String> {
+    let mut name = Path::new(ref_target).file_name()?.to_str()?.to_string();
+    if !name.ends_with(".md") {
+        name.push_str(".md");
+    }
+    let mut parts = name.splitn(3, '.');
+    let numeric_id = parts.next()?;
+    let _context = parts.next()?;
+    let rest = parts.next()?;
+    if numeric_id.len() != 4 && numeric_id.len() != 3 {
+        // allow refs like 240a...
+    }
+    let hub_id = hub_id_for_numeric_id(&numeric_id[..3].to_string())?;
+    let next_id = next_available_direct_child_id(root, &hub_id)?;
+    let context = hub_context_for_numeric_id(&hub_id)?;
+    let subject = rest.strip_suffix("-Ref.md")?;
+    Some(format!("knowledge/{next_id}.{context}.{subject}-SoT.md"))
+}
+
+pub fn plan_merge_review(
+    root: &Path,
+    target: &str,
+    current_text: &str,
+    decision: &str,
+    actor: &str,
+    reason: &str,
+    created: &str,
+) -> (Option<MergeReviewPlan>, Vec<ValidationFinding>) {
+    let current_status =
+        extract_frontmatter_value(current_text, "status").unwrap_or_else(|| "unknown".to_string());
+    if current_status != "proposed" {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "MERGE_PROPOSAL_STATE_INVALID",
+                format!("Merge proposal `{target}` is not in proposed state"),
+            )],
+        );
+    }
+    if !matches!(decision, "approved" | "denied" | "needs-more-info") {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "MERGE_REVIEW_DECISION_INVALID",
+                format!("Unsupported merge review decision: {decision}"),
+            )],
+        );
+    }
+    let proposal_update = render_reviewed_merge_proposal(current_text, decision, actor, reason, None);
+    if decision != "approved" {
+        return (
+            Some(MergeReviewPlan {
+                target: target.to_string(),
+                decision: decision.to_string(),
+                follow_up_target: String::new(),
+                suggested_target: String::new(),
+                updated_content: proposal_update,
+                follow_up_content: String::new(),
+            }),
+            Vec::new(),
+        );
+    }
+    let ref_target = extract_frontmatter_value(current_text, "ref-target").unwrap_or_default();
+    let count = extract_frontmatter_value(current_text, "entity-count")
+        .and_then(|item| item.parse::<usize>().ok())
+        .unwrap_or(0);
+    let follow_up_target = target.replace("Merge-Proposal.", "Merge-Follow-Up.");
+    let suggested_target = suggest_merge_target(root, &ref_target).unwrap_or_default();
+    let follow_up_content = render_merge_follow_up(
+        created,
+        target,
+        &ref_target,
+        count,
+        actor,
+        reason,
+        &suggested_target,
+    );
+    let updated_content = render_reviewed_merge_proposal(
+        current_text,
+        decision,
+        actor,
+        reason,
+        Some(&follow_up_target),
+    );
+    (
+        Some(MergeReviewPlan {
+            target: target.to_string(),
+            decision: decision.to_string(),
+            follow_up_target,
+            suggested_target,
+            updated_content,
+            follow_up_content,
+        }),
+        Vec::new(),
+    )
+}
+
+pub fn plan_merge_follow_up_apply(
+    root: &Path,
+    target: &str,
+    current_text: &str,
+    actor: &str,
+) -> (Option<MergeApplyPlan>, Vec<ValidationFinding>) {
+    let current_status =
+        extract_frontmatter_value(current_text, "status").unwrap_or_else(|| "unknown".to_string());
+    if !matches!(actor, "human" | "system") {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "MERGE_FOLLOW_UP_ACTOR_NOT_ALLOWED",
+                format!("Actor `{actor}` cannot apply merge follow ups"),
+            )],
+        );
+    }
+    if current_status == "applied" {
+        let execution_target = merge_follow_up_suggested_target(current_text);
+        return (
+            Some(MergeApplyPlan {
+                target: target.to_string(),
+                execution_target: execution_target.clone(),
+                ref_target: merge_follow_up_ref_target(current_text),
+                owners: Vec::new(),
+                execution_content: String::new(),
+                updated_follow_up_content: current_text.to_string(),
+                already_applied: true,
+            }),
+            Vec::new(),
+        );
+    }
+    if current_status != "proposed" {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "MERGE_FOLLOW_UP_STATE_INVALID",
+                format!("Merge follow up `{target}` is not in proposed state"),
+            )],
+        );
+    }
+    let ref_target = merge_follow_up_ref_target(current_text);
+    let mut execution_target = merge_follow_up_suggested_target(current_text);
+    if execution_target.is_empty() {
+        execution_target = suggest_merge_target(root, &ref_target).unwrap_or_default();
+    }
+    let owners = list_merge_candidates(root.to_string_lossy().as_ref())
+        .into_iter()
+        .find(|item| item.ref_target == ref_target)
+        .map(|item| item.owners)
+        .unwrap_or_default();
+    let execution_content = render_merge_spawned_sot(&execution_target, &ref_target, &owners);
+    let updated_follow_up_content = render_applied_merge_follow_up(current_text, &execution_target, &owners);
+    (
+        Some(MergeApplyPlan {
+            target: target.to_string(),
+            execution_target,
+            ref_target,
+            owners,
+            execution_content,
+            updated_follow_up_content,
+            already_applied: false,
+        }),
+        Vec::new(),
+    )
 }
 
 pub fn plan_dreamer_review(

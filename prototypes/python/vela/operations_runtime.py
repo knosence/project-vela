@@ -12,17 +12,10 @@ from .governance import append_event, record_approval, validate_target, write_te
 from .growth import assess_growth
 from .merge import (
     detect_merge_candidates,
-    list_merge_follow_ups as list_merge_follow_ups_runtime,
     list_merge_proposals as list_merge_proposals_runtime,
-    merge_follow_up_target,
     merge_proposal_target,
     replace_ref_with_sot_pointer,
-    render_applied_merge_follow_up,
-    render_merge_follow_up,
     render_merge_proposal,
-    render_merge_spawned_sot,
-    render_reviewed_merge_proposal,
-    suggest_merge_target,
 )
 from .models import EventRecord
 from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
@@ -35,10 +28,13 @@ from .rust_bridge import (
     list_dreamer_follow_ups_payload,
     list_dreamer_queue_payload,
     list_growth_targets_payload,
+    list_merge_follow_ups_payload,
     matrix_inventory_payload,
     plan_night_cycle_payload,
     plan_dreamer_follow_up_apply_payload,
     plan_dreamer_review_payload,
+    plan_merge_follow_up_apply_payload,
+    plan_merge_review_payload,
     plan_operation_start_payload,
     plan_operation_state_update_payload,
     plan_operation_audit_event_payload,
@@ -431,42 +427,33 @@ def list_merge_proposals() -> dict[str, Any]:
 
 
 def list_merge_follow_ups() -> dict[str, Any]:
-    payload = list_merge_follow_ups_runtime()
+    payload = list_merge_follow_ups_payload()
     return {"ok": bool(payload.get("ok")), "items": list(payload.get("items", []))}
 
 
 def review_merge_proposal(target: str, decision: str, actor: str, reason: str) -> dict[str, Any]:
-    if decision not in {"approved", "denied", "needs-more-info"}:
-        return {"ok": False, "findings": [{"code": "MERGE_REVIEW_DECISION_INVALID", "detail": f"Unsupported merge review decision: {decision}"}]}
     path = REPO_ROOT / target
     if not path.exists():
         return {"ok": False, "findings": [{"code": "MERGE_PROPOSAL_NOT_FOUND", "detail": f"Merge proposal not found: {target}"}]}
     current = path.read_text(encoding="utf-8")
-    frontmatter = _parse_frontmatter(current)
-    if str(frontmatter.get("status", "unknown")) != "proposed":
-        return {"ok": False, "findings": [{"code": "MERGE_PROPOSAL_STATE_INVALID", "detail": f"Merge proposal `{target}` is not in proposed state"}]}
     record_approval(f"merge_{_slug(target)}_{_stamp()}", decision, actor, reason, target)
-    ref_target = str(frontmatter.get("ref-target", ""))
-    count = int(str(frontmatter.get("entity-count", "0")) or 0)
-    follow_up_target = None
+    created = datetime.now(timezone.utc).date().isoformat()
+    plan_payload = plan_merge_review_payload(target, current, decision, actor, reason, created)
+    if not plan_payload.get("ok"):
+        return {"ok": False, "findings": plan_payload.get("findings", [])}
+    plan = plan_payload.get("plan") or {}
+    follow_up_target = str(plan.get("follow_up_target", "")) or None
+    suggested_target = str(plan.get("suggested_target", "")) or None
     follow_up_result: dict[str, Any] = {"ok": True, "artifacts": []}
-    if decision == "approved":
-        follow_up_target = merge_follow_up_target(target)
+    if follow_up_target:
         follow_up_result = write_text(
             follow_up_target,
-            render_merge_follow_up(
-                target,
-                ref_target,
-                count,
-                actor,
-                reason,
-                suggest_merge_target(ref_target),
-            ),
+            str(plan.get("follow_up_content", "")),
             actor="system",
             endpoint="merge-review",
             reason=f"merge follow up for {target}",
         )
-    updated = render_reviewed_merge_proposal(current, decision, actor, reason, follow_up_target=follow_up_target)
+    updated = str(plan.get("updated_content", current))
     proposal_result = write_text(target, updated, actor="system", endpoint="merge-review", reason=f"merge proposal {decision}")
     append_event(
         EventRecord(
@@ -482,7 +469,7 @@ def review_merge_proposal(target: str, decision: str, actor: str, reason: str) -
                 *([follow_up_target] if follow_up_target and follow_up_result["ok"] else []),
                 *follow_up_result.get("artifacts", []),
             ],
-            validation_summary={"decision": decision, "ref_target": ref_target, "follow_up_target": follow_up_target},
+            validation_summary={"decision": decision, "follow_up_target": follow_up_target, "suggested_target": suggested_target},
         )
     )
     return {
@@ -490,7 +477,7 @@ def review_merge_proposal(target: str, decision: str, actor: str, reason: str) -
         "target": target,
         "decision": decision,
         "follow_up_target": follow_up_target,
-        "suggested_target": suggest_merge_target(ref_target) if follow_up_target else None,
+        "suggested_target": suggested_target,
         "findings": proposal_result.get("findings", []) + follow_up_result.get("findings", []),
     }
 
@@ -500,25 +487,22 @@ def apply_merge_follow_up(target: str, actor: str, reason: str) -> dict[str, Any
     if not path.exists():
         return {"ok": False, "findings": [{"code": "MERGE_FOLLOW_UP_NOT_FOUND", "detail": f"Merge follow up not found: {target}"}]}
     current = path.read_text(encoding="utf-8")
-    frontmatter = _parse_frontmatter(current)
-    status = str(frontmatter.get("status", "unknown"))
-    if status == "applied":
+    plan_payload = plan_merge_follow_up_apply_payload(target, current, actor)
+    if not plan_payload.get("ok"):
+        return {"ok": False, "findings": plan_payload.get("findings", [])}
+    plan = plan_payload.get("plan") or {}
+    if bool(plan.get("already_applied")):
         return {
             "ok": True,
             "target": target,
-            "execution_target": str(frontmatter.get("suggested-target", "")),
+            "execution_target": str(plan.get("execution_target", "")),
+            "owners": [str(item) for item in plan.get("owners", [])],
             "findings": [],
         }
-    if actor not in {"human", "system"}:
-        return {"ok": False, "findings": [{"code": "MERGE_FOLLOW_UP_ACTOR_NOT_ALLOWED", "detail": f"Actor `{actor}` cannot apply merge follow ups"}]}
-    if status != "proposed":
-        return {"ok": False, "findings": [{"code": "MERGE_FOLLOW_UP_STATE_INVALID", "detail": f"Merge follow up `{target}` is not in proposed state"}]}
-
-    ref_target = str(frontmatter.get("ref-target", ""))
-    execution_target = suggest_merge_target(ref_target)
-    candidate = next((item for item in detect_merge_candidates() if item.ref_target == ref_target), None)
-    owners = list(candidate.owners) if candidate else []
-    execution_content = render_merge_spawned_sot(execution_target, ref_target, owners)
+    ref_target = str(plan.get("ref_target", ""))
+    execution_target = str(plan.get("execution_target", ""))
+    owners = [str(item) for item in plan.get("owners", [])]
+    execution_content = str(plan.get("execution_content", ""))
     execution_result = write_text(
         execution_target,
         execution_content,
@@ -543,7 +527,7 @@ def apply_merge_follow_up(target: str, actor: str, reason: str) -> dict[str, Any
         )
     follow_up_result = write_text(
         target,
-        render_applied_merge_follow_up(current, execution_target, owners),
+        str(plan.get("updated_follow_up_content", current)),
         actor=actor,
         endpoint="merge-follow-up-apply",
         reason=f"mark merge follow up applied {target}",

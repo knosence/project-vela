@@ -99,6 +99,14 @@ pub struct MergeCandidateSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MergeFollowUpSummary {
+    pub target: String,
+    pub status: String,
+    pub ref_target: String,
+    pub suggested_target: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockedItemSummary {
     pub target: String,
     pub reason: String,
@@ -222,6 +230,27 @@ pub struct DreamerApplyPlan {
     pub target: String,
     pub kind: String,
     pub execution_target: String,
+    pub execution_content: String,
+    pub updated_follow_up_content: String,
+    pub already_applied: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MergeReviewPlan {
+    pub target: String,
+    pub decision: String,
+    pub follow_up_target: String,
+    pub suggested_target: String,
+    pub updated_content: String,
+    pub follow_up_content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MergeApplyPlan {
+    pub target: String,
+    pub execution_target: String,
+    pub ref_target: String,
+    pub owners: Vec<String>,
     pub execution_content: String,
     pub updated_follow_up_content: String,
     pub already_applied: bool,
