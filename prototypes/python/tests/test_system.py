@@ -47,6 +47,8 @@ from prototypes.python.vela.rust_bridge import (
     matrix_inventory_payload,
     parse_dreamer_actions_payload,
     parse_operations_state_payload,
+    plan_dreamer_follow_up_apply_payload,
+    plan_dreamer_review_payload,
     render_dc_night_report_payload,
     render_dreamer_execution_artifact_payload,
     render_dreamer_follow_up_payload,
@@ -1838,6 +1840,27 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(applied_follow_up["ok"])
         self.assertIn("## Execution Outcome", applied_follow_up["content"])
         self.assertIn("status: applied", applied_follow_up["content"])
+
+        review_plan = plan_dreamer_review_payload(
+            "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.example.md",
+            proposal_rendered["content"],
+            "approved",
+            "human",
+            "looks correct",
+            "2026-04-11",
+        )
+        self.assertTrue(review_plan["ok"])
+        self.assertEqual(review_plan["plan"]["follow_up_kind"], "validator-change")
+
+        apply_plan = plan_dreamer_follow_up_apply_payload(
+            "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.example.md",
+            follow_up_rendered["content"],
+            "human",
+            "execute it",
+            "2026-04-11",
+        )
+        self.assertTrue(apply_plan["ok"])
+        self.assertEqual(apply_plan["plan"]["kind"], "validator-change")
 
         dreamer_report_rendered = render_dreamer_pattern_report_payload(
             "20260411-0200",

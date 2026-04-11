@@ -1,6 +1,7 @@
 use crate::models::{
-    DreamerAction, DreamerActionRegistry, DreamerFollowUpSummary, DreamerProposalSummary,
-    OperationLockRecord, OperationStateEntry, OperationsState, ValidationFinding,
+    DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
+    DreamerProposalSummary, DreamerReviewPlan, OperationLockRecord, OperationStateEntry,
+    OperationsState, ValidationFinding,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -603,6 +604,118 @@ pub fn list_dreamer_follow_ups(repo_root: &str) -> Vec<DreamerFollowUpSummary> {
             reason: dreamer_follow_up_reason(&text),
         })
         .collect()
+}
+
+pub fn plan_dreamer_review(
+    target: &str,
+    current_text: &str,
+    decision: &str,
+    actor: &str,
+    reason: &str,
+    created: &str,
+) -> (Option<DreamerReviewPlan>, Vec<ValidationFinding>) {
+    let current_status =
+        extract_frontmatter_value(current_text, "status").unwrap_or_else(|| "unknown".to_string());
+    let findings = validate_dreamer_review(&current_status, decision);
+    if !findings.is_empty() {
+        return (None, findings);
+    }
+    let proposal_update =
+        render_reviewed_dreamer_proposal(current_text, decision, actor, reason, None);
+    if decision != "approved" {
+        return (
+            Some(DreamerReviewPlan {
+                target: target.to_string(),
+                decision: decision.to_string(),
+                follow_up_target: String::new(),
+                follow_up_kind: String::new(),
+                updated_content: proposal_update,
+                follow_up_content: String::new(),
+            }),
+            Vec::new(),
+        );
+    }
+    let follow_up_reason = dreamer_proposal_reason(current_text);
+    let follow_up_kind = classify_dreamer_follow_up(&follow_up_reason);
+    let follow_up_target = target.replace("Dreamer-Proposal.", "Dreamer-Follow-Up.");
+    let follow_up_content =
+        render_dreamer_follow_up(created, target, &follow_up_reason, &follow_up_kind, actor);
+    let updated_content = render_reviewed_dreamer_proposal(
+        current_text,
+        decision,
+        actor,
+        reason,
+        Some(&follow_up_target),
+    );
+    (
+        Some(DreamerReviewPlan {
+            target: target.to_string(),
+            decision: decision.to_string(),
+            follow_up_target,
+            follow_up_kind,
+            updated_content,
+            follow_up_content,
+        }),
+        Vec::new(),
+    )
+}
+
+pub fn plan_dreamer_follow_up_apply(
+    target: &str,
+    current_text: &str,
+    actor: &str,
+    reason: &str,
+    created: &str,
+) -> (Option<DreamerApplyPlan>, Vec<ValidationFinding>) {
+    let current_status =
+        extract_frontmatter_value(current_text, "status").unwrap_or_else(|| "unknown".to_string());
+    let findings = validate_dreamer_follow_up_apply(&current_status, actor);
+    if !findings.is_empty() {
+        return (None, findings);
+    }
+    let kind = dreamer_follow_up_kind(current_text);
+    if current_status == "applied" {
+        return (
+            Some(DreamerApplyPlan {
+                target: target.to_string(),
+                kind,
+                execution_target: dreamer_existing_execution_target(current_text)
+                    .unwrap_or_default(),
+                execution_content: String::new(),
+                updated_follow_up_content: current_text.to_string(),
+                already_applied: true,
+            }),
+            Vec::new(),
+        );
+    }
+    let execution_target = target.replace(
+        "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.",
+        "knowledge/ARTIFACTS/refs/Dreamer-Execution.",
+    );
+    let queue_name = dreamer_follow_up_queue_name(&kind).unwrap_or("Dreamer-Action-Queue");
+    let follow_up_reason = dreamer_follow_up_reason(current_text);
+    let execution_content = render_dreamer_execution_artifact(
+        created,
+        target,
+        actor,
+        &kind,
+        &follow_up_reason,
+        queue_name,
+        reason,
+    );
+    let updated_follow_up_content =
+        render_applied_dreamer_follow_up(current_text, actor, reason, &execution_target);
+    (
+        Some(DreamerApplyPlan {
+            target: target.to_string(),
+            kind,
+            execution_target,
+            execution_content,
+            updated_follow_up_content,
+            already_applied: false,
+        }),
+        Vec::new(),
+    )
 }
 
 pub fn parse_dreamer_action_registry(

@@ -26,6 +26,8 @@ use vela_core::operations::{
     match_dreamer_actions as match_dreamer_actions_policy,
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
+    plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
+    plan_dreamer_review as plan_dreamer_review_policy,
     register_dreamer_action as register_dreamer_action_policy,
     render_applied_dreamer_follow_up as render_applied_dreamer_follow_up_policy,
     render_dc_night_report as render_dc_night_report_policy,
@@ -758,6 +760,63 @@ fn run() -> Result<(), String> {
             );
             println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&rendered));
         }
+        "plan-dreamer-review" => {
+            let target = args.next().ok_or_else(|| "missing target".to_string())?;
+            let decision = args.next().ok_or_else(|| "missing decision".to_string())?;
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let created = args.next().ok_or_else(|| "missing created".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (plan, findings) =
+                plan_dreamer_review_policy(&target, &content, &decision, &actor, &reason, &created);
+            println!(
+                "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                plan.as_ref()
+                    .map(render_dreamer_review_plan)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
+        "plan-dreamer-follow-up-apply" => {
+            let target = args.next().ok_or_else(|| "missing target".to_string())?;
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let created = args.next().ok_or_else(|| "missing created".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (plan, findings) =
+                plan_dreamer_follow_up_apply_policy(&target, &content, &actor, &reason, &created);
+            println!(
+                "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                plan.as_ref()
+                    .map(render_dreamer_apply_plan)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "validate-config" => {
             let owner_name = args
                 .next()
@@ -1222,6 +1281,30 @@ fn render_dreamer_follow_up_summary(item: &vela_core::models::DreamerFollowUpSum
         escape_json(&item.created),
         escape_json(&item.kind),
         escape_json(&item.reason),
+    )
+}
+
+fn render_dreamer_review_plan(item: &vela_core::models::DreamerReviewPlan) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"decision\":\"{}\",\"follow_up_target\":\"{}\",\"follow_up_kind\":\"{}\",\"updated_content\":\"{}\",\"follow_up_content\":\"{}\"}}",
+        escape_json(&item.target),
+        escape_json(&item.decision),
+        escape_json(&item.follow_up_target),
+        escape_json(&item.follow_up_kind),
+        escape_json(&item.updated_content),
+        escape_json(&item.follow_up_content),
+    )
+}
+
+fn render_dreamer_apply_plan(item: &vela_core::models::DreamerApplyPlan) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"kind\":\"{}\",\"execution_target\":\"{}\",\"execution_content\":\"{}\",\"updated_follow_up_content\":\"{}\",\"already_applied\":{}}}",
+        escape_json(&item.target),
+        escape_json(&item.kind),
+        escape_json(&item.execution_target),
+        escape_json(&item.execution_content),
+        escape_json(&item.updated_follow_up_content),
+        if item.already_applied { "true" } else { "false" },
     )
 }
 

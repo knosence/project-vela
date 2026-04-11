@@ -192,6 +192,33 @@ def render_applied_dreamer_follow_up_payload(
     )
 
 
+def plan_dreamer_review_payload(
+    target: str,
+    content: str,
+    decision: str,
+    actor: str,
+    reason: str,
+    created: str,
+) -> dict[str, Any]:
+    return _run(
+        ["plan-dreamer-review", target, decision, actor, reason, created],
+        stdin=content,
+    )
+
+
+def plan_dreamer_follow_up_apply_payload(
+    target: str,
+    content: str,
+    actor: str,
+    reason: str,
+    created: str,
+) -> dict[str, Any]:
+    return _run(
+        ["plan-dreamer-follow-up-apply", target, actor, reason, created],
+        stdin=content,
+    )
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 

@@ -94,6 +94,26 @@ pub struct DreamerFollowUpSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DreamerReviewPlan {
+    pub target: String,
+    pub decision: String,
+    pub follow_up_target: String,
+    pub follow_up_kind: String,
+    pub updated_content: String,
+    pub follow_up_content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DreamerApplyPlan {
+    pub target: String,
+    pub kind: String,
+    pub execution_target: String,
+    pub execution_content: String,
+    pub updated_follow_up_content: String,
+    pub already_applied: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OperationStateEntry {
     pub status: String,
     pub last_started: String,

@@ -14,20 +14,17 @@ from .growth import assess_growth
 from .models import EventRecord
 from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
 from .rust_bridge import (
-    classify_dreamer_follow_up_payload,
     inspect_dreamer_follow_up_payload,
     inspect_dreamer_follow_up_kind_payload,
     inspect_dreamer_proposal_payload,
     list_dreamer_follow_ups_payload,
     list_dreamer_queue_payload,
     matrix_inventory_payload,
-    render_applied_dreamer_follow_up_payload,
+    plan_dreamer_follow_up_apply_payload,
+    plan_dreamer_review_payload,
     render_dc_night_report_payload,
-    render_dreamer_execution_artifact_payload,
-    render_dreamer_follow_up_payload,
     render_dreamer_pattern_report_payload,
     render_dreamer_proposal_payload,
-    render_reviewed_dreamer_proposal_payload,
     render_warden_patrol_report_payload,
     validate_dc_night_report_payload,
     validate_dreamer_follow_up_apply_payload,
@@ -393,16 +390,26 @@ def review_dreamer_proposal(target: str, decision: str, actor: str, reason: str)
     if review_findings:
         return {"ok": False, "findings": review_findings}
     record_approval(f"dreamer_{_slug(target)}_{_stamp()}", decision, actor, reason, target)
-    follow_up = _build_dreamer_follow_up(target, current, decision, actor)
-    updated = str(
-        render_reviewed_dreamer_proposal_payload(
-            current,
-            decision,
-            actor,
-            reason,
-            follow_up["target"] if follow_up else None,
-        )["content"]
+    created = datetime.now(timezone.utc).date().isoformat()
+    review_plan_payload = plan_dreamer_review_payload(
+        target,
+        current,
+        decision,
+        actor,
+        reason,
+        created,
     )
+    if not review_plan_payload.get("ok"):
+        return {"ok": False, "findings": review_plan_payload.get("findings", [])}
+    review_plan = review_plan_payload.get("plan") or {}
+    follow_up = None
+    if review_plan.get("follow_up_target"):
+        follow_up = {
+            "target": str(review_plan.get("follow_up_target", "")),
+            "kind": str(review_plan.get("follow_up_kind", "")),
+            "content": str(review_plan.get("follow_up_content", "")),
+        }
+    updated = str(review_plan.get("updated_content", current))
     result = write_text(target, updated, actor="system", endpoint="dreamer-review", reason=f"dreamer proposal {decision}")
     follow_up_result = {"ok": True, "target": None, "kind": None}
     if result["ok"] and follow_up:
@@ -473,12 +480,30 @@ def apply_dreamer_follow_up(target: str, actor: str, reason: str) -> dict[str, A
             "findings": [],
         }
 
-    follow_up_payload = inspect_dreamer_follow_up_payload(current)
-    kind = str(follow_up_payload.get("kind", ""))
-    follow_up_reason = str(follow_up_payload.get("reason", ""))
-    execution = _build_follow_up_execution(target, kind, follow_up_reason, actor, reason)
-    if execution.get("findings"):
-        return {"ok": False, "findings": execution["findings"]}
+    created = datetime.now(timezone.utc).date().isoformat()
+    apply_plan_payload = plan_dreamer_follow_up_apply_payload(
+        target,
+        current,
+        actor,
+        reason,
+        created,
+    )
+    if not apply_plan_payload.get("ok"):
+        return {"ok": False, "findings": apply_plan_payload.get("findings", [])}
+    apply_plan = apply_plan_payload.get("plan") or {}
+    kind = str(apply_plan.get("kind", ""))
+    execution = {
+        "target": str(apply_plan.get("execution_target", "")),
+        "content": str(apply_plan.get("execution_content", "")),
+    }
+    if bool(apply_plan.get("already_applied")):
+        return {
+            "ok": True,
+            "target": target,
+            "execution_target": apply_plan.get("execution_target"),
+            "kind": kind,
+            "findings": [],
+        }
     execution_result = write_text(
         execution["target"],
         execution["content"],
@@ -493,19 +518,12 @@ def apply_dreamer_follow_up(target: str, actor: str, reason: str) -> dict[str, A
         follow_up_target=target,
         execution_target=execution["target"],
         kind=kind,
-        pattern_reason=follow_up_reason,
+        pattern_reason=str(inspect_dreamer_follow_up_payload(current).get("reason", "")),
         actor=actor,
         execution_reason=reason,
     )
 
-    updated = str(
-        render_applied_dreamer_follow_up_payload(
-            current,
-            actor,
-            reason,
-            execution["target"],
-        )["content"]
-    )
+    updated = str(apply_plan.get("updated_follow_up_content", current))
     follow_up_result = write_text(
         target,
         updated,
@@ -730,66 +748,6 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
         data[key.strip()] = value.strip().strip('"')
     return data
 
-
-def _build_dreamer_follow_up(target: str, proposal_text: str, decision: str, actor: str) -> dict[str, str] | None:
-    if decision != "approved":
-        return None
-    reason = str(inspect_dreamer_proposal_payload(proposal_text).get("reason", ""))
-    classification_payload = classify_dreamer_follow_up_payload(reason)
-    classification = str(classification_payload.get("kind", "refusal-tightening"))
-    stem = Path(target).stem.replace("Dreamer-Proposal.", "Dreamer-Follow-Up.")
-    follow_up_target = f"knowledge/ARTIFACTS/proposals/{stem}.md"
-    return {
-        "target": follow_up_target,
-        "kind": classification,
-        "content": _render_dreamer_follow_up(follow_up_target, target, reason, classification, actor),
-    }
-
-
-def _render_dreamer_follow_up(
-    follow_up_target: str,
-    proposal_target: str,
-    reason: str,
-    classification: str,
-    actor: str,
-) -> str:
-    created = datetime.now(timezone.utc).date().isoformat()
-    rendered = render_dreamer_follow_up_payload(
-        created,
-        proposal_target,
-        reason,
-        classification,
-        actor,
-    )
-    return str(rendered["content"])
-
-
-def _build_follow_up_execution(
-    target: str,
-    kind: str,
-    follow_up_reason: str,
-    actor: str,
-    execution_reason: str,
-) -> dict[str, str]:
-    stem = Path(target).stem.replace("Dreamer-Follow-Up.", "Dreamer-Execution.")
-    execution_target = f"knowledge/ARTIFACTS/refs/{stem}.md"
-    created = datetime.now(timezone.utc).date().isoformat()
-    kind_payload = inspect_dreamer_follow_up_kind_payload(kind)
-    queue_name = str(kind_payload.get("queue_name", "Dreamer-Action-Queue"))
-    rendered = render_dreamer_execution_artifact_payload(
-        created,
-        target,
-        actor,
-        kind,
-        follow_up_reason,
-        queue_name,
-        execution_reason,
-    )
-    content = str(rendered["content"])
-    findings = rendered.get("findings", [])
-    if findings:
-        return {"target": execution_target, "content": content, "findings": findings}
-    return {"target": execution_target, "content": content}
 
 def _load_dreamer_actions() -> dict[str, Any]:
     return load_dreamer_actions()
