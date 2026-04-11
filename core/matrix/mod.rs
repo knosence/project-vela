@@ -403,7 +403,7 @@ fn render_matrix_index(entries: &[MatrixSoT], refs: &[GovernedReference]) -> Str
     lines.extend([
         "## This Registry Points Back to the Root and the Governing Laws".to_string(),
         "- Root: [[Cornerstone.Knosence-SoT]]".to_string(),
-        "- Laws: [[Ref.Matrix-Laws]]".to_string(),
+        "- Laws: [[000b.INDEX.Matrix-Laws-Ref]]".to_string(),
         "".to_string(),
     ]);
 

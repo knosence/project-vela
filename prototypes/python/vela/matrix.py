@@ -67,9 +67,13 @@ class MatrixReference:
 
 def _reference_payloads() -> list[dict[str, Any]]:
     payloads: list[dict[str, Any]] = []
-    for path in sorted((REPO_ROOT / "knowledge" / "ARTIFACTS" / "refs").glob("Ref.*.md")):
-        if path == MATRIX_INDEX_PATH:
+    refs_dir = REPO_ROOT / "knowledge" / "ARTIFACTS" / "refs"
+    candidates = sorted(refs_dir.glob("Ref.*.md")) + sorted(refs_dir.glob("*-Ref.md"))
+    seen: set[Path] = set()
+    for path in candidates:
+        if path == MATRIX_INDEX_PATH or path in seen:
             continue
+        seen.add(path)
         text = path.read_text(encoding="utf-8")
         payload = inspect_reference_payload(str(path.relative_to(REPO_ROOT)), text)
         payloads.append(payload)
@@ -188,7 +192,9 @@ def validate_reference_structure(entries: list[MatrixReference] | None = None) -
 def validate_canonical_graph_targets() -> list[ValidationFinding]:
     root = REPO_ROOT
     canonical_files: list[Path] = list((root / "knowledge").glob("*.md"))
-    canonical_files.extend((root / "knowledge" / "ARTIFACTS" / "refs").glob("Ref.*.md"))
+    refs_dir = root / "knowledge" / "ARTIFACTS" / "refs"
+    canonical_files.extend(refs_dir.glob("Ref.*.md"))
+    canonical_files.extend(refs_dir.glob("*-Ref.md"))
     if MATRIX_INDEX_PATH.exists():
         canonical_files.append(MATRIX_INDEX_PATH)
     readme = root / "README.md"
@@ -343,7 +349,7 @@ def render_matrix_index(entries: list[MatrixSoT], refs: list[MatrixReference]) -
         [
             "## This Registry Points Back to the Root and the Governing Laws",
             "- Root: [[Cornerstone.Knosence-SoT]]",
-            "- Laws: [[Ref.Matrix-Laws]]",
+            "- Laws: [[000b.INDEX.Matrix-Laws-Ref]]",
             "",
         ]
     )

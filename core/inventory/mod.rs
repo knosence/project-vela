@@ -140,10 +140,7 @@ fn discover_references(root: &Path) -> (Vec<GovernedReference>, Vec<ValidationFi
             .file_name()
             .and_then(|item| item.to_str())
             .unwrap_or_default();
-        if !name.starts_with("Ref.")
-            || !name.ends_with(".md")
-            || name == "Index.Knosence-Matrix-Ref.md"
-        {
+        if !is_governed_reference_name(name) {
             continue;
         }
         let rel = relative_path(root, &path);
@@ -158,6 +155,20 @@ fn discover_references(root: &Path) -> (Vec<GovernedReference>, Vec<ValidationFi
     }
 
     (references, findings)
+}
+
+fn is_governed_reference_name(name: &str) -> bool {
+    if !name.ends_with(".md") {
+        return false;
+    }
+    if matches!(
+        name,
+        "000a.INDEX.Knosence-Matrix-Ref.md" | "Index.Knosence-Matrix-Ref.md"
+    ) {
+        return false;
+    }
+    name.starts_with("Ref.")
+        || (name.ends_with("-Ref.md") && matrix_id_kind_for_name(name) == Some("ref"))
 }
 
 fn classify_sot_role(path: &str, area: &str) -> &'static str {

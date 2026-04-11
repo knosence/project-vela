@@ -55,20 +55,24 @@ Vela's knowledge base is itself governed by Sources of Truth. A **Cornerstone** 
 
 ```
 knowledge/
-├── Cornerstone.Knosence-SoT.md           # the root — everything aligns here
-├── 100.WHO.Circle-SoT.md                 # people, identity, relationships
-├── 200.WHAT.Domain-SoT.md                # projects, systems, knowledge areas
-│   ├── 210.WHAT.Vela-Capabilities-SoT.md
-│   └── 220.WHAT.Repo-Watchlist-SoT.md
-├── 300.WHERE.Terrain-SoT.md              # platforms, tools, environments
-├── 400.WHEN.Chronicle-SoT.md             # milestones, events, timeline
-├── 500.HOW.Method-SoT.md                 # processes, workflows, operations
-├── 600.WHY.Compass-SoT.md               # values, purpose, rationale
-│   └── 610.WHY.Vela-Intent-SoT.md
-├── refs/                                  # reference notes (stage 3 extractions)
-├── inbox/                                 # intake queue
-├── proposals/                             # growth proposals awaiting approval
-└── archive/                               # archived content
+├── Cornerstone.Knosence-SoT.md            # the root index
+├── 100.WHO.Circle-SoT.md                  # WHO hub
+├── 200.WHAT.Domain-SoT.md                 # WHAT hub
+├── 230.DOMAIN.SoT-Source-of-Truth-SoT.md  # The Key
+├── 240.DOMAIN.Matrix-SoT.md               # The System
+├── 300.WHERE.Terrain-SoT.md               # WHERE hub
+├── 400.WHEN.Chronicle-SoT.md              # WHEN hub
+├── 500.HOW.Method-SoT.md                  # HOW hub
+├── 600.WHY.Compass-SoT.md                 # WHY hub
+├── 110.WHO.Vela-Identity-SoT.md           # Vela branch
+├── 210.WHAT.Vela-Capabilities-SoT.md      # Vela capability branch
+├── 220.WHAT.Repo-Watchlist-SoT.md         # repo-watch branch
+├── 610.WHY.Vela-Intent-SoT.md             # Vela rationale branch
+├── INBOX/                                 # intake queue
+└── ARTIFACTS/
+    ├── refs/                              # reference notes and registries
+    ├── proposals/                         # growth and review proposals
+    └── archive/                           # backups and archived support files
 ```
 
 Files follow the `{ID}.{Context}.{Subject}-SoT.md` naming convention. The ID encodes hierarchy — `200` is a dimension hub, `210` is its first child, `211` is a grandchild. The Cornerstone is the only exception: it carries no numeric ID because everything else descends from it.
@@ -83,9 +87,9 @@ Three canonical Sources of Truth form the **Holy Trinity** — the constitution 
 
 | | Role | What It Governs |
 |---|------|----------------|
-| **Cornerstone** | The root | The owner. All dimensions of life, work, and growth. Everything else descends from here. |
-| **Key** | The framework | What a Source of Truth *is*. The structural rules every document must follow. |
-| **System** | The engine | How information enters the vault, when processing happens, where infrastructure lives. |
+| **Cornerstone** | The root | `Cornerstone.Knosence-SoT.md` — the owner and root index. |
+| **Key** | The framework | `230.DOMAIN.SoT-Source-of-Truth-SoT.md` — what a Source of Truth is and how it is built. |
+| **System** | The engine | `240.DOMAIN.Matrix-SoT.md` — who maintains the matrix and how that work runs. |
 
 Every agent reads the Trinity before doing work, logs its intent, executes, then returns to verify the Trinity is still accurate afterward. This pre-flight / post-flight ritual is non-negotiable. If the Trinity drifts, every downstream operation inherits the drift.
 

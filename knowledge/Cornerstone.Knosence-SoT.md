@@ -21,7 +21,9 @@ tags: ["cornerstone","human","shared-knowledge","matrix","sot"]
 
 ### Links
 
-- Matrix index: [[Index.Knosence-Matrix-Ref]]
+- Matrix index: [[000a.INDEX.Knosence-Matrix-Ref]]
+- The Key: [[230.DOMAIN.SoT-Source-of-Truth-SoT]]
+- The System: [[240.DOMAIN.Matrix-SoT]]
 - WHO hub: [[100.WHO.Circle-SoT]]
 - WHAT hub: [[200.WHAT.Domain-SoT]]
 - WHERE hub: [[300.WHERE.Terrain-SoT]]
@@ -87,6 +89,10 @@ tags: ["cornerstone","human","shared-knowledge","matrix","sot"]
   - Human approval still governs cornerstone, identity, and other sovereign surfaces. [AGENT:gpt-5]
 - Vela is a shared-knowledge assistant branch under Knosence rather than a separate root. (2026-04-08)
   - The assistant can be active, useful, and close without becoming the cornerstone. [HUMAN]
+- The Key. [[230.DOMAIN.SoT-Source-of-Truth-SoT]] (2026-04-11)
+  - This trinity pillar defines how every SoT in the matrix is built. [HUMAN]
+- The System. [[240.DOMAIN.Matrix-SoT]] (2026-04-11)
+  - This trinity pillar defines who maintains the matrix and how that work runs. [HUMAN]
 
 ### Inactive
 
@@ -100,6 +106,8 @@ tags: ["cornerstone","human","shared-knowledge","matrix","sot"]
   - The system, workflows, and assistant behavior now live as a domain branch under the human root. [HUMAN]
 - Shared matrix knowledge includes both human and agent branches with one canonical SoT layer. (2026-04-08)
   - The repo no longer keeps separate knowledge trees for Knosence and Vela. [AGENT:gpt-5]
+- The trinity also includes the Key and the System as first-class domain branches. (2026-04-11)
+  - The cornerstone says what exists, the Key says how it is built, and the System says who maintains it. [HUMAN]
 
 ### Inactive
 
