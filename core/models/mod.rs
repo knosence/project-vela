@@ -321,6 +321,10 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
             "Role Purity".to_string(),
             "Sequential Interplay Over Parallel Chaos".to_string(),
         ],
+        "OPERATION_EVENT_KIND_INVALID" => vec![
+            "SoT Operations Reference: Three-Tier Vault Maintenance".to_string(),
+            "Directive 8 Event Log Everything Important".to_string(),
+        ],
         "SCHEDULER_INTERVAL_INVALID" => vec![
             "SoT Operations Reference: Three-Tier Vault Maintenance".to_string(),
             "Sequential Interplay Over Parallel Chaos".to_string(),

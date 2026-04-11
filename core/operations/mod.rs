@@ -1,3 +1,4 @@
+use crate::events::{plan_event_append, EventRecord, ValidationSummary};
 use crate::models::{
     DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
     DreamerProposalSummary, DreamerReviewPlan, NightCyclePlan, OperationLifecyclePlan,
@@ -201,6 +202,47 @@ pub fn plan_scheduler_run(
         }),
         Vec::new(),
     )
+}
+
+pub fn plan_operation_audit_event(
+    kind: &str,
+    event_id: &str,
+    timestamp: &str,
+    target: &str,
+    reason: &str,
+    artifacts_json: &str,
+    validation_summary_json: &str,
+    approval_required: bool,
+) -> (
+    Option<crate::models::EventAppendPlan>,
+    Vec<ValidationFinding>,
+) {
+    let (endpoint, actor, status) = match kind {
+        "patrol-blocked" => ("patrol", "warden", "blocked"),
+        "patrol-completed" => ("patrol", "warden", "committed"),
+        "night-cycle-blocked" => ("night-cycle", "dc", "blocked"),
+        "night-cycle-completed" => ("night-cycle", "dc", "committed"),
+        _ => {
+            return (
+                None,
+                vec![ValidationFinding::error(
+                    "OPERATION_EVENT_KIND_INVALID",
+                    format!("Unsupported operation audit event kind: {kind}"),
+                )],
+            )
+        }
+    };
+    let mut record = EventRecord::new(
+        event_id, timestamp, "vela", endpoint, actor, target, status, reason,
+    );
+    record.approval_required = approval_required;
+    if !validation_summary_json.trim().is_empty() {
+        record.validation_summary = ValidationSummary {
+            finding_codes: extract_json_string_list(validation_summary_json),
+            blocking: validation_summary_json.contains("\"blocking\":true"),
+        };
+    }
+    plan_event_append(&record, artifacts_json, validation_summary_json)
 }
 
 pub fn validate_operation_lock(

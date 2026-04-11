@@ -25,6 +25,7 @@ from .rust_bridge import (
     plan_dreamer_review_payload,
     plan_operation_start_payload,
     plan_operation_state_update_payload,
+    plan_operation_audit_event_payload,
     plan_scheduler_run_payload,
     plan_warden_patrol_payload,
     render_dc_night_report_payload,
@@ -57,17 +58,12 @@ def run_warden_patrol(requested_by: str = "system") -> dict[str, Any]:
             started_at=started_at,
             last_error=request_findings[0]["detail"],
         )
-        append_event(
-            EventRecord(
-                source="vela",
-                endpoint="patrol",
-                actor="warden",
-                target="runtime/config/operations-state.json",
-                status="blocked",
-                reason=request_findings[0]["detail"],
-                artifacts=["runtime/config/operations-state.json"],
-                validation_summary={"requested_by": requested_by},
-            )
+        _append_operation_event(
+            "patrol-blocked",
+            target="runtime/config/operations-state.json",
+            reason=request_findings[0]["detail"],
+            artifacts=["runtime/config/operations-state.json"],
+            validation_summary={"requested_by": requested_by},
         )
         return {
             "ok": False,
@@ -86,17 +82,12 @@ def run_warden_patrol(requested_by: str = "system") -> dict[str, Any]:
             started_at=started_at,
             last_error=lock["detail"],
         )
-        append_event(
-            EventRecord(
-                source="vela",
-                endpoint="patrol",
-                actor="warden",
-                target=lock["target"],
-                status="blocked",
-                reason=lock["detail"],
-                artifacts=[lock["target"]],
-                validation_summary={"requested_by": requested_by},
-            )
+        _append_operation_event(
+            "patrol-blocked",
+            target=lock["target"],
+            reason=lock["detail"],
+            artifacts=[lock["target"]],
+            validation_summary={"requested_by": requested_by},
         )
         return {"ok": False, "report_target": "", "files_checked": 0, "structural_flags": [], "cosmetic_fixes": [], "findings": [lock]}
     targets = _patched_targets()
@@ -156,21 +147,16 @@ def run_warden_patrol(requested_by: str = "system") -> dict[str, Any]:
         increment_runs=result["ok"],
         release_lock=True,
     )
-    append_event(
-        EventRecord(
-            source="vela",
-            endpoint="patrol",
-            actor="warden",
-            target=report_target,
-            status="committed" if result["ok"] else "blocked",
-            reason="warden patrol executed",
-            artifacts=result.get("artifacts", [report_target]),
-            validation_summary={
-                "requested_by": requested_by,
-                "files_checked": len(checked),
-                "structural_flags": len(structural_flags),
-            },
-        )
+    _append_operation_event(
+        "patrol-completed" if result["ok"] else "patrol-blocked",
+        target=report_target,
+        reason="warden patrol executed" if result["ok"] else "warden patrol blocked",
+        artifacts=result.get("artifacts", [report_target]),
+        validation_summary={
+            "requested_by": requested_by,
+            "files_checked": len(checked),
+            "structural_flags": len(structural_flags),
+        },
     )
     return {
         "ok": result["ok"],
@@ -190,17 +176,12 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
             started_at=started_at,
             last_error=request_findings[0]["detail"],
         )
-        append_event(
-            EventRecord(
-                source="vela",
-                endpoint="night-cycle",
-                actor="dc",
-                target="runtime/config/operations-state.json",
-                status="blocked",
-                reason=request_findings[0]["detail"],
-                artifacts=["runtime/config/operations-state.json"],
-                validation_summary={"requested_by": requested_by},
-            )
+        _append_operation_event(
+            "night-cycle-blocked",
+            target="runtime/config/operations-state.json",
+            reason=request_findings[0]["detail"],
+            artifacts=["runtime/config/operations-state.json"],
+            validation_summary={"requested_by": requested_by},
         )
         return {
             "ok": False,
@@ -222,17 +203,12 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
             started_at=started_at,
             last_error=lock["detail"],
         )
-        append_event(
-            EventRecord(
-                source="vela",
-                endpoint="night-cycle",
-                actor="dc",
-                target=lock["target"],
-                status="blocked",
-                reason=lock["detail"],
-                artifacts=[lock["target"]],
-                validation_summary={"requested_by": requested_by},
-            )
+        _append_operation_event(
+            "night-cycle-blocked",
+            target=lock["target"],
+            reason=lock["detail"],
+            artifacts=[lock["target"]],
+            validation_summary={"requested_by": requested_by},
         )
         return {
             "ok": False,
@@ -331,30 +307,25 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
         increment_runs=result["ok"] and dreamer_result["ok"],
         release_lock=True,
     )
-    append_event(
-        EventRecord(
-            source="vela",
-            endpoint="night-cycle",
-            actor="dc",
-            target=report_target,
-            status="committed" if result["ok"] else "blocked",
-            reason="dc night cycle executed",
-            artifacts=[
-                dreamer_report_target,
-                report_target,
-                *dreamer_result.get("artifacts", [dreamer_report_target]),
-                *result.get("artifacts", [report_target]),
-            ],
-            validation_summary={
-                "requested_by": requested_by,
-                "growth_candidates": len(growth_candidates),
-                "dreamer_patterns": dreamer_patterns,
-                "blocked_items": len(blocked_items),
-                "patrol_report": patrol.get("report_target", ""),
-                "dreamer_report": dreamer_report_target,
-                "dreamer_proposals": [item["target"] for item in dreamer_proposals],
-            },
-        )
+    _append_operation_event(
+        "night-cycle-completed" if result["ok"] else "night-cycle-blocked",
+        target=report_target,
+        reason="dc night cycle executed" if result["ok"] else "night cycle blocked",
+        artifacts=[
+            dreamer_report_target,
+            report_target,
+            *dreamer_result.get("artifacts", [dreamer_report_target]),
+            *result.get("artifacts", [report_target]),
+        ],
+        validation_summary={
+            "requested_by": requested_by,
+            "growth_candidates": len(growth_candidates),
+            "dreamer_patterns": dreamer_patterns,
+            "blocked_items": len(blocked_items),
+            "patrol_report": patrol.get("report_target", ""),
+            "dreamer_report": dreamer_report_target,
+            "dreamer_proposals": [item["target"] for item in dreamer_proposals],
+        },
     )
     return {
         "ok": result["ok"] and dreamer_result["ok"],
@@ -388,6 +359,32 @@ def run_night_cycle_scheduler(
 
 def operations_state() -> dict[str, Any]:
     return _load_operations_state()
+
+
+def _append_operation_event(
+    kind: str,
+    *,
+    target: str,
+    reason: str,
+    artifacts: list[str],
+    validation_summary: dict[str, Any],
+) -> None:
+    event = EventRecord(
+        source="vela",
+        endpoint="operations",
+        actor="system",
+        target=target,
+        status="planned",
+        reason=reason,
+        artifacts=artifacts,
+        validation_summary=validation_summary,
+    )
+    payload = plan_operation_audit_event_payload(kind, event.as_dict())
+    if not payload.get("ok"):
+        raise ValueError(f"Invalid operation audit event plan: {payload.get('findings', [])}")
+    EVENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with EVENT_LOG_PATH.open("a", encoding="utf-8") as handle:
+        handle.write(str(payload["plan"]["line"]) + "\n")
 
 
 def list_dreamer_queue() -> dict[str, Any]:

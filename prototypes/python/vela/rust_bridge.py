@@ -320,6 +320,24 @@ def plan_scheduler_run_payload(
     )
 
 
+def plan_operation_audit_event_payload(
+    kind: str,
+    event: dict[str, Any],
+) -> dict[str, Any]:
+    return _run(
+        [
+            "plan-operation-audit-event",
+            kind,
+            str(event.get("event_id", "")),
+            str(event.get("timestamp", "")),
+            str(event.get("target", "")),
+            str(event.get("reason", "")),
+            "true" if bool(event.get("approval_required")) else "false",
+        ],
+        stdin=f"{json.dumps(event.get('artifacts', []))}\n===SUMMARY===\n{json.dumps(event.get('validation_summary', {}))}",
+    )
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 

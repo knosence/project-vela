@@ -29,6 +29,7 @@ use vela_core::operations::{
     parse_operations_state as parse_operations_state_policy,
     plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
     plan_dreamer_review as plan_dreamer_review_policy, plan_night_cycle as plan_night_cycle_policy,
+    plan_operation_audit_event as plan_operation_audit_event_policy,
     plan_operation_start as plan_operation_start_policy,
     plan_operation_state_update as plan_operation_state_update_policy,
     plan_scheduler_run as plan_scheduler_run_policy,
@@ -1038,6 +1039,51 @@ fn run() -> Result<(), String> {
                 },
                 plan.as_ref()
                     .map(render_scheduler_plan)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
+        "plan-operation-audit-event" => {
+            let kind = args.next().ok_or_else(|| "missing kind".to_string())?;
+            let event_id = args.next().ok_or_else(|| "missing event_id".to_string())?;
+            let timestamp = args.next().ok_or_else(|| "missing timestamp".to_string())?;
+            let target = args.next().ok_or_else(|| "missing target".to_string())?;
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let approval_required = parse_bool(
+                &args
+                    .next()
+                    .ok_or_else(|| "missing approval_required".to_string())?,
+            )?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (artifacts_json, validation_summary_json) = content
+                .split_once("\n===SUMMARY===\n")
+                .ok_or_else(|| "missing summary split marker".to_string())?;
+            let (plan, findings) = plan_operation_audit_event_policy(
+                &kind,
+                &event_id,
+                &timestamp,
+                &target,
+                &reason,
+                artifacts_json,
+                validation_summary_json,
+                approval_required,
+            );
+            println!(
+                "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                plan.as_ref()
+                    .map(render_event_append_plan)
                     .unwrap_or_else(|| "null".to_string()),
                 findings
                     .iter()

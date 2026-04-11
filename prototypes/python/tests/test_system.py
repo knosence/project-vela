@@ -53,6 +53,7 @@ from prototypes.python.vela.rust_bridge import (
     plan_dreamer_review_payload,
     plan_operation_start_payload,
     plan_operation_state_update_payload,
+    plan_operation_audit_event_payload,
     plan_scheduler_run_payload,
     plan_warden_patrol_payload,
     render_dc_night_report_payload,
@@ -1852,6 +1853,20 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-0200.md",
         )
         self.assertIn("# Warden Patrol Report", patrol_plan["plan"]["report_content"])
+        patrol_event_plan = plan_operation_audit_event_payload(
+            "patrol-completed",
+            {
+                "event_id": "evt_ops_123",
+                "timestamp": "2026-04-11T02:00:00Z",
+                "target": "knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-0200.md",
+                "reason": "warden patrol executed",
+                "artifacts": ["knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-0200.md"],
+                "validation_summary": {"requested_by": "system"},
+            },
+        )
+        self.assertTrue(patrol_event_plan["ok"])
+        self.assertIn("\"endpoint\":\"patrol\"", patrol_event_plan["plan"]["line"])
+        self.assertIn("\"actor\":\"warden\"", patrol_event_plan["plan"]["line"])
 
         proposal_rendered = render_dreamer_proposal_payload(
             "2026-04-11",
