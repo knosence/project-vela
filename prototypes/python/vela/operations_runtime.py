@@ -16,8 +16,11 @@ from .merge import (
     list_merge_proposals as list_merge_proposals_runtime,
     merge_follow_up_target,
     merge_proposal_target,
+    replace_ref_with_sot_pointer,
+    render_applied_merge_follow_up,
     render_merge_follow_up,
     render_merge_proposal,
+    render_merge_spawned_sot,
     render_reviewed_merge_proposal,
     suggest_merge_target,
 )
@@ -489,6 +492,90 @@ def review_merge_proposal(target: str, decision: str, actor: str, reason: str) -
         "follow_up_target": follow_up_target,
         "suggested_target": suggest_merge_target(ref_target) if follow_up_target else None,
         "findings": proposal_result.get("findings", []) + follow_up_result.get("findings", []),
+    }
+
+
+def apply_merge_follow_up(target: str, actor: str, reason: str) -> dict[str, Any]:
+    path = REPO_ROOT / target
+    if not path.exists():
+        return {"ok": False, "findings": [{"code": "MERGE_FOLLOW_UP_NOT_FOUND", "detail": f"Merge follow up not found: {target}"}]}
+    current = path.read_text(encoding="utf-8")
+    frontmatter = _parse_frontmatter(current)
+    status = str(frontmatter.get("status", "unknown"))
+    if status == "applied":
+        return {
+            "ok": True,
+            "target": target,
+            "execution_target": str(frontmatter.get("suggested-target", "")),
+            "findings": [],
+        }
+    if actor not in {"human", "system"}:
+        return {"ok": False, "findings": [{"code": "MERGE_FOLLOW_UP_ACTOR_NOT_ALLOWED", "detail": f"Actor `{actor}` cannot apply merge follow ups"}]}
+    if status != "proposed":
+        return {"ok": False, "findings": [{"code": "MERGE_FOLLOW_UP_STATE_INVALID", "detail": f"Merge follow up `{target}` is not in proposed state"}]}
+
+    ref_target = str(frontmatter.get("ref-target", ""))
+    execution_target = suggest_merge_target(ref_target)
+    candidate = next((item for item in detect_merge_candidates() if item.ref_target == ref_target), None)
+    owners = list(candidate.owners) if candidate else []
+    execution_content = render_merge_spawned_sot(execution_target, ref_target, owners)
+    execution_result = write_text(
+        execution_target,
+        execution_content,
+        actor=actor,
+        endpoint="merge-follow-up-apply",
+        reason=f"execute merge follow up {target}",
+    )
+    owner_results: list[dict[str, Any]] = []
+    for owner in owners:
+        owner_path = REPO_ROOT / owner
+        if not owner_path.exists():
+            continue
+        updated_owner = replace_ref_with_sot_pointer(owner_path.read_text(encoding="utf-8"), ref_target, execution_target)
+        owner_results.append(
+            write_text(
+                owner,
+                updated_owner,
+                actor=actor,
+                endpoint="merge-follow-up-apply",
+                reason=f"repoint merged subject from {ref_target} to {execution_target}",
+            )
+        )
+    follow_up_result = write_text(
+        target,
+        render_applied_merge_follow_up(current, execution_target, owners),
+        actor=actor,
+        endpoint="merge-follow-up-apply",
+        reason=f"mark merge follow up applied {target}",
+    )
+    ok = execution_result["ok"] and follow_up_result["ok"] and all(item["ok"] for item in owner_results)
+    append_event(
+        EventRecord(
+            source="vela",
+            endpoint="merge-follow-up-apply",
+            actor=actor,
+            target=target,
+            status="committed" if ok else "blocked",
+            reason=reason,
+            artifacts=[
+                target,
+                execution_target,
+                *owners,
+            ],
+            validation_summary={"ref_target": ref_target, "execution_target": execution_target, "owner_count": len(owners)},
+        )
+    )
+    findings: list[dict[str, Any]] = []
+    findings.extend(execution_result.get("findings", []))
+    findings.extend(follow_up_result.get("findings", []))
+    for item in owner_results:
+        findings.extend(item.get("findings", []))
+    return {
+        "ok": ok,
+        "target": target,
+        "execution_target": execution_target,
+        "owners": owners,
+        "findings": findings,
     }
 
 

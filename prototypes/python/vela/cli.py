@@ -11,6 +11,7 @@ from .inbox import triage_inbox
 from .matrix import write_matrix_index
 from .models import EventRecord
 from .operations_runtime import (
+    apply_merge_follow_up,
     apply_dreamer_follow_up,
     list_merge_candidates,
     list_merge_follow_ups,
@@ -132,6 +133,12 @@ def cmd_merge_follow_ups(_: argparse.Namespace) -> int:
 
 def cmd_merge_review(args: argparse.Namespace) -> int:
     result = review_merge_proposal(target=args.target, decision=args.decision, actor="human", reason=args.reason)
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
+def cmd_merge_apply_follow_up(args: argparse.Namespace) -> int:
+    result = apply_merge_follow_up(target=args.target, actor="human", reason=args.reason)
     print(json.dumps(result, indent=2))
     return 0 if result["ok"] else 1
 
@@ -355,6 +362,10 @@ def build_parser() -> argparse.ArgumentParser:
     merge_review_parser.add_argument("decision")
     merge_review_parser.add_argument("--reason", default="")
     merge_review_parser.set_defaults(func=cmd_merge_review)
+    merge_apply_follow_up_parser = merge_sub.add_parser("apply-follow-up")
+    merge_apply_follow_up_parser.add_argument("target")
+    merge_apply_follow_up_parser.add_argument("--reason", default="")
+    merge_apply_follow_up_parser.set_defaults(func=cmd_merge_apply_follow_up)
 
     patrol_parser = sub.add_parser("patrol")
     patrol_sub = patrol_parser.add_subparsers(dest="patrol_command", required=True)

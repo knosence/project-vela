@@ -24,6 +24,7 @@ from prototypes.python.vela.matrix import validate_canonical_graph_targets
 from prototypes.python.vela.matrix import write_matrix_index
 from prototypes.python.vela.matrix import validate_parent_consistency
 from prototypes.python.vela.operations_runtime import (
+    apply_merge_follow_up,
     apply_dreamer_follow_up,
     list_merge_candidates,
     list_merge_follow_ups,
@@ -161,6 +162,7 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/310.WHERE.Merge-Owner-One-SoT.md",
             "knowledge/320.WHERE.Merge-Owner-Two-SoT.md",
             "knowledge/330.WHERE.Merge-Owner-Three-SoT.md",
+            "knowledge/340.WHERE.Shared-Topic-SoT.md",
             "knowledge/310a.WHERE.Shared-Topic-Ref.md",
             "knowledge/111.VELA.Matrix-Crew-SoT.md",
             "knowledge/140.WHO.Matrix-Crew-SoT.md",
@@ -1720,6 +1722,38 @@ class VelaSystemTest(unittest.TestCase):
         follow_ups = VelaService().merge_follow_ups()
         self.assertTrue(follow_ups["ok"])
         self.assertTrue(follow_ups["data"]["items"])
+
+    def test_merge_follow_up_apply_creates_canonical_sot_and_repoints_owners(self) -> None:
+        self.test_merge_candidates_are_detected_after_three_entities_share_a_ref()
+        cycle = run_night_cycle(requested_by="human")
+        review = review_merge_proposal(
+            target=cycle["merge_proposals"][0]["target"],
+            decision="approved",
+            actor="human",
+            reason="merge this repeated subject",
+        )
+        self.assertTrue(review["ok"])
+        apply_result = apply_merge_follow_up(review["follow_up_target"], actor="human", reason="execute the merge")
+        self.assertTrue(apply_result["ok"])
+        execution_path = REPO_ROOT / apply_result["execution_target"]
+        self.assertTrue(execution_path.exists())
+        for owner in apply_result["owners"]:
+            owner_text = (REPO_ROOT / owner).read_text(encoding="utf-8")
+            self.assertIn(f"[[{execution_path.name}]]", owner_text)
+            self.assertNotIn("[[310a.WHERE.Shared-Topic-Ref]]", owner_text)
+
+    def test_merge_follow_up_apply_service_endpoint(self) -> None:
+        self.test_merge_candidates_are_detected_after_three_entities_share_a_ref()
+        cycle = VelaService().night_cycle_run({"actor": "n8n"})
+        review = VelaService().merge_review(
+            {"target": cycle["data"]["merge_proposals"][0]["target"], "decision": "approved", "actor": "human", "reason": "review the merge"}
+        )
+        self.assertTrue(review["ok"])
+        apply_result = VelaService().merge_apply_follow_up(
+            {"target": review["data"]["follow_up_target"], "actor": "human", "reason": "apply the merge"}
+        )
+        self.assertTrue(apply_result["ok"])
+        self.assertEqual(apply_result["endpoint"], "merge-follow-up-apply")
 
     def test_inbox_triage_moves_text_file_to_companion_and_links_it(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"

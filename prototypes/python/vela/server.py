@@ -20,6 +20,7 @@ from .inbox import triage_inbox
 from .models import ValidationFinding
 from .models import new_id
 from .operations_runtime import (
+    apply_merge_follow_up,
     apply_dreamer_follow_up,
     list_merge_candidates,
     list_merge_follow_ups,
@@ -349,6 +350,16 @@ class VelaService:
             return envelope(True, "merge-review", "accepted", "Merge proposal reviewed", data=result)
         return envelope(False, "merge-review", "rejected", "Merge proposal review blocked", data=result, errors=result.get("findings", []))
 
+    def merge_apply_follow_up(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = apply_merge_follow_up(
+            target=payload["target"],
+            actor=payload.get("actor", "human"),
+            reason=payload.get("reason", ""),
+        )
+        if result["ok"]:
+            return envelope(True, "merge-follow-up-apply", "accepted", "Merge follow up applied", data=result)
+        return envelope(False, "merge-follow-up-apply", "rejected", "Merge follow up apply blocked", data=result, errors=result.get("findings", []))
+
     def dreamer_review(self, payload: dict[str, Any]) -> dict[str, Any]:
         result = review_dreamer_proposal(
             target=payload["target"],
@@ -450,6 +461,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             "/api/n8n/dreamer/actions/register": self.service.dreamer_register_action,
             "/api/n8n/dreamer/actions/status": self.service.dreamer_update_action_status,
             "/api/n8n/merge/review": self.service.merge_review,
+            "/api/n8n/merge/follow-ups/apply": self.service.merge_apply_follow_up,
             "/api/n8n/profiles/use": self.service.profiles_use,
         }
         handler = routes.get(self.path)
