@@ -129,6 +129,14 @@ def validate_operation_transition_payload(current_status: str, next_status: str)
     return _run(["validate-operation-transition", current_status, next_status])
 
 
+def validate_dreamer_review_payload(current_status: str, decision: str) -> dict[str, Any]:
+    return _run(["validate-dreamer-review", current_status, decision])
+
+
+def validate_dreamer_follow_up_apply_payload(current_status: str, actor: str) -> dict[str, Any]:
+    return _run(["validate-dreamer-follow-up-apply", current_status, actor])
+
+
 def route_inbox_payload(content: str) -> dict[str, Any]:
     return _run(["route-inbox"], stdin=content)
 

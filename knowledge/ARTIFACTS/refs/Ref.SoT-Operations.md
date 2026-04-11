@@ -61,3 +61,5 @@ This note records the active mechanical operating rules for Vela's local Matrix 
 - Patrol may be requested by `human`, `system`, `n8n`, or internally by `night-cycle:*`.
 - Night cycle may be requested only by `human`, `system`, or `n8n`.
 - Valid state transitions are governed: `idle -> running|blocked`, `running -> completed|blocked`, and completed or blocked runs must return to `running` before they can complete again.
+- Dreamer proposal review decisions are governed: only `approved`, `denied`, or `needs-more-info` are valid review outcomes.
+- Dreamer follow ups may be applied only by `human` or `system`, and only from `proposed` or already-`applied` state.

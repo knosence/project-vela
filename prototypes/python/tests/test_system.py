@@ -44,6 +44,8 @@ from prototypes.python.vela.rust_bridge import (
     register_dreamer_action_payload,
     route_for_target,
     route_inbox_payload,
+    validate_dreamer_follow_up_apply_payload,
+    validate_dreamer_review_payload,
     update_operations_state_payload,
     update_dreamer_action_status_payload,
     validate_operation_lock_payload,
@@ -1065,6 +1067,14 @@ class VelaSystemTest(unittest.TestCase):
         self.assertFalse(invalid_transition["ok"])
         self.assertTrue(any(item["code"] == "OPERATION_STATE_TRANSITION_INVALID" for item in invalid_transition["findings"]))
 
+        invalid_review = validate_dreamer_review_payload("approved", "ship-it")
+        self.assertFalse(invalid_review["ok"])
+        self.assertTrue(any(item["code"] == "DREAMER_REVIEW_DECISION_INVALID" for item in invalid_review["findings"]))
+
+        invalid_follow_up_apply = validate_dreamer_follow_up_apply_payload("archived", "vela")
+        self.assertFalse(invalid_follow_up_apply["ok"])
+        self.assertTrue(any(item["code"] == "DREAMER_FOLLOW_UP_ACTOR_NOT_ALLOWED" for item in invalid_follow_up_apply["findings"]))
+
     def test_operations_runtime_blocks_unauthorized_requester(self) -> None:
         blocked_patrol = run_warden_patrol(requested_by="vela")
         self.assertFalse(blocked_patrol["ok"])
@@ -1073,6 +1083,60 @@ class VelaSystemTest(unittest.TestCase):
         blocked_night = run_night_cycle(requested_by="warden")
         self.assertFalse(blocked_night["ok"])
         self.assertTrue(any(item["code"] == "OPERATION_REQUEST_NOT_ALLOWED" for item in blocked_night["findings"]))
+
+    def test_dreamer_runtime_blocks_invalid_review_and_apply_transitions(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.invalid.md"
+        path = REPO_ROOT / target
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            "---\n"
+            "sot-type: proposal\n"
+            "created: 2026-04-10\n"
+            "last-rewritten: 2026-04-10\n"
+            'parent: "[[100.WHO.Circle-SoT]]"\n'
+            "domain: operations\n"
+            "status: approved\n"
+            'tags: ["dreamer","proposal"]\n'
+            "---\n\n"
+            "# Dreamer Proposal\n\n"
+            "## This Proposal Records a Repeated Failure Pattern\n"
+            "- reason: `invalid review status`\n",
+            encoding="utf-8",
+        )
+        invalid_review = review_dreamer_proposal(
+            target=target,
+            decision="ship-it",
+            actor="human",
+            reason="invalid decision",
+        )
+        self.assertFalse(invalid_review["ok"])
+        self.assertTrue(any(item["code"] == "DREAMER_REVIEW_DECISION_INVALID" for item in invalid_review["findings"]))
+
+        follow_up_target = "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.invalid.md"
+        follow_up_path = REPO_ROOT / follow_up_target
+        follow_up_path.write_text(
+            "---\n"
+            "sot-type: proposal\n"
+            "created: 2026-04-10\n"
+            "last-rewritten: 2026-04-10\n"
+            'parent: "[[Dreamer-Proposal.invalid]]"\n'
+            "domain: operations\n"
+            "status: archived\n"
+            'tags: ["dreamer","follow-up"]\n'
+            "---\n\n"
+            "# Dreamer Follow Up\n\n"
+            "## This Follow Up Records a Concrete Next Step\n"
+            "- kind: `workflow-change`\n"
+            "- reason: `invalid apply status`\n",
+            encoding="utf-8",
+        )
+        invalid_apply = apply_dreamer_follow_up(
+            target=follow_up_target,
+            actor="vela",
+            reason="invalid actor and status",
+        )
+        self.assertFalse(invalid_apply["ok"])
+        self.assertTrue(any(item["code"] == "DREAMER_FOLLOW_UP_ACTOR_NOT_ALLOWED" for item in invalid_apply["findings"]))
 
     def test_dreamer_queue_and_review(self) -> None:
         for _ in range(3):

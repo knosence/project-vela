@@ -174,6 +174,43 @@ pub fn validate_operation_state_transition(
     }
 }
 
+pub fn validate_dreamer_review(current_status: &str, decision: &str) -> Vec<ValidationFinding> {
+    let mut findings = Vec::new();
+    if !matches!(decision, "approved" | "denied" | "needs-more-info") {
+        findings.push(ValidationFinding::error(
+            "DREAMER_REVIEW_DECISION_INVALID",
+            format!("Unsupported decision: {decision}"),
+        ));
+    }
+    if !matches!(current_status, "proposed" | "unknown" | "") {
+        findings.push(ValidationFinding::error(
+            "DREAMER_PROPOSAL_STATUS_INVALID",
+            format!("Dreamer proposal may not be reviewed from status `{current_status}`"),
+        ));
+    }
+    findings
+}
+
+pub fn validate_dreamer_follow_up_apply(
+    current_status: &str,
+    actor: &str,
+) -> Vec<ValidationFinding> {
+    let mut findings = Vec::new();
+    if !matches!(actor, "human" | "system") {
+        findings.push(ValidationFinding::error(
+            "DREAMER_FOLLOW_UP_ACTOR_NOT_ALLOWED",
+            format!("Actor `{actor}` may not apply Dreamer follow ups."),
+        ));
+    }
+    if !matches!(current_status, "proposed" | "applied") {
+        findings.push(ValidationFinding::error(
+            "DREAMER_FOLLOW_UP_STATUS_INVALID",
+            format!("Dreamer follow up is not executable from status `{current_status}`."),
+        ));
+    }
+    findings
+}
+
 pub fn parse_dreamer_action_registry(
     registry_json: &str,
 ) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
@@ -890,5 +927,21 @@ mod tests {
         assert!(findings
             .iter()
             .any(|item| item.code == "OPERATION_STATE_TRANSITION_INVALID"));
+    }
+
+    #[test]
+    fn dreamer_review_rejects_invalid_decision() {
+        let findings = validate_dreamer_review("proposed", "ship-it");
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "DREAMER_REVIEW_DECISION_INVALID"));
+    }
+
+    #[test]
+    fn dreamer_follow_up_apply_rejects_invalid_actor() {
+        let findings = validate_dreamer_follow_up_apply("proposed", "vela");
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "DREAMER_FOLLOW_UP_ACTOR_NOT_ALLOWED"));
     }
 }

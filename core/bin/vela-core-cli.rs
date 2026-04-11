@@ -20,6 +20,8 @@ use vela_core::operations::{
     update_dreamer_action_status as update_dreamer_action_status_policy,
     update_operations_state as update_operations_state_policy,
     validate_archive_postconditions as validate_archive_outcome,
+    validate_dreamer_follow_up_apply as validate_dreamer_follow_up_apply_policy,
+    validate_dreamer_review as validate_dreamer_review_policy,
     validate_growth_stage as validate_growth_stage_policy,
     validate_operation_lock as validate_operation_lock_policy,
     validate_operation_request as validate_operation_request_policy,
@@ -326,6 +328,22 @@ fn run() -> Result<(), String> {
                 .ok_or_else(|| "missing next status".to_string())?;
             let findings =
                 validate_operation_state_transition_policy(&current_status, &next_status);
+            print_findings(&findings, None);
+        }
+        "validate-dreamer-review" => {
+            let current_status = args
+                .next()
+                .ok_or_else(|| "missing current status".to_string())?;
+            let decision = args.next().ok_or_else(|| "missing decision".to_string())?;
+            let findings = validate_dreamer_review_policy(&current_status, &decision);
+            print_findings(&findings, None);
+        }
+        "validate-dreamer-follow-up-apply" => {
+            let current_status = args
+                .next()
+                .ok_or_else(|| "missing current status".to_string())?;
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let findings = validate_dreamer_follow_up_apply_policy(&current_status, &actor);
             print_findings(&findings, None);
         }
         "validate-config" => {

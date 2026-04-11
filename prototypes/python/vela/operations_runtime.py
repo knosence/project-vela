@@ -16,6 +16,8 @@ from .models import EventRecord
 from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
 from .rust_bridge import (
     matrix_inventory_payload,
+    validate_dreamer_follow_up_apply_payload,
+    validate_dreamer_review_payload,
     parse_operations_state_payload,
     update_operations_state_payload,
     validate_operation_lock_payload,
@@ -355,11 +357,12 @@ def review_dreamer_proposal(target: str, decision: str, actor: str, reason: str)
     path = REPO_ROOT / target
     if not path.exists():
         return {"ok": False, "findings": [{"code": "DREAMER_PROPOSAL_NOT_FOUND", "detail": f"Dreamer proposal not found: {target}"}]}
-    if decision not in {"approved", "denied", "needs-more-info"}:
-        return {"ok": False, "findings": [{"code": "DREAMER_REVIEW_DECISION_INVALID", "detail": f"Unsupported decision: {decision}"}]}
-
-    record_approval(f"dreamer_{_slug(target)}_{_stamp()}", decision, actor, reason, target)
     current = path.read_text(encoding="utf-8")
+    current_status = str(_parse_frontmatter(current).get("status", "unknown"))
+    review_findings = validate_dreamer_review_payload(current_status, decision).get("findings", [])
+    if review_findings:
+        return {"ok": False, "findings": review_findings}
+    record_approval(f"dreamer_{_slug(target)}_{_stamp()}", decision, actor, reason, target)
     follow_up = _build_dreamer_follow_up(target, current, decision, actor)
     updated = _mark_dreamer_proposal_reviewed(current, decision, actor, reason, follow_up["target"] if follow_up else None)
     result = write_text(target, updated, actor="system", endpoint="dreamer-review", reason=f"dreamer proposal {decision}")
@@ -403,8 +406,12 @@ def apply_dreamer_follow_up(target: str, actor: str, reason: str) -> dict[str, A
     path = REPO_ROOT / target
     if not path.exists():
         return {"ok": False, "findings": [{"code": "DREAMER_FOLLOW_UP_NOT_FOUND", "detail": f"Dreamer follow up not found: {target}"}]}
-    if actor not in {"human", "system"}:
-        finding = {"code": "ROLE_ACTION_NOT_ALLOWED", "detail": f"Actor `{actor}` may not apply Dreamer follow ups."}
+
+    current = path.read_text(encoding="utf-8")
+    frontmatter = _parse_frontmatter(current)
+    status = str(frontmatter.get("status", "unknown"))
+    apply_findings = validate_dreamer_follow_up_apply_payload(status, actor).get("findings", [])
+    if apply_findings:
         append_event(
             EventRecord(
                 source="vela",
@@ -412,20 +419,14 @@ def apply_dreamer_follow_up(target: str, actor: str, reason: str) -> dict[str, A
                 actor=actor,
                 target=target,
                 status="blocked",
-                reason=finding["detail"],
+                reason=apply_findings[0]["detail"],
                 artifacts=[target],
                 validation_summary={"reason": reason},
             )
         )
-        return {"ok": False, "findings": [finding]}
-
-    current = path.read_text(encoding="utf-8")
-    frontmatter = _parse_frontmatter(current)
-    status = str(frontmatter.get("status", "unknown"))
+        return {"ok": False, "findings": apply_findings}
     if status == "applied":
         return {"ok": True, "target": target, "execution_target": _existing_execution_target(current), "kind": _follow_up_kind(current), "findings": []}
-    if status != "proposed":
-        return {"ok": False, "findings": [{"code": "DREAMER_FOLLOW_UP_STATUS_INVALID", "detail": f"Dreamer follow up is not executable from status `{status}`."}]}
 
     kind = _follow_up_kind(current)
     follow_up_reason = _follow_up_reason(current)

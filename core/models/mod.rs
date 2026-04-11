@@ -240,6 +240,17 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
             "Role Purity".to_string(),
             "Sequential Interplay Over Parallel Chaos".to_string(),
         ],
+        "DREAMER_REVIEW_DECISION_INVALID"
+        | "DREAMER_PROPOSAL_STATUS_INVALID"
+        | "DREAMER_FOLLOW_UP_STATUS_INVALID" => vec![
+            "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
+            "Role Purity".to_string(),
+            "Sequential Interplay Over Parallel Chaos".to_string(),
+        ],
+        "DREAMER_FOLLOW_UP_ACTOR_NOT_ALLOWED" => vec![
+            "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
+            "Role Purity".to_string(),
+        ],
         _ => Vec::new(),
     }
 }
