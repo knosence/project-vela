@@ -158,6 +158,19 @@ pub struct InboxTriagePlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CsvInboxEntry {
+    pub dimension: String,
+    pub value: String,
+    pub context: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CsvInboxPlan {
+    pub target: String,
+    pub entries: Vec<CsvInboxEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PatchTarget {
     pub path: String,
 }

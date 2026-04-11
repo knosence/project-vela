@@ -50,6 +50,7 @@ from prototypes.python.vela.rust_bridge import (
     parse_dreamer_actions_payload,
     extract_blocked_items_payload,
     extract_patch_targets_payload,
+    plan_csv_inbox_payload,
     plan_inbox_entry_payload,
     parse_operations_state_payload,
     plan_event_append_payload,
@@ -1997,6 +1998,13 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(inbox_plan["ok"])
         self.assertEqual(inbox_plan["plan"]["target"], "knowledge/210.WHAT.Vela-Capabilities-SoT.md")
         self.assertEqual(inbox_plan["plan"]["dimension"], "200")
+        csv_plan = plan_csv_inbox_payload(
+            "# Target: [[220.WHAT.Repo-Watchlist-SoT]]\nvalue,context,dimension\nRepo watch summary recorded,Component release summary,200\n",
+            "test-inbox-item.csv",
+        )
+        self.assertTrue(csv_plan["ok"])
+        self.assertEqual(csv_plan["plan"]["target"], "knowledge/220.WHAT.Repo-Watchlist-SoT.md")
+        self.assertEqual(csv_plan["plan"]["entries"][0]["dimension"], "200")
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",
             [

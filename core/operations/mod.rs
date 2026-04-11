@@ -1,11 +1,12 @@
 use crate::events::{plan_event_append, EventRecord, ValidationSummary};
 use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_path};
 use crate::models::{
-    ArchiveTransactionPlan, CrossReferencePlan, DreamerAction, DreamerActionRegistry,
-    DreamerApplyPlan, DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary,
-    DreamerReviewPlan, GrowthAssessment, GrowthExecutionPlan, GrowthSourceUpdatePlan,
-    InboxTriagePlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
-    OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
+    ArchiveTransactionPlan, CrossReferencePlan, CsvInboxEntry, CsvInboxPlan, DreamerAction,
+    DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary, DreamerProposalCandidate,
+    DreamerProposalSummary, DreamerReviewPlan, GrowthAssessment, GrowthExecutionPlan,
+    GrowthSourceUpdatePlan, InboxTriagePlan, NightCyclePlan, OperationLifecyclePlan,
+    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan,
+    ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -1930,6 +1931,57 @@ pub fn plan_inbox_entry(
     )
 }
 
+pub fn plan_csv_inbox(
+    root: &Path,
+    text: &str,
+    source_name: &str,
+) -> (Option<CsvInboxPlan>, Vec<ValidationFinding>) {
+    let Some(target) = extract_target(root, text) else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "INBOX_TARGET_MISSING",
+                format!("Inbox item `{source_name}` is missing a target SoT declaration"),
+            )],
+        );
+    };
+    let rows = parse_csv_rows(text);
+    if rows.is_empty() {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "INBOX_CSV_EMPTY",
+                "CSV inbox item had no extractable rows",
+            )],
+        );
+    }
+    let mut entries = Vec::new();
+    for row in rows {
+        let (value, context) = entry_from_csv_row(&row);
+        let route_text = format!("{value} {context}");
+        let dimension = row
+            .get("dimension")
+            .map(|item| item.trim().to_string())
+            .filter(|item| !item.is_empty())
+            .or_else(|| route_inbox_entry(&route_text).map(|item| item.to_string()));
+        let Some(dimension) = dimension else {
+            return (
+                None,
+                vec![ValidationFinding::error(
+                    "INBOX_CSV_DIMENSION_UNRESOLVED",
+                    "CSV inbox row could not be classified",
+                )],
+            );
+        };
+        entries.push(CsvInboxEntry {
+            dimension,
+            value,
+            context,
+        });
+    }
+    (Some(CsvInboxPlan { target, entries }), Vec::new())
+}
+
 fn extract_target(root: &Path, text: &str) -> Option<String> {
     let trimmed = text.trim_start();
     if let Some(rest) = trimmed.strip_prefix("---\n") {
@@ -2120,6 +2172,60 @@ fn is_iso_date(value: &str) -> bool {
 
 fn current_date() -> &'static str {
     "2026-04-10"
+}
+
+fn parse_csv_rows(text: &str) -> Vec<BTreeMap<String, String>> {
+    let mut data_lines = Vec::new();
+    for line in text.lines() {
+        if !line.trim_start().starts_with('#') && !line.trim().is_empty() {
+            data_lines.push(line);
+        }
+    }
+    if data_lines.is_empty() {
+        return Vec::new();
+    }
+    let headers: Vec<String> = data_lines[0]
+        .split(',')
+        .map(|item| item.trim().to_ascii_lowercase())
+        .collect();
+    let mut rows = Vec::new();
+    for line in data_lines.into_iter().skip(1) {
+        let values: Vec<String> = line
+            .split(',')
+            .map(|item| item.trim().to_string())
+            .collect();
+        let mut row = BTreeMap::new();
+        for (idx, header) in headers.iter().enumerate() {
+            row.insert(header.clone(), values.get(idx).cloned().unwrap_or_default());
+        }
+        if row.values().any(|item| !item.is_empty()) {
+            rows.push(row);
+        }
+    }
+    rows
+}
+
+fn entry_from_csv_row(row: &BTreeMap<String, String>) -> (String, String) {
+    let mut value = row
+        .get("value")
+        .or_else(|| row.get("title"))
+        .or_else(|| row.get("subject"))
+        .cloned()
+        .unwrap_or_default();
+    let context = row
+        .get("context")
+        .or_else(|| row.get("detail"))
+        .or_else(|| row.get("notes"))
+        .cloned()
+        .filter(|item| !item.is_empty())
+        .unwrap_or_else(|| "Extracted from Inbox CSV during governed triage.".to_string());
+    if value.is_empty() {
+        value = "Inbox CSV entry".to_string();
+    }
+    if !ends_with_iso_date(&value) {
+        value = format!("{value}. ({})", current_date());
+    }
+    (value, context)
 }
 
 pub fn subject_declaration_changed(before: &str, after: &str) -> bool {
@@ -3226,6 +3332,22 @@ mod tests {
         assert_eq!(plan.dimension, "200");
         assert_eq!(plan.value, "The framework has three layers.. (2026-04-10)");
         assert_eq!(plan.context, "It defines a component clearly.");
+    }
+
+    #[test]
+    fn plans_csv_inbox_entries() {
+        let root = Path::new("/home/knosence/vela");
+        let text = "# Target: [[220.WHAT.Repo-Watchlist-SoT]]\nvalue,context,dimension\nRepo watch summary recorded,Component release summary,200\n";
+        let (plan, findings) = plan_csv_inbox(root, text, "test-inbox-item.csv");
+        assert!(findings.is_empty());
+        let plan = plan.expect("csv inbox plan");
+        assert_eq!(plan.target, "knowledge/220.WHAT.Repo-Watchlist-SoT.md");
+        assert_eq!(plan.entries.len(), 1);
+        assert_eq!(plan.entries[0].dimension, "200");
+        assert_eq!(
+            plan.entries[0].value,
+            "Repo watch summary recorded. (2026-04-10)"
+        );
     }
 
     #[test]

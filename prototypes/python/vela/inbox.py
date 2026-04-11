@@ -11,6 +11,7 @@ from .dreamer_actions import matching_workflow_actions
 from .governance import append_event, build_pointer_entry, route_inbox_entry, write_text
 from .models import EventRecord
 from .paths import INBOX_DIR, PATCH_LOG_PATH, REPO_ROOT
+from .rust_bridge import plan_csv_inbox_payload
 from .rust_bridge import plan_inbox_entry_payload
 
 
@@ -247,27 +248,29 @@ def _triage_extracted_companion_file(path: Path, actor: str, text: str, *, extra
 def _triage_csv_companion_file(path: Path, actor: str) -> dict[str, Any]:
     relative_path = str(path.relative_to(REPO_ROOT))
     text = path.read_text(encoding="utf-8")
-    target = _extract_target(text)
-    if not target:
+    plan_payload = plan_csv_inbox_payload(text, path.name)
+    plan = plan_payload.get("plan") or {}
+    target = str(plan.get("target", ""))
+    findings = plan_payload.get("findings", [])
+    if findings and any(item.get("code") == "INBOX_TARGET_MISSING" for item in findings):
         return _flag_for_review(path, actor, "missing-target", "Missing target SoT for csv inbox item.")
-
+    if findings and any(item.get("code") == "INBOX_CSV_EMPTY" for item in findings):
+        return _flag_for_review(path, actor, "empty-csv", "CSV inbox item had no extractable rows.")
+    if not plan_payload.get("ok") or not target:
+        return _flag_for_review(path, actor, "unsorted-needs-review", "CSV inbox row could not be classified.")
     target_path = REPO_ROOT / target
     if not target_path.exists():
         return _block_missing_target(path, actor, target, "")
 
-    rows = _parse_csv_rows(text)
     workflow_actions = matching_workflow_actions(text)
-    if not rows:
-        return _flag_for_review(path, actor, "empty-csv", "CSV inbox item had no extractable rows.")
-
-    extracted_entries: list[dict[str, str]] = []
-    for row in rows:
-        entry = _entry_from_csv_row(row)
-        route_text = " ".join(part for part in [entry["value"], entry["context"]] if part).strip()
-        dimension = (row.get("dimension") or "").strip() or route_inbox_entry(route_text)
-        if not dimension:
-            return _flag_for_review(path, actor, "unsorted-needs-review", "CSV inbox row could not be classified.")
-        extracted_entries.append({"dimension": dimension, "value": entry["value"], "context": entry["context"]})
+    extracted_entries = [
+        {
+            "dimension": str(item["dimension"]),
+            "value": str(item["value"]),
+            "context": str(item["context"]),
+        }
+        for item in plan.get("entries", [])
+    ]
 
     companion_path = _move_to_companion_path(path, target_path)
     updated = target_path.read_text(encoding="utf-8")
