@@ -14,7 +14,12 @@ from .governance import append_event, record_approval, validate_target, write_te
 from .growth import assess_growth
 from .models import EventRecord
 from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
-from .rust_bridge import matrix_inventory_payload
+from .rust_bridge import (
+    matrix_inventory_payload,
+    parse_operations_state_payload,
+    update_operations_state_payload,
+    validate_operation_lock_payload,
+)
 
 PATROL_INTERVAL_SECONDS = 4 * 60 * 60
 NIGHT_CYCLE_INTERVAL_SECONDS = 24 * 60 * 60
@@ -860,11 +865,13 @@ def _operation_lock_path(name: str) -> Path:
 def _acquire_operation_lock(name: str, requested_by: str, started_at: str) -> dict[str, Any]:
     lock_path = _operation_lock_path(name)
     if lock_path.exists():
+        findings = validate_operation_lock_payload(lock_path.read_text(encoding="utf-8"), name).get("findings", [])
         return {
             "ok": False,
             "code": "OPERATION_ALREADY_RUNNING",
             "detail": f"Operation `{name}` is already running.",
             "target": str(lock_path.relative_to(REPO_ROOT)),
+            "findings": findings,
         }
     lock_path.write_text(
         json.dumps({"name": name, "requested_by": requested_by, "started_at": started_at}, indent=2),
@@ -880,37 +887,20 @@ def _release_operation_lock(name: str) -> None:
 
 
 def _default_operations_state() -> dict[str, Any]:
-    return {
-        "patrol": {
-            "status": "idle",
-            "last_started": "",
-            "last_completed": "",
-            "last_report_target": "",
-            "last_error": "",
-            "requested_by": "",
-            "run_count": 0,
-        },
-        "night-cycle": {
-            "status": "idle",
-            "last_started": "",
-            "last_completed": "",
-            "last_report_target": "",
-            "last_error": "",
-            "requested_by": "",
-            "run_count": 0,
-        },
-    }
+    return parse_operations_state_payload("{}").get("state", {})
 
 
 def _load_operations_state() -> dict[str, Any]:
     if not OPERATIONS_STATE_PATH.exists():
         return _default_operations_state()
-    return json.loads(OPERATIONS_STATE_PATH.read_text(encoding="utf-8"))
+    payload = parse_operations_state_payload(OPERATIONS_STATE_PATH.read_text(encoding="utf-8"))
+    return payload.get("state", _default_operations_state())
 
 
 def _write_operations_state(state: dict[str, Any]) -> None:
     OPERATIONS_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OPERATIONS_STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    payload = parse_operations_state_payload(json.dumps(state, indent=2))
+    OPERATIONS_STATE_PATH.write_text(json.dumps(payload.get("state", _default_operations_state()), indent=2), encoding="utf-8")
 
 
 def _update_operation_state(
@@ -924,23 +914,21 @@ def _update_operation_state(
     last_error: str | None = None,
     increment_runs: bool = False,
 ) -> None:
-    state = _load_operations_state()
-    entry = dict(state.get(name, {}))
-    entry.setdefault("run_count", 0)
-    entry["status"] = status
-    entry["requested_by"] = requested_by
-    if started_at is not None:
-        entry["last_started"] = started_at
-    if completed_at is not None:
-        entry["last_completed"] = completed_at
-    if last_report_target is not None:
-        entry["last_report_target"] = last_report_target
-    if last_error is not None:
-        entry["last_error"] = last_error
-    if increment_runs:
-        entry["run_count"] = int(entry.get("run_count", 0)) + 1
-    state[name] = entry
-    _write_operations_state(state)
+    current_state = "{}"
+    if OPERATIONS_STATE_PATH.exists():
+        current_state = OPERATIONS_STATE_PATH.read_text(encoding="utf-8")
+    payload = update_operations_state_payload(
+        current_state,
+        name,
+        status,
+        requested_by,
+        started_at=started_at or "",
+        completed_at=completed_at or "",
+        last_report_target=last_report_target or "",
+        last_error=last_error or "",
+        increment_runs=increment_runs,
+    )
+    _write_operations_state(payload.get("state", _default_operations_state()))
 
 
 def _run_scheduler(name: str, *, requested_by: str, interval_seconds: int, max_runs: int) -> dict[str, Any]:

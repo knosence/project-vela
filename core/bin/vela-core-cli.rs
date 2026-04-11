@@ -8,13 +8,18 @@ use vela_core::matrix::{
     validate_parent_consistency as validate_matrix_parent_consistency,
     validate_sot_structure as validate_matrix_sot_structure,
 };
-use vela_core::models::{OnboardingConfig, Severity, ValidationFinding};
+use vela_core::models::{
+    OnboardingConfig, OperationLockRecord, OperationStateEntry, OperationsState, Severity, ValidationFinding,
+};
 use vela_core::operations::{
+    parse_operations_state as parse_operations_state_policy,
     match_dreamer_actions as match_dreamer_actions_policy,
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     register_dreamer_action as register_dreamer_action_policy,
     route_inbox_entry as route_inbox_dimension,
+    update_operations_state as update_operations_state_policy,
     update_dreamer_action_status as update_dreamer_action_status_policy,
+    validate_operation_lock as validate_operation_lock_policy,
     validate_archive_postconditions as validate_archive_outcome,
     validate_growth_stage as validate_growth_stage_policy,
     validate_subject_declaration_change as validate_subject_declaration_policy,
@@ -177,6 +182,62 @@ fn run() -> Result<(), String> {
             let (registry, findings) =
                 update_dreamer_action_status_policy(&registry_json, &follow_up_target, &status);
             print_dreamer_registry(&registry, &findings);
+        }
+        "parse-operations-state" => {
+            let mut state_json = String::new();
+            io::stdin()
+                .read_to_string(&mut state_json)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (state, findings) = parse_operations_state_policy(&state_json);
+            print_operations_state(&state, &findings);
+        }
+        "update-operations-state" => {
+            let name = args.next().ok_or_else(|| "missing name".to_string())?;
+            let status = args.next().ok_or_else(|| "missing status".to_string())?;
+            let requested_by = args.next().ok_or_else(|| "missing requested_by".to_string())?;
+            let started_at = args.next().unwrap_or_default();
+            let completed_at = args.next().unwrap_or_default();
+            let last_report_target = args.next().unwrap_or_default();
+            let last_error = args.next().unwrap_or_default();
+            let increment_runs =
+                parse_bool(&args.next().ok_or_else(|| "missing increment_runs".to_string())?)?;
+            let mut state_json = String::new();
+            io::stdin()
+                .read_to_string(&mut state_json)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (state, findings) = update_operations_state_policy(
+                &state_json,
+                &name,
+                &status,
+                &requested_by,
+                if started_at.is_empty() { None } else { Some(started_at.as_str()) },
+                if completed_at.is_empty() { None } else { Some(completed_at.as_str()) },
+                if last_report_target.is_empty() {
+                    None
+                } else {
+                    Some(last_report_target.as_str())
+                },
+                if last_error.is_empty() { None } else { Some(last_error.as_str()) },
+                increment_runs,
+            );
+            print_operations_state(&state, &findings);
+        }
+        "validate-operation-lock" => {
+            let expected_name = args.next().ok_or_else(|| "missing expected name".to_string())?;
+            let mut lock_json = String::new();
+            io::stdin()
+                .read_to_string(&mut lock_json)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (record, findings) = validate_operation_lock_policy(&lock_json, &expected_name);
+            println!(
+                "{{\"ok\":{},\"record\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) { "true" } else { "false" },
+                record
+                    .as_ref()
+                    .map(render_operation_lock)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+            );
         }
         "validate-config" => {
             let owner_name = args.next().ok_or_else(|| "missing owner name".to_string())?;
@@ -458,6 +519,38 @@ fn print_dreamer_registry(
         registry.refusal_tightenings.iter().map(render_dreamer_action).collect::<Vec<String>>().join(","),
         findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
     );
+}
+
+fn render_operation_state_entry(entry: &OperationStateEntry) -> String {
+    format!(
+        "{{\"status\":\"{}\",\"last_started\":\"{}\",\"last_completed\":\"{}\",\"last_report_target\":\"{}\",\"last_error\":\"{}\",\"requested_by\":\"{}\",\"run_count\":{}}}",
+        escape_json(&entry.status),
+        escape_json(&entry.last_started),
+        escape_json(&entry.last_completed),
+        escape_json(&entry.last_report_target),
+        escape_json(&entry.last_error),
+        escape_json(&entry.requested_by),
+        entry.run_count,
+    )
+}
+
+fn print_operations_state(state: &OperationsState, findings: &[ValidationFinding]) {
+    println!(
+        "{{\"ok\":{},\"state\":{{\"patrol\":{},\"night-cycle\":{}}},\"findings\":[{}]}}",
+        if !has_blocking_findings(findings) { "true" } else { "false" },
+        render_operation_state_entry(&state.patrol),
+        render_operation_state_entry(&state.night_cycle),
+        findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+    );
+}
+
+fn render_operation_lock(record: &OperationLockRecord) -> String {
+    format!(
+        "{{\"name\":\"{}\",\"requested_by\":\"{}\",\"started_at\":\"{}\"}}",
+        escape_json(&record.name),
+        escape_json(&record.requested_by),
+        escape_json(&record.started_at),
+    )
 }
 
 fn render_matrix_sot(item: &vela_core::models::MatrixSoT) -> String {

@@ -85,6 +85,42 @@ def update_dreamer_action_status_payload(
     )
 
 
+def parse_operations_state_payload(state_json: str) -> dict[str, Any]:
+    return _run(["parse-operations-state"], stdin=state_json)
+
+
+def update_operations_state_payload(
+    state_json: str,
+    name: str,
+    status: str,
+    requested_by: str,
+    *,
+    started_at: str = "",
+    completed_at: str = "",
+    last_report_target: str = "",
+    last_error: str = "",
+    increment_runs: bool = False,
+) -> dict[str, Any]:
+    return _run(
+        [
+            "update-operations-state",
+            name,
+            status,
+            requested_by,
+            started_at,
+            completed_at,
+            last_report_target,
+            last_error,
+            "true" if increment_runs else "false",
+        ],
+        stdin=state_json,
+    )
+
+
+def validate_operation_lock_payload(lock_json: str, expected_name: str) -> dict[str, Any]:
+    return _run(["validate-operation-lock", expected_name], stdin=lock_json)
+
+
 def route_inbox_payload(content: str) -> dict[str, Any]:
     return _run(["route-inbox"], stdin=content)
 

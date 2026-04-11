@@ -77,6 +77,30 @@ pub struct DreamerActionRegistry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OperationStateEntry {
+    pub status: String,
+    pub last_started: String,
+    pub last_completed: String,
+    pub last_report_target: String,
+    pub last_error: String,
+    pub requested_by: String,
+    pub run_count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OperationsState {
+    pub patrol: OperationStateEntry,
+    pub night_cycle: OperationStateEntry,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OperationLockRecord {
+    pub name: String,
+    pub requested_by: String,
+    pub started_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationFinding {
     pub code: String,
     pub detail: String,
@@ -202,6 +226,14 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
         "DREAMER_ACTION_KIND_INVALID" | "DREAMER_ACTION_NOT_FOUND" => vec![
             "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
             "Role Purity".to_string(),
+        ],
+        "OPERATION_ALREADY_RUNNING" | "OPERATION_LOCK_INVALID" => vec![
+            "SoT Operations Reference: Three-Tier Vault Maintenance".to_string(),
+            "Sequential Interplay Over Parallel Chaos".to_string(),
+        ],
+        "OPERATIONS_STATE_INVALID" | "OPERATIONS_STATE_NAME_INVALID" => vec![
+            "SoT Operations Reference: Three-Tier Vault Maintenance".to_string(),
+            "Pure Core, Impure Edges".to_string(),
         ],
         _ => Vec::new(),
     }

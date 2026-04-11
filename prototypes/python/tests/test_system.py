@@ -40,10 +40,13 @@ from prototypes.python.vela.rust_bridge import (
     inspect_reference_payload,
     matrix_inventory_payload,
     parse_dreamer_actions_payload,
+    parse_operations_state_payload,
     register_dreamer_action_payload,
     route_for_target,
     route_inbox_payload,
+    update_operations_state_payload,
     update_dreamer_action_status_payload,
+    validate_operation_lock_payload,
     validate_archive_postconditions_payload,
     validate_config_payload,
     validate_growth_stage_payload,
@@ -1019,6 +1022,28 @@ class VelaSystemTest(unittest.TestCase):
         blocked_night = run_night_cycle(requested_by="human")
         self.assertFalse(blocked_night["ok"])
         self.assertTrue(any(item["code"] == "OPERATION_ALREADY_RUNNING" for item in blocked_night["findings"]))
+
+    def test_rust_operations_state_bridge_normalizes_and_validates(self) -> None:
+        parsed = parse_operations_state_payload("{}")
+        self.assertTrue(parsed["ok"])
+        self.assertEqual(parsed["state"]["patrol"]["status"], "idle")
+
+        updated = update_operations_state_payload(
+            "{}",
+            "patrol",
+            "completed",
+            "human",
+            started_at="2026-04-10T10:00:00Z",
+            completed_at="2026-04-10T10:10:00Z",
+            last_report_target="knowledge/ARTIFACTS/refs/Warden-Patrol-20260410-1010.md",
+            increment_runs=True,
+        )
+        self.assertTrue(updated["ok"])
+        self.assertEqual(updated["state"]["patrol"]["run_count"], 1)
+
+        invalid_lock = validate_operation_lock_payload("{}", "patrol")
+        self.assertFalse(invalid_lock["ok"])
+        self.assertTrue(any(item["code"] == "OPERATION_LOCK_INVALID" for item in invalid_lock["findings"]))
 
     def test_dreamer_queue_and_review(self) -> None:
         for _ in range(3):
