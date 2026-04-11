@@ -12,8 +12,6 @@ from .governance import append_event, record_approval, validate_target, write_te
 from .growth import assess_growth
 from .merge import (
     detect_merge_candidates,
-    merge_proposal_target,
-    render_merge_proposal,
 )
 from .models import EventRecord
 from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
@@ -32,6 +30,7 @@ from .rust_bridge import (
     plan_night_cycle_payload,
     plan_dreamer_follow_up_apply_payload,
     plan_dreamer_review_payload,
+    plan_merge_proposal_payload,
     plan_merge_follow_up_apply_payload,
     plan_merge_review_payload,
     plan_operation_start_payload,
@@ -769,8 +768,10 @@ def _growth_candidates() -> list[dict[str, Any]]:
 def _write_merge_proposals(requested_by: str) -> list[dict[str, Any]]:
     proposals: list[dict[str, Any]] = []
     for candidate in detect_merge_candidates():
-        target = merge_proposal_target(candidate)
-        content = render_merge_proposal(candidate)
+        plan_payload = plan_merge_proposal_payload(candidate.ref_target, candidate.owners, candidate.count)
+        plan = plan_payload.get("plan") or {}
+        target = str(plan.get("target", ""))
+        content = str(plan.get("content", ""))
         result = write_text(target, content, actor="grower", endpoint="merge-proposal", reason="merge before spawn")
         proposals.append(
             {

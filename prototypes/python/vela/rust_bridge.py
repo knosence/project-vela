@@ -404,6 +404,17 @@ def list_merge_proposals_payload() -> dict[str, Any]:
     return _run(["list-merge-proposals"])
 
 
+def plan_merge_proposal_payload(
+    ref_target: str,
+    owners: list[str],
+    count: int,
+) -> dict[str, Any]:
+    return _run(
+        ["plan-merge-proposal", ref_target, str(count)],
+        stdin=json.dumps(owners),
+    )
+
+
 def assess_growth_payload(target: str) -> dict[str, Any]:
     return _run(["assess-growth-target", target])
 

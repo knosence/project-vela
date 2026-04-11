@@ -11,7 +11,7 @@ use crate::models::{
     DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan,
     GrowthAssessment, GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan,
     InboxTriagePlan, MergeApplyPlan, MergeCandidateSummary, MergeFollowUpSummary,
-    MergeOwnerUpdate, MergeProposalSummary, MergeReviewPlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
+    MergeOwnerUpdate, MergeProposalPlan, MergeProposalSummary, MergeReviewPlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
     OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
 };
 use std::collections::BTreeMap;
@@ -1258,6 +1258,56 @@ pub fn list_merge_candidates(root: &str) -> Vec<MergeCandidateSummary> {
             }
         })
         .collect()
+}
+
+pub fn plan_merge_proposal(
+    ref_target: &str,
+    owners: &[String],
+    count: usize,
+) -> MergeProposalPlan {
+    let created = today_utc();
+    let stem = sanitize_growth_stem(
+        Path::new(ref_target)
+            .file_stem()
+            .and_then(|item| item.to_str())
+            .unwrap_or("shared-ref"),
+    );
+    let target = format!("knowledge/ARTIFACTS/proposals/Merge-Proposal.{created}.{stem}.md");
+    let owner_lines = owners
+        .iter()
+        .map(|owner| format!("- owner: `{owner}`"))
+        .collect::<Vec<String>>()
+        .join("\n");
+    let content = format!(
+        "---\n\
+sot-type: proposal\n\
+created: {created}\n\
+last-rewritten: {created}\n\
+parent: \"[[{ref_target}]]\"\n\
+domain: governance\n\
+status: proposed\n\
+ref-target: \"{ref_target}\"\n\
+entity-count: \"{count}\"\n\
+tags: [\"merge\",\"proposal\",\"matrix\",\"governance\"]\n\
+---\n\n\
+# Merge Proposal\n\n\
+## This Proposal Records A Repeated Ref Subject That Should Become One Canonical Source Of Truth\n\
+`[[{ref_target}]]` now appears in `{count}` distinct entities.\n\n\
+## This Proposal Applies Merge Before Spawn\n\
+The subject should stop fragmenting as a repeated ref and earn one canonical SoT, with the prior entities keeping pointers instead of carrying the repeated subject indirectly.\n\n\
+## This Proposal Records The Entities That Currently Carry The Shared Ref Subject\n\
+{owner_lines}\n\n\
+## This Proposal Requests Governed Consolidation\n\
+- repeated ref: `[[{ref_target}]]`\n\
+- entity count: `{count}`\n\
+- next step: identify the proper canonical SoT home and merge through governed review\n"
+    );
+    MergeProposalPlan {
+        target,
+        ref_target: ref_target.to_string(),
+        count,
+        content,
+    }
 }
 
 pub fn validate_dreamer_follow_up_kind(kind: &str) -> Vec<ValidationFinding> {

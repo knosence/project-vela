@@ -107,6 +107,14 @@ pub struct MergeProposalSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MergeProposalPlan {
+    pub target: String,
+    pub ref_target: String,
+    pub count: usize,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MergeFollowUpSummary {
     pub target: String,
     pub status: String,

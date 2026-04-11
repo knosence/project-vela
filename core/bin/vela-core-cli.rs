@@ -18,7 +18,7 @@ use vela_core::models::{
     CsvInboxPlan, DimensionAppendPlan, DreamerProposalCandidate, GrowthAssessment,
     GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan, GrowthTarget,
     InboxTriagePlan, MergeApplyPlan, MergeCandidateSummary, MergeFollowUpSummary,
-    MergeOwnerUpdate, MergeProposalSummary, MergeReviewPlan, OnboardingConfig,
+    MergeOwnerUpdate, MergeProposalPlan, MergeProposalSummary, MergeReviewPlan, OnboardingConfig,
     OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState,
     PatchTarget, SchedulerPlan, Severity, ValidationFinding,
 };
@@ -48,6 +48,7 @@ use vela_core::operations::{
     plan_dreamer_proposals as plan_dreamer_proposals_policy,
     plan_dreamer_review as plan_dreamer_review_policy,
     plan_merge_follow_up_apply as plan_merge_follow_up_apply_policy,
+    plan_merge_proposal as plan_merge_proposal_policy,
     plan_merge_review as plan_merge_review_policy,
     plan_growth_execution as plan_growth_execution_policy,
     plan_growth_source_update as plan_growth_source_update_policy,
@@ -1150,6 +1151,21 @@ fn run() -> Result<(), String> {
                     .collect::<Vec<String>>()
                     .join(",")
             );
+        }
+        "plan-merge-proposal" => {
+            let ref_target = args.next().ok_or_else(|| "missing ref_target".to_string())?;
+            let count = args
+                .next()
+                .ok_or_else(|| "missing count".to_string())?
+                .parse::<usize>()
+                .map_err(|err| format!("invalid count: {err}"))?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let owners = extract_json_string_list(&content);
+            let plan = plan_merge_proposal_policy(&ref_target, &owners, count);
+            println!("{{\"ok\":true,\"plan\":{}}}", render_merge_proposal_plan(&plan));
         }
         "inspect-dreamer-follow-up" => {
             let mut content = String::new();
@@ -2367,6 +2383,16 @@ fn render_merge_proposal_summary(item: &MergeProposalSummary) -> String {
         escape_json(&item.status),
         escape_json(&item.ref_target),
         item.count,
+    )
+}
+
+fn render_merge_proposal_plan(item: &MergeProposalPlan) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"ref_target\":\"{}\",\"count\":{},\"content\":\"{}\"}}",
+        escape_json(&item.target),
+        escape_json(&item.ref_target),
+        item.count,
+        escape_json(&item.content),
     )
 }
 
