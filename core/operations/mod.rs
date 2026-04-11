@@ -4,8 +4,8 @@ use crate::models::{
     ArchiveTransactionPlan, CrossReferencePlan, DreamerAction, DreamerActionRegistry,
     DreamerApplyPlan, DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary,
     DreamerReviewPlan, GrowthAssessment, GrowthExecutionPlan, GrowthSourceUpdatePlan,
-    NightCyclePlan, OperationLifecyclePlan, OperationLockRecord, OperationStateEntry,
-    OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
+    InboxTriagePlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
+    OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -1895,6 +1895,233 @@ pub fn route_inbox_entry(text: &str) -> Option<&'static str> {
     None
 }
 
+pub fn plan_inbox_entry(
+    root: &Path,
+    text: &str,
+    source_name: &str,
+) -> (Option<InboxTriagePlan>, Vec<ValidationFinding>) {
+    let Some(dimension) = route_inbox_entry(text) else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "INBOX_DIMENSION_UNRESOLVED",
+                "Dimension router could not classify inbox item",
+            )],
+        );
+    };
+    let Some(target) = extract_target(root, text) else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "INBOX_TARGET_MISSING",
+                format!("Inbox item `{source_name}` is missing a target SoT declaration"),
+            )],
+        );
+    };
+    let (value, context) = extract_entry(text, source_name);
+    (
+        Some(InboxTriagePlan {
+            target,
+            dimension: dimension.to_string(),
+            value,
+            context,
+        }),
+        Vec::new(),
+    )
+}
+
+fn extract_target(root: &Path, text: &str) -> Option<String> {
+    let trimmed = text.trim_start();
+    if let Some(rest) = trimmed.strip_prefix("---\n") {
+        if let Some(end_idx) = rest.find("\n---\n") {
+            let frontmatter = &rest[..end_idx];
+            for line in frontmatter.lines() {
+                let candidate = line.trim();
+                if let Some(value) = candidate.strip_prefix("target:") {
+                    if let Some(target) = normalize_target(root, value.trim()) {
+                        return Some(target);
+                    }
+                }
+            }
+        }
+    }
+    for line in text.lines() {
+        let mut candidate = line.trim();
+        if candidate.starts_with('#') {
+            candidate = candidate.trim_start_matches('#').trim();
+        }
+        if candidate.to_ascii_lowercase().starts_with("target:") {
+            let value = candidate
+                .split_once(':')
+                .map(|(_, right)| right.trim())
+                .unwrap_or("");
+            if let Some(target) = normalize_target(root, value) {
+                return Some(target);
+            }
+        }
+    }
+    None
+}
+
+fn normalize_target(root: &Path, raw_value: &str) -> Option<String> {
+    let mut value = raw_value
+        .trim()
+        .trim_matches('`')
+        .trim_matches('"')
+        .trim_matches('\'')
+        .to_string();
+    if value.starts_with("[[") && value.ends_with("]]") && value.len() > 4 {
+        value = value[2..value.len() - 2].to_string();
+    }
+    if let Some((before_hash, _)) = value.split_once('#') {
+        value = before_hash.trim().to_string();
+    }
+    if value.is_empty() {
+        return None;
+    }
+    if let Some(resolved) = resolve_existing_target(root, &value) {
+        return Some(resolved);
+    }
+    if value.to_ascii_lowercase().ends_with(".md") {
+        if value.starts_with("knowledge/") {
+            return Some(value);
+        }
+        return Some(format!("knowledge/{value}"));
+    }
+    Some(format!("knowledge/{value}.md"))
+}
+
+fn resolve_existing_target(root: &Path, value: &str) -> Option<String> {
+    let normalized = if value.to_ascii_lowercase().ends_with(".md") {
+        value.to_string()
+    } else {
+        format!("{value}.md")
+    };
+    let direct = root.join(&normalized);
+    if direct.is_file() {
+        return direct
+            .strip_prefix(root)
+            .ok()
+            .map(|path| path.to_string_lossy().replace('\\', "/"));
+    }
+    let mut matches = Vec::new();
+    collect_named_files(root, &normalized, &mut matches);
+    if matches.len() == 1 {
+        return matches.pop().and_then(|path| {
+            path.strip_prefix(root)
+                .ok()
+                .map(|item| item.to_string_lossy().replace('\\', "/"))
+        });
+    }
+    None
+}
+
+fn collect_named_files(root: &Path, name: &str, matches: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+        if file_name == ".git" {
+            continue;
+        }
+        if path.is_dir() {
+            collect_named_files(&path, name, matches);
+        } else if file_name == name {
+            matches.push(path);
+        }
+    }
+}
+
+fn extract_entry(text: &str, source_name: &str) -> (String, String) {
+    let body = strip_frontmatter(text);
+    let mut lines = Vec::new();
+    for line in body.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if trimmed.to_ascii_lowercase().starts_with("target:") {
+            continue;
+        }
+        lines.push(trimmed.to_string());
+    }
+    if lines
+        .first()
+        .map(|line| line.starts_with('#'))
+        .unwrap_or(false)
+    {
+        lines.remove(0);
+    }
+    let mut value = lines
+        .first()
+        .map(|line| line.trim_start_matches('-').trim().to_string())
+        .unwrap_or_else(|| fallback_source_title(source_name));
+    if !ends_with_iso_date(&value) {
+        value = format!("{value}. ({})", current_date());
+    }
+    let context_lines: Vec<String> = lines
+        .into_iter()
+        .skip(1)
+        .filter(|line| !line.starts_with('#'))
+        .collect();
+    let context = if context_lines.is_empty() {
+        "Extracted from Inbox during governed triage.".to_string()
+    } else {
+        context_lines.join(" ")
+    };
+    (value, context)
+}
+
+fn strip_frontmatter(text: &str) -> &str {
+    if let Some(rest) = text.strip_prefix("---\n") {
+        if let Some(idx) = rest.find("\n---\n") {
+            return &rest[idx + 5..];
+        }
+    }
+    text
+}
+
+fn fallback_source_title(source_name: &str) -> String {
+    let stem = Path::new(source_name)
+        .file_stem()
+        .and_then(|item| item.to_str())
+        .unwrap_or("inbox-item");
+    stem.replace('-', " ")
+}
+
+fn ends_with_iso_date(value: &str) -> bool {
+    if let Some(stripped) = value.strip_suffix(')') {
+        if let Some((_, date_part)) = stripped.rsplit_once('(') {
+            let date = date_part.trim();
+            return is_iso_date(date);
+        }
+    }
+    false
+}
+
+fn is_iso_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 10 {
+        return false;
+    }
+    bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes.iter().enumerate().all(|(idx, byte)| {
+            if idx == 4 || idx == 7 {
+                true
+            } else {
+                byte.is_ascii_digit()
+            }
+        })
+}
+
+fn current_date() -> &'static str {
+    "2026-04-10"
+}
+
 pub fn subject_declaration_changed(before: &str, after: &str) -> bool {
     subject_declaration_block(before) != subject_declaration_block(after)
 }
@@ -2986,6 +3213,19 @@ mod tests {
             .pointer
             .contains("[[210.WHAT.Vela-Capabilities-SoT#200.WHAT.Scope]]"));
         assert!(plan.updated_content.contains("Reference target"));
+    }
+
+    #[test]
+    fn plans_inbox_entry_from_heading_target() {
+        let root = Path::new("/home/knosence/vela");
+        let text = "# Inbox Item\n\nTarget: [[210.WHAT.Vela-Capabilities-SoT]]\n\nThe framework has three layers.\nIt defines a component clearly.";
+        let (plan, findings) = plan_inbox_entry(root, text, "test-inbox-item.md");
+        assert!(findings.is_empty());
+        let plan = plan.expect("inbox plan");
+        assert_eq!(plan.target, "knowledge/210.WHAT.Vela-Capabilities-SoT.md");
+        assert_eq!(plan.dimension, "200");
+        assert_eq!(plan.value, "The framework has three layers.. (2026-04-10)");
+        assert_eq!(plan.context, "It defines a component clearly.");
     }
 
     #[test]

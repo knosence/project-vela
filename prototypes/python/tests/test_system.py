@@ -50,6 +50,7 @@ from prototypes.python.vela.rust_bridge import (
     parse_dreamer_actions_payload,
     extract_blocked_items_payload,
     extract_patch_targets_payload,
+    plan_inbox_entry_payload,
     parse_operations_state_payload,
     plan_event_append_payload,
     plan_growth_execution_payload,
@@ -1989,6 +1990,13 @@ class VelaSystemTest(unittest.TestCase):
             "- Reference target. See: [[210.WHAT.Vela-Capabilities-SoT#200.WHAT.Scope]] (2026-04-11)",
             cross_reference_plan["plan"]["pointer"],
         )
+        inbox_plan = plan_inbox_entry_payload(
+            "# Inbox Item\n\nTarget: [[210.WHAT.Vela-Capabilities-SoT]]\n\nThe framework has three layers.\nIt defines a component clearly.\n",
+            "test-inbox-item.md",
+        )
+        self.assertTrue(inbox_plan["ok"])
+        self.assertEqual(inbox_plan["plan"]["target"], "knowledge/210.WHAT.Vela-Capabilities-SoT.md")
+        self.assertEqual(inbox_plan["plan"]["dimension"], "200")
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",
             [

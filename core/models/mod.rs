@@ -150,6 +150,14 @@ pub struct CrossReferencePlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InboxTriagePlan {
+    pub target: String,
+    pub dimension: String,
+    pub value: String,
+    pub context: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PatchTarget {
     pub path: String,
 }

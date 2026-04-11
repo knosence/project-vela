@@ -11,6 +11,7 @@ from .dreamer_actions import matching_workflow_actions
 from .governance import append_event, build_pointer_entry, route_inbox_entry, write_text
 from .models import EventRecord
 from .paths import INBOX_DIR, PATCH_LOG_PATH, REPO_ROOT
+from .rust_bridge import plan_inbox_entry_payload
 
 
 def triage_inbox(file_name: str | None = None, actor: str = "vela") -> dict[str, Any]:
@@ -43,11 +44,30 @@ def triage_inbox(file_name: str | None = None, actor: str = "vela") -> dict[str,
 def _triage_markdown_file(path: Path, actor: str) -> dict[str, Any]:
     relative_path = str(path.relative_to(REPO_ROOT))
     text = path.read_text(encoding="utf-8")
-    target = _extract_target(text)
-    dimension = route_inbox_entry(text)
+    plan_payload = plan_inbox_entry_payload(text, path.name)
+    plan = plan_payload.get("plan") or {}
+    target = str(plan.get("target", ""))
+    dimension = str(plan.get("dimension", ""))
+    findings = plan_payload.get("findings", [])
     workflow_actions = matching_workflow_actions(text)
 
-    if not dimension:
+    if findings and any(item.get("code") == "INBOX_TARGET_MISSING" for item in findings):
+        _append_patch_log("flagged", relative_path, f"Missing target SoT for dimension {dimension or 'unknown'}.", actor)
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="inbox-triage",
+                actor=actor,
+                target=relative_path,
+                status="flagged",
+                reason="target SoT not declared for inbox item",
+                artifacts=[relative_path],
+                validation_summary={"dimension": dimension, "reason": "missing-target"},
+            )
+        )
+        return {"ok": False, "file": relative_path, "status": "flagged", "reason": "missing-target", "dimension": dimension}
+
+    if not plan_payload.get("ok") or not dimension:
         _append_patch_log("flagged", relative_path, "Unsorted — needs review.", actor)
         append_event(
             EventRecord(
@@ -102,7 +122,7 @@ def _triage_markdown_file(path: Path, actor: str) -> dict[str, Any]:
         )
         return {"ok": False, "file": relative_path, "status": "blocked", "reason": "target-missing", "dimension": dimension, "target": target}
 
-    entry = _extract_entry(text, path)
+    entry = {"value": str(plan["value"]), "context": str(plan["context"])}
     updated = _append_entry_to_dimension(target_path.read_text(encoding="utf-8"), dimension, entry)
     write_result = write_text(target, updated, actor=actor, endpoint="inbox-triage", reason=f"triage inbox item {relative_path}")
     if not write_result["ok"]:
@@ -164,11 +184,16 @@ def _triage_image_companion_file(path: Path, actor: str) -> dict[str, Any]:
 
 def _triage_extracted_companion_file(path: Path, actor: str, text: str, *, extraction_kind: str) -> dict[str, Any]:
     relative_path = str(path.relative_to(REPO_ROOT))
-    target = _extract_target(text)
-    dimension = route_inbox_entry(text)
+    plan_payload = plan_inbox_entry_payload(text, path.name)
+    plan = plan_payload.get("plan") or {}
+    target = str(plan.get("target", ""))
+    dimension = str(plan.get("dimension", ""))
+    findings = plan_payload.get("findings", [])
     workflow_actions = matching_workflow_actions(text)
 
-    if not dimension:
+    if findings and any(item.get("code") == "INBOX_TARGET_MISSING" for item in findings):
+        return _flag_for_review(path, actor, "missing-target", f"Missing target SoT for dimension {dimension}.", dimension=dimension)
+    if not plan_payload.get("ok") or not dimension:
         return _flag_for_review(path, actor, "unsorted-needs-review", "dimension router could not classify inbox item")
     if not target:
         return _flag_for_review(path, actor, "missing-target", f"Missing target SoT for dimension {dimension}.", dimension=dimension)
@@ -178,7 +203,7 @@ def _triage_extracted_companion_file(path: Path, actor: str, text: str, *, extra
         return _block_missing_target(path, actor, target, dimension)
 
     companion_path = _move_to_companion_path(path, target_path)
-    entry = _extract_entry(text, path)
+    entry = {"value": str(plan["value"]), "context": str(plan["context"])}
     entry["context"] = f"{entry['context']} See: [[{companion_path.name}]]".strip()
     updated = _append_entry_to_dimension(target_path.read_text(encoding="utf-8"), dimension, entry)
     write_result = write_text(target, updated, actor=actor, endpoint="inbox-triage", reason=f"triage inbox item {relative_path}")

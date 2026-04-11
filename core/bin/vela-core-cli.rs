@@ -15,9 +15,9 @@ use vela_core::matrix::{
 };
 use vela_core::models::{
     ArchiveTransactionPlan, BlockedItemSummary, CrossReferencePlan, DreamerProposalCandidate,
-    GrowthAssessment, GrowthExecutionPlan, GrowthSourceUpdatePlan, GrowthTarget, OnboardingConfig,
-    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget,
-    SchedulerPlan, Severity, ValidationFinding,
+    GrowthAssessment, GrowthExecutionPlan, GrowthSourceUpdatePlan, GrowthTarget, InboxTriagePlan,
+    OnboardingConfig, OperationLifecyclePlan, OperationLockRecord, OperationStateEntry,
+    OperationsState, PatchTarget, SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
     assess_growth_target as assess_growth_target_policy,
@@ -40,7 +40,7 @@ use vela_core::operations::{
     plan_dreamer_review as plan_dreamer_review_policy,
     plan_growth_execution as plan_growth_execution_policy,
     plan_growth_source_update as plan_growth_source_update_policy,
-    plan_night_cycle as plan_night_cycle_policy,
+    plan_inbox_entry as plan_inbox_entry_policy, plan_night_cycle as plan_night_cycle_policy,
     plan_operation_audit_event as plan_operation_audit_event_policy,
     plan_operation_start as plan_operation_start_policy,
     plan_operation_state_update as plan_operation_state_update_policy,
@@ -131,6 +131,27 @@ fn run() -> Result<(), String> {
                 .map(|item| format!("\"{}\"", escape_json(item)))
                 .unwrap_or_else(|| "null".to_string());
             println!("{{\"ok\":true,\"dimension\":{route}}}");
+        }
+        "plan-inbox-entry" => {
+            let source_name = args
+                .next()
+                .ok_or_else(|| "missing source name".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let repo_root = env::current_dir().map_err(|err| err.to_string())?;
+            let (plan, findings) = plan_inbox_entry_policy(&repo_root, &content, &source_name);
+            if !findings.is_empty() {
+                print_findings(&findings, None);
+            } else if let Some(plan) = plan {
+                println!(
+                    "{{\"ok\":true,\"plan\":{}}}",
+                    render_inbox_triage_plan(&plan)
+                );
+            } else {
+                println!("{{\"ok\":true,\"plan\":null}}");
+            }
         }
         "validate-subject-declaration" => {
             let approval_status = args
@@ -2013,6 +2034,16 @@ fn render_cross_reference_plan(item: &CrossReferencePlan) -> String {
         "{{\"pointer\":\"{}\",\"updated_content\":\"{}\"}}",
         escape_json(&item.pointer),
         escape_json(&item.updated_content),
+    )
+}
+
+fn render_inbox_triage_plan(item: &InboxTriagePlan) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"dimension\":\"{}\",\"value\":\"{}\",\"context\":\"{}\"}}",
+        escape_json(&item.target),
+        escape_json(&item.dimension),
+        escape_json(&item.value),
+        escape_json(&item.context),
     )
 }
 
