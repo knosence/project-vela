@@ -15,8 +15,8 @@ use vela_core::matrix::{
 };
 use vela_core::models::{
     ArchiveTransactionPlan, BlockedItemSummary, CompanionPathPlan, CrossReferencePlan,
-    CsvInboxPlan, DreamerProposalCandidate, GrowthAssessment, GrowthExecutionPlan,
-    GrowthSourceUpdatePlan, GrowthTarget, InboxTriagePlan, OnboardingConfig,
+    CsvInboxPlan, DimensionAppendPlan, DreamerProposalCandidate, GrowthAssessment,
+    GrowthExecutionPlan, GrowthSourceUpdatePlan, GrowthTarget, InboxTriagePlan, OnboardingConfig,
     OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget,
     SchedulerPlan, Severity, ValidationFinding,
 };
@@ -37,7 +37,7 @@ use vela_core::operations::{
     plan_archive_transaction as plan_archive_transaction_policy,
     plan_companion_path as plan_companion_path_policy,
     plan_cross_reference_update as plan_cross_reference_update_policy,
-    plan_csv_inbox as plan_csv_inbox_policy,
+    plan_csv_inbox as plan_csv_inbox_policy, plan_dimension_append as plan_dimension_append_policy,
     plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
     plan_dreamer_proposals as plan_dreamer_proposals_policy,
     plan_dreamer_review as plan_dreamer_review_policy,
@@ -193,6 +193,27 @@ fn run() -> Result<(), String> {
                 println!(
                     "{{\"ok\":true,\"plan\":{}}}",
                     render_companion_path_plan(&plan)
+                );
+            } else {
+                println!("{{\"ok\":true,\"plan\":null}}");
+            }
+        }
+        "plan-dimension-append" => {
+            let dimension = args.next().ok_or_else(|| "missing dimension".to_string())?;
+            let value = args.next().ok_or_else(|| "missing value".to_string())?;
+            let context = args.next().ok_or_else(|| "missing context".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (plan, findings) =
+                plan_dimension_append_policy(&content, &dimension, &value, &context);
+            if !findings.is_empty() {
+                print_findings(&findings, None);
+            } else if let Some(plan) = plan {
+                println!(
+                    "{{\"ok\":true,\"plan\":{}}}",
+                    render_dimension_append_plan(&plan)
                 );
             } else {
                 println!("{{\"ok\":true,\"plan\":null}}");
@@ -2115,6 +2136,14 @@ fn render_csv_inbox_plan(item: &CsvInboxPlan) -> String {
 
 fn render_companion_path_plan(item: &CompanionPathPlan) -> String {
     format!("{{\"destination\":\"{}\"}}", escape_json(&item.destination))
+}
+
+fn render_dimension_append_plan(item: &DimensionAppendPlan) -> String {
+    format!(
+        "{{\"updated_content\":\"{}\",\"anchor\":\"{}\"}}",
+        escape_json(&item.updated_content),
+        escape_json(&item.anchor),
+    )
 }
 
 fn render_dreamer_follow_up_summary(item: &vela_core::models::DreamerFollowUpSummary) -> String {

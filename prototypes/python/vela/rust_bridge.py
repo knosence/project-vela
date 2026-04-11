@@ -41,6 +41,10 @@ def plan_companion_path_payload(source_rel: str, target_rel: str, date_stamp: st
     return _run(["plan-companion-path", source_rel, target_rel, date_stamp])
 
 
+def plan_dimension_append_payload(content: str, dimension: str, value: str, context: str) -> dict[str, Any]:
+    return _run(["plan-dimension-append", dimension, value, context], stdin=content)
+
+
 def match_dreamer_actions_payload(
     registry_json: str,
     mode: str,

@@ -2,9 +2,9 @@ use crate::events::{plan_event_append, EventRecord, ValidationSummary};
 use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_path};
 use crate::models::{
     ArchiveTransactionPlan, CompanionPathPlan, CrossReferencePlan, CsvInboxEntry, CsvInboxPlan,
-    DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
-    DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan, GrowthAssessment,
-    GrowthExecutionPlan, GrowthSourceUpdatePlan, InboxTriagePlan, NightCyclePlan,
+    DimensionAppendPlan, DreamerAction, DreamerActionRegistry, DreamerApplyPlan,
+    DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan,
+    GrowthAssessment, GrowthExecutionPlan, GrowthSourceUpdatePlan, InboxTriagePlan, NightCyclePlan,
     OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan,
     SchedulerPlan, ValidationFinding,
 };
@@ -2604,6 +2604,69 @@ fn render_operation_state_entry_json(entry: &OperationStateEntry) -> String {
     )
 }
 
+pub fn plan_dimension_append(
+    content: &str,
+    dimension: &str,
+    value: &str,
+    context: &str,
+) -> (Option<DimensionAppendPlan>, Vec<ValidationFinding>) {
+    let heading = dimension_heading(content, dimension);
+    if heading.is_empty() {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "INBOX_DIMENSION_HEADING_MISSING",
+                format!("Dimension heading not found for {dimension}"),
+            )],
+        );
+    }
+    let Some((section_start, section_end, section)) = locate_dimension_section(content, &heading)
+    else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "INBOX_DIMENSION_HEADING_MISSING",
+                format!("Dimension heading not found for {dimension}"),
+            )],
+        );
+    };
+    let Some((active_start, inactive_start)) = locate_active_inactive_bounds(&section) else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "INBOX_DIMENSION_STRUCTURE_INVALID",
+                format!("Dimension structure invalid for {heading}"),
+            )],
+        );
+    };
+    let active_section = &section[active_start..inactive_start];
+    let new_entry = format!("- {value}\n  - {context}");
+    let updated_active = if active_section.contains("(No active entries.)") {
+        active_section.replacen("(No active entries.)", &new_entry, 1)
+    } else {
+        format!("{}\n\n{}\n", active_section.trim_end(), new_entry)
+    };
+    let updated_section = format!(
+        "{}{}{}",
+        &section[..active_start],
+        updated_active,
+        &section[inactive_start..]
+    );
+    let updated_content = format!(
+        "{}{}{}",
+        &content[..section_start],
+        updated_section,
+        &content[section_end..]
+    );
+    (
+        Some(DimensionAppendPlan {
+            updated_content,
+            anchor: heading.trim_start_matches("## ").to_string(),
+        }),
+        Vec::new(),
+    )
+}
+
 fn escape_json(value: &str) -> String {
     value
         .replace('\\', "\\\\")
@@ -3401,6 +3464,23 @@ mod tests {
             plan.destination,
             "knowledge/ARTIFACTS/proposals/inbox-triage-target.txt"
         );
+    }
+
+    #[test]
+    fn plans_dimension_append() {
+        let content = "## 200.WHAT.Scope\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n";
+        let (plan, findings) = plan_dimension_append(
+            content,
+            "200",
+            "Capability update. (2026-04-10)",
+            "Captured from inbox.",
+        );
+        assert!(findings.is_empty());
+        let plan = plan.expect("append plan");
+        assert!(plan
+            .updated_content
+            .contains("- Capability update. (2026-04-10)"));
+        assert_eq!(plan.anchor, "200.WHAT.Scope");
     }
 
     #[test]

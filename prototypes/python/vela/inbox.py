@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +11,7 @@ from .models import EventRecord
 from .paths import INBOX_DIR, PATCH_LOG_PATH, REPO_ROOT
 from .rust_bridge import plan_csv_inbox_payload
 from .rust_bridge import plan_companion_path_payload
+from .rust_bridge import plan_dimension_append_payload
 from .rust_bridge import plan_inbox_entry_payload
 
 
@@ -124,7 +124,13 @@ def _triage_markdown_file(path: Path, actor: str) -> dict[str, Any]:
         return {"ok": False, "file": relative_path, "status": "blocked", "reason": "target-missing", "dimension": dimension, "target": target}
 
     entry = {"value": str(plan["value"]), "context": str(plan["context"])}
-    updated = _append_entry_to_dimension(target_path.read_text(encoding="utf-8"), dimension, entry)
+    append_plan = plan_dimension_append_payload(
+        target_path.read_text(encoding="utf-8"),
+        dimension,
+        entry["value"],
+        entry["context"],
+    )
+    updated = str(append_plan["plan"]["updated_content"])
     write_result = write_text(target, updated, actor=actor, endpoint="inbox-triage", reason=f"triage inbox item {relative_path}")
     if not write_result["ok"]:
         _append_patch_log("blocked", relative_path, f"Target write blocked for {target}.", actor)
@@ -137,7 +143,7 @@ def _triage_markdown_file(path: Path, actor: str) -> dict[str, Any]:
             "findings": write_result["findings"],
         }
 
-    pointer = build_pointer_entry(entry["value"], Path(target).stem, _dimension_anchor(updated, dimension), _today())
+    pointer = build_pointer_entry(entry["value"], Path(target).stem, str(append_plan["plan"]["anchor"]), _today())
     if path.exists():
         path.unlink()
     _append_patch_log("applied", relative_path, f"Extracted into {target} {pointer}", actor)
@@ -206,7 +212,13 @@ def _triage_extracted_companion_file(path: Path, actor: str, text: str, *, extra
     companion_path = _move_to_companion_path(path, target_path)
     entry = {"value": str(plan["value"]), "context": str(plan["context"])}
     entry["context"] = f"{entry['context']} See: [[{companion_path.name}]]".strip()
-    updated = _append_entry_to_dimension(target_path.read_text(encoding="utf-8"), dimension, entry)
+    append_plan = plan_dimension_append_payload(
+        target_path.read_text(encoding="utf-8"),
+        dimension,
+        entry["value"],
+        entry["context"],
+    )
+    updated = str(append_plan["plan"]["updated_content"])
     write_result = write_text(target, updated, actor=actor, endpoint="inbox-triage", reason=f"triage inbox item {relative_path}")
     if not write_result["ok"]:
         _append_patch_log("blocked", relative_path, f"Target write blocked for {target}.", actor)
@@ -219,7 +231,7 @@ def _triage_extracted_companion_file(path: Path, actor: str, text: str, *, extra
             "findings": write_result["findings"],
         }
 
-    pointer = build_pointer_entry(entry["value"], Path(target).stem, _dimension_anchor(updated, dimension), _today())
+    pointer = build_pointer_entry(entry["value"], Path(target).stem, str(append_plan["plan"]["anchor"]), _today())
     _append_patch_log("applied", relative_path, f"Extracted into {target} with companion {companion_path.relative_to(REPO_ROOT)} {pointer}", actor)
     append_event(
         EventRecord(
@@ -274,12 +286,20 @@ def _triage_csv_companion_file(path: Path, actor: str) -> dict[str, Any]:
 
     companion_path = _move_to_companion_path(path, target_path)
     updated = target_path.read_text(encoding="utf-8")
+    anchors: dict[str, str] = {}
     for extracted in extracted_entries:
         entry_payload = {
             "value": extracted["value"],
             "context": f"{extracted['context']} See: [[{companion_path.name}]]".strip(),
         }
-        updated = _append_entry_to_dimension(updated, extracted["dimension"], entry_payload)
+        append_plan = plan_dimension_append_payload(
+            updated,
+            extracted["dimension"],
+            entry_payload["value"],
+            entry_payload["context"],
+        )
+        updated = str(append_plan["plan"]["updated_content"])
+        anchors[extracted["dimension"]] = str(append_plan["plan"]["anchor"])
 
     write_result = write_text(target, updated, actor=actor, endpoint="inbox-triage", reason=f"triage inbox item {relative_path}")
     if not write_result["ok"]:
@@ -293,7 +313,7 @@ def _triage_csv_companion_file(path: Path, actor: str) -> dict[str, Any]:
         }
 
     pointers = [
-        build_pointer_entry(extracted["value"], Path(target).stem, _dimension_anchor(updated, extracted["dimension"]), _today())
+        build_pointer_entry(extracted["value"], Path(target).stem, anchors[extracted["dimension"]], _today())
         for extracted in extracted_entries
     ]
     _append_patch_log(
@@ -411,38 +431,6 @@ def _move_to_companion_path(source: Path, target_path: Path) -> Path:
     destination = REPO_ROOT / destination_rel
     source.rename(destination)
     return destination
-
-
-def _append_entry_to_dimension(content: str, dimension: str, entry: dict[str, str]) -> str:
-    heading = _dimension_heading(content, dimension)
-    if not heading:
-        raise ValueError(f"Dimension heading not found for {dimension}")
-    section_start = content.find(heading)
-    next_section = content.find("\n## ", section_start + 1)
-    section = content[section_start: next_section if next_section != -1 else len(content)]
-    active_marker = "### Active"
-    inactive_marker = "### Inactive"
-    active_start = section.find(active_marker)
-    inactive_start = section.find(inactive_marker)
-    if active_start == -1 or inactive_start == -1:
-        raise ValueError(f"Dimension structure invalid for {heading}")
-    active_section = section[active_start:inactive_start]
-    new_entry = f"- {entry['value']}\n  - {entry['context']}"
-    if "(No active entries.)" in active_section:
-        active_section = active_section.replace("(No active entries.)", new_entry)
-    else:
-        active_section = active_section.rstrip() + f"\n\n{new_entry}\n"
-    new_section = heading + "\n\n" + active_section.lstrip("\n") + "\n\n" + section[inactive_start:].lstrip("\n")
-    return content[:section_start] + new_section + content[next_section if next_section != -1 else len(content):]
-
-
-def _dimension_heading(content: str, dimension: str) -> str:
-    match = re.search(rf"^##\s{dimension}\.[^\n]+$", content, re.MULTILINE)
-    return match.group(0) if match else ""
-
-
-def _dimension_anchor(content: str, dimension: str) -> str:
-    return _dimension_heading(content, dimension).replace("## ", "", 1)
 
 
 def _append_patch_log(status: str, target: str, detail: str, actor: str) -> None:

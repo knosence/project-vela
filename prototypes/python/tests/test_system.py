@@ -52,6 +52,7 @@ from prototypes.python.vela.rust_bridge import (
     extract_patch_targets_payload,
     plan_csv_inbox_payload,
     plan_companion_path_payload,
+    plan_dimension_append_payload,
     plan_inbox_entry_payload,
     parse_operations_state_payload,
     plan_event_append_payload,
@@ -2016,6 +2017,14 @@ class VelaSystemTest(unittest.TestCase):
             companion_plan["plan"]["destination"],
             "knowledge/ARTIFACTS/proposals/inbox-triage-target.txt",
         )
+        append_plan = plan_dimension_append_payload(
+            "## 200.WHAT.Scope\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n",
+            "200",
+            "Capability update. (2026-04-10)",
+            "Captured from inbox.",
+        )
+        self.assertTrue(append_plan["ok"])
+        self.assertEqual(append_plan["plan"]["anchor"], "200.WHAT.Scope")
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",
             [

@@ -176,6 +176,12 @@ pub struct CompanionPathPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DimensionAppendPlan {
+    pub updated_content: String,
+    pub anchor: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PatchTarget {
     pub path: String,
 }
