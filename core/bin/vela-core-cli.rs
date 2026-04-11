@@ -14,9 +14,9 @@ use vela_core::matrix::{
     validate_sot_structure as validate_matrix_sot_structure,
 };
 use vela_core::models::{
-    BlockedItemSummary, DreamerProposalCandidate, GrowthAssessment, GrowthTarget, OnboardingConfig,
-    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget,
-    SchedulerPlan, Severity, ValidationFinding,
+    BlockedItemSummary, DreamerProposalCandidate, GrowthAssessment, GrowthExecutionPlan,
+    GrowthTarget, OnboardingConfig, OperationLifecyclePlan, OperationLockRecord,
+    OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
     assess_growth_target as assess_growth_target_policy,
@@ -34,7 +34,9 @@ use vela_core::operations::{
     parse_operations_state as parse_operations_state_policy,
     plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
     plan_dreamer_proposals as plan_dreamer_proposals_policy,
-    plan_dreamer_review as plan_dreamer_review_policy, plan_night_cycle as plan_night_cycle_policy,
+    plan_dreamer_review as plan_dreamer_review_policy,
+    plan_growth_execution as plan_growth_execution_policy,
+    plan_night_cycle as plan_night_cycle_policy,
     plan_operation_audit_event as plan_operation_audit_event_policy,
     plan_operation_start as plan_operation_start_policy,
     plan_operation_state_update as plan_operation_state_update_policy,
@@ -152,6 +154,32 @@ fn run() -> Result<(), String> {
                 "{{\"ok\":true,\"assessment\":{}}}",
                 render_growth_assessment(&assessment)
             );
+        }
+        "plan-growth-execution" => {
+            let stage = args.next().ok_or_else(|| "missing stage".to_string())?;
+            let assessed_target = args
+                .next()
+                .ok_or_else(|| "missing assessed target".to_string())?;
+            let proposal_target = args
+                .next()
+                .ok_or_else(|| "missing proposal target".to_string())?;
+            let repo_root = std::env::current_dir().map_err(|err| err.to_string())?;
+            let (plan, findings) = plan_growth_execution_policy(
+                std::path::Path::new(&repo_root),
+                &stage,
+                &assessed_target,
+                &proposal_target,
+            );
+            if !findings.is_empty() {
+                print_findings(&findings, None);
+            } else if let Some(plan) = plan {
+                println!(
+                    "{{\"ok\":true,\"plan\":{}}}",
+                    render_growth_execution_plan(&plan)
+                );
+            } else {
+                println!("{{\"ok\":true,\"plan\":null}}");
+            }
         }
         "validate-archive-postconditions" => {
             let entry_value = args
@@ -1722,6 +1750,24 @@ fn render_growth_assessment(item: &GrowthAssessment) -> String {
         item.densest_dimension_entries,
         if item.has_subgroups { "true" } else { "false" },
         item.living_record_markers,
+    )
+}
+
+fn render_growth_execution_plan(item: &GrowthExecutionPlan) -> String {
+    let entries = format!(
+        "[{}]",
+        item.entries
+            .iter()
+            .map(|entry| format!("\"{}\"", escape_json(entry)))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    format!(
+        "{{\"target\":\"{}\",\"kind\":\"{}\",\"dimension\":\"{}\",\"entries\":{}}}",
+        escape_json(&item.target),
+        escape_json(&item.kind),
+        escape_json(&item.dimension),
+        entries,
     )
 }
 

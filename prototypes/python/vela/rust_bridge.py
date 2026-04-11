@@ -361,6 +361,10 @@ def assess_growth_payload(target: str) -> dict[str, Any]:
     return _run(["assess-growth-target", target])
 
 
+def plan_growth_execution_payload(stage: str, assessed_target: str, proposal_target: str) -> dict[str, Any]:
+    return _run(["plan-growth-execution", stage, assessed_target, proposal_target])
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 

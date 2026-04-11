@@ -14,6 +14,7 @@ from .models import EventRecord, ValidationFinding
 from .paths import APPROVALS_PATH, BACKUP_DIR, EVENT_LOG_PATH, PROPOSALS_DIR, QUEUE_DIR, REPO_ROOT
 from .rust_bridge import route_for_target as rust_route_for_target
 from .rust_bridge import plan_event_append_payload
+from .rust_bridge import plan_growth_execution_payload
 from .rust_bridge import render_event_payload
 from .rust_bridge import route_inbox_payload
 from .rust_bridge import validate_archive_postconditions_payload
@@ -549,6 +550,8 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
         return {"ok": False, "findings": [finding.as_dict()], "approval_required": True}
 
     execution = _build_growth_execution(stage=stage, assessed_target=assessed_target, proposal_target=proposal_target)
+    if not execution["ok"]:
+        return {"ok": False, "findings": execution["findings"]}
     result = write_text(
         execution["target"],
         execution["content"],
@@ -721,21 +724,26 @@ def create_cross_reference(
 
 
 def _build_growth_execution(stage: str, assessed_target: str, proposal_target: str) -> dict[str, str]:
-    target_path = Path(assessed_target)
     created = datetime.now(timezone.utc).date().isoformat()
-    stem = re.sub(r"[^A-Za-z0-9.-]+", "-", target_path.stem).strip("-") or "target"
-    proposal_name = Path(proposal_target).stem
     source_text = (REPO_ROOT / assessed_target).read_text(encoding="utf-8")
+    payload = plan_growth_execution_payload(stage, assessed_target, proposal_target)
+    plan = payload.get("plan")
+    if not payload.get("ok") or not plan:
+        findings = annotate_findings(
+            [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload.get("findings", [])]
+        )
+        return {"ok": False, "findings": [item.as_dict() for item in findings]}
 
     if stage == "fractal":
-        execution_target = assessed_target
         content = _fractalize_source(source_text, assessed_target, proposal_target, created)
-        return {"target": execution_target, "content": content, "kind": "fractalized-source"}
+        return {"ok": True, "target": str(plan["target"]), "content": content, "kind": str(plan["kind"])}
 
     if stage == "reference-note":
-        ref_stem = stem[:-4] if stem.endswith("-SoT") else stem
-        execution_target = f"knowledge/ARTIFACTS/refs/Ref.{ref_stem}.md"
-        extracted = _extract_reference_entries(source_text)
+        execution_target = str(plan["target"])
+        extracted = {
+            "dimension": str(plan.get("dimension", "")),
+            "entries": list(plan.get("entries", [])),
+        }
         content = _render_reference_note(
             execution_target=execution_target,
             assessed_target=assessed_target,
@@ -744,20 +752,20 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
             extracted=extracted,
         )
         return {
+            "ok": True,
             "target": execution_target,
             "content": content,
-            "kind": "reference-note",
+            "kind": str(plan["kind"]),
             "dimension": extracted["dimension"],
             "entries": extracted["entries"],
         }
 
     if stage == "spawn" and assessed_target.endswith("-SoT.md"):
-        child_stem = stem[:-4] if stem.endswith("-SoT") else stem
-        execution_target = str(target_path.with_name(f"{child_stem}.Spawned-Child-SoT.md"))
+        execution_target = str(plan["target"])
         content = _render_spawned_sot(execution_target, assessed_target, proposal_target, created)
-        return {"target": execution_target, "content": content, "kind": "spawned-sot"}
+        return {"ok": True, "target": execution_target, "content": content, "kind": str(plan["kind"])}
 
-    execution_target = f"knowledge/ARTIFACTS/proposals/Applied.{proposal_name}.md"
+    execution_target = str(plan["target"])
     content = (
         "# Applied Growth Action\n\n"
         "## This Artifact Records the Governed Structural Action Chosen from the Growth Proposal\n"
@@ -768,7 +776,7 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
         f"- assessed target: `{assessed_target}`\n"
         "- direct canonical mutation was deferred in favor of a governed structural action artifact\n"
     )
-    return {"target": execution_target, "content": content, "kind": "applied-action"}
+    return {"ok": True, "target": execution_target, "content": content, "kind": str(plan["kind"])}
 
 
 def _archive_postcondition_failure(content: str, entry_value: str, archived_reason: str, dimension_heading: str) -> ValidationFinding | None:

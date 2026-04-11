@@ -118,6 +118,14 @@ pub struct GrowthAssessment {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GrowthExecutionPlan {
+    pub target: String,
+    pub kind: String,
+    pub dimension: String,
+    pub entries: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PatchTarget {
     pub path: String,
 }

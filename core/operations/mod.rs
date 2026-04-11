@@ -3,8 +3,8 @@ use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_pa
 use crate::models::{
     DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
     DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan, GrowthAssessment,
-    NightCyclePlan, OperationLifecyclePlan, OperationLockRecord, OperationStateEntry,
-    OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
+    GrowthExecutionPlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
+    OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -176,6 +176,91 @@ pub fn assess_growth_target(root: &Path, target: &str) -> GrowthAssessment {
         has_subgroups,
         living_record_markers,
     }
+}
+
+pub fn plan_growth_execution(
+    root: &Path,
+    stage: &str,
+    assessed_target: &str,
+    proposal_target: &str,
+) -> (Option<GrowthExecutionPlan>, Vec<ValidationFinding>) {
+    let target_path = Path::new(assessed_target);
+    let stem = sanitize_growth_stem(
+        target_path
+            .file_stem()
+            .and_then(|item| item.to_str())
+            .unwrap_or("target"),
+    );
+    let proposal_name = Path::new(proposal_target)
+        .file_stem()
+        .and_then(|item| item.to_str())
+        .unwrap_or("proposal");
+    let source_path = root.join(assessed_target);
+    let source_text = fs::read_to_string(&source_path).unwrap_or_default();
+
+    if matches!(stage, "reference-note" | "fractal" | "spawn") && source_text.is_empty() {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "GROWTH_SOURCE_MISSING",
+                format!("Growth target `{assessed_target}` is missing or unreadable"),
+            )],
+        );
+    }
+
+    if stage == "fractal" {
+        return (
+            Some(GrowthExecutionPlan {
+                target: assessed_target.to_string(),
+                kind: "fractalized-source".to_string(),
+                dimension: String::new(),
+                entries: Vec::new(),
+            }),
+            Vec::new(),
+        );
+    }
+
+    if stage == "reference-note" {
+        let ref_stem = stem.strip_suffix("-SoT").unwrap_or(&stem);
+        let (dimension, entries) = extract_reference_entries(&source_text);
+        return (
+            Some(GrowthExecutionPlan {
+                target: format!("knowledge/ARTIFACTS/refs/Ref.{ref_stem}.md"),
+                kind: "reference-note".to_string(),
+                dimension,
+                entries,
+            }),
+            Vec::new(),
+        );
+    }
+
+    if stage == "spawn" && assessed_target.ends_with("-SoT.md") {
+        let child_stem = stem.strip_suffix("-SoT").unwrap_or(&stem);
+        let child_name = format!("{child_stem}.Spawned-Child-SoT.md");
+        let target = target_path
+            .with_file_name(child_name)
+            .to_string_lossy()
+            .replace('\\', "/");
+        return (
+            Some(GrowthExecutionPlan {
+                target,
+                kind: "spawned-sot".to_string(),
+                dimension: String::new(),
+                entries: Vec::new(),
+            }),
+            Vec::new(),
+        );
+    }
+
+    (
+        Some(GrowthExecutionPlan {
+            target: format!("knowledge/ARTIFACTS/proposals/Applied.{proposal_name}.md"),
+            kind: "applied-action".to_string(),
+            dimension: String::new(),
+            entries: Vec::new(),
+        }),
+        Vec::new(),
+    )
 }
 
 pub fn parse_operations_state(state_json: &str) -> (OperationsState, Vec<ValidationFinding>) {
@@ -1748,6 +1833,22 @@ fn inventory_role_for_growth_target(root: &Path, target: &str) -> String {
         .to_string()
 }
 
+fn sanitize_growth_stem(value: &str) -> String {
+    let mut result = String::new();
+    let mut previous_dash = false;
+    for ch in value.chars() {
+        let allowed = ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-');
+        if allowed {
+            result.push(ch);
+            previous_dash = false;
+        } else if !previous_dash {
+            result.push('-');
+            previous_dash = true;
+        }
+    }
+    result.trim_matches('-').to_string()
+}
+
 fn dimension_entry_counts(text: &str) -> Vec<usize> {
     let mut counts = BTreeMap::new();
     let mut current_dimension = String::new();
@@ -1786,6 +1887,133 @@ fn is_subgroup_heading(line: &str) -> bool {
         )
         && number.ends_with('0')
         && !matches!(number, "100" | "200" | "300" | "400" | "500" | "600")
+}
+
+fn extract_reference_entries(source_text: &str) -> (String, Vec<String>) {
+    let counts = dimension_entry_counts_by_id(source_text);
+    if counts.is_empty() {
+        return (String::new(), Vec::new());
+    }
+    let densest = counts
+        .keys()
+        .max_by_key(|dimension| {
+            (
+                counts.get(*dimension).copied().unwrap_or_default(),
+                dimension_preference(dimension),
+            )
+        })
+        .cloned()
+        .unwrap_or_default();
+    let heading = dimension_heading(source_text, &densest);
+    let section = section_by_heading(source_text, &heading);
+    let active = subsection(section.as_str(), "### Active");
+    (
+        heading,
+        entry_blocks(active.as_str()).into_iter().take(2).collect(),
+    )
+}
+
+fn dimension_entry_counts_by_id(text: &str) -> BTreeMap<String, usize> {
+    let mut counts = BTreeMap::new();
+    let mut current_dimension = String::new();
+    for raw_line in text.lines() {
+        let line = raw_line.trim();
+        if let Some(prefix) = line.strip_prefix("## ") {
+            let dimension = prefix.split('.').next().unwrap_or_default();
+            if matches!(dimension, "100" | "200" | "300" | "400" | "500" | "600") {
+                current_dimension = dimension.to_string();
+                counts.entry(current_dimension.clone()).or_insert(0);
+            } else {
+                current_dimension.clear();
+            }
+            continue;
+        }
+        if !current_dimension.is_empty() && raw_line.starts_with("- ") {
+            *counts.entry(current_dimension.clone()).or_insert(0) += 1;
+        }
+    }
+    counts
+}
+
+fn dimension_preference(dimension: &str) -> usize {
+    match dimension {
+        "200" => 6,
+        "500" => 5,
+        "300" => 4,
+        "400" => 3,
+        "600" => 2,
+        "100" => 1,
+        _ => 0,
+    }
+}
+
+fn dimension_heading(text: &str, dimension: &str) -> String {
+    text.lines()
+        .find(|line| {
+            let trimmed = line.trim();
+            trimmed.starts_with("## ") && trimmed.starts_with(&format!("## {dimension}."))
+        })
+        .unwrap_or("")
+        .to_string()
+}
+
+fn section_by_heading(text: &str, heading: &str) -> String {
+    if heading.is_empty() {
+        return String::new();
+    }
+    let Some(start) = text.find(heading) else {
+        return String::new();
+    };
+    let rest = &text[start + heading.len()..];
+    let end = rest
+        .find("\n## ")
+        .map(|offset| start + heading.len() + offset)
+        .unwrap_or(text.len());
+    text[start..end].to_string()
+}
+
+fn subsection(section: &str, heading: &str) -> String {
+    let Some(start) = section.find(heading) else {
+        return String::new();
+    };
+    let rest = &section[start + heading.len()..];
+    let end = rest
+        .find("\n### ")
+        .or_else(|| rest.find("\n## "))
+        .map(|offset| start + heading.len() + offset)
+        .unwrap_or(section.len());
+    section[start..end].to_string()
+}
+
+fn entry_blocks(section: &str) -> Vec<String> {
+    let mut blocks = Vec::new();
+    let mut current = Vec::new();
+    for line in section.lines() {
+        if line.starts_with("- ") {
+            if !current.is_empty() {
+                blocks.push(current.join("\n"));
+                current.clear();
+            }
+            current.push(line.to_string());
+            continue;
+        }
+        if line.starts_with("  - ") && !current.is_empty() {
+            current.push(line.to_string());
+            continue;
+        }
+        if !current.is_empty() && line.trim().is_empty() {
+            current.push(line.to_string());
+        }
+    }
+    if !current.is_empty() {
+        while current.last().is_some_and(|line| line.trim().is_empty()) {
+            current.pop();
+        }
+        if !current.is_empty() {
+            blocks.push(current.join("\n"));
+        }
+    }
+    blocks
 }
 
 fn extract_bucket_entries(registry_json: &str, bucket: &str) -> Vec<DreamerAction> {
@@ -2086,6 +2314,27 @@ mod tests {
         assert_eq!(assessment.inventory_role, "agent-identity");
         assert_eq!(assessment.stage, "flat");
         assert!(assessment.exists);
+    }
+
+    #[test]
+    fn plans_spawn_growth_execution_for_identity_branch() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("repo root")
+            .to_path_buf();
+        let (plan, findings) = plan_growth_execution(
+            &root,
+            "spawn",
+            "knowledge/110.WHO.Vela-Identity-SoT.md",
+            "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
+        );
+        assert!(findings.is_empty());
+        let plan = plan.expect("growth plan");
+        assert_eq!(plan.kind, "spawned-sot");
+        assert_eq!(
+            plan.target,
+            "knowledge/110.WHO.Vela-Identity.Spawned-Child-SoT.md"
+        );
     }
 
     #[test]
