@@ -158,6 +158,8 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/320.WHERE.Merge-Owner-Two-SoT.md",
             "knowledge/330.WHERE.Merge-Owner-Three-SoT.md",
             "knowledge/310a.WHERE.Shared-Topic-Ref.md",
+            "knowledge/111.VELA.Matrix-Crew-SoT.md",
+            "knowledge/140.WHO.Matrix-Crew-SoT.md",
             "knowledge/ARTIFACTS/proposals/repo-watch-test.md",
             "knowledge/ARTIFACTS/proposals/repo-watch-test.packet.json",
             "knowledge/ARTIFACTS/proposals/repo-watch-test.assessment.json",
@@ -2034,6 +2036,50 @@ class VelaSystemTest(unittest.TestCase):
         self.assertEqual(
             growth_execution_with_hint["plan"]["target"],
             "knowledge/111.VELA.Matrix-Crew-SoT.md",
+        )
+        promoted_parent = REPO_ROOT / "knowledge/111.VELA.Matrix-Crew-SoT.md"
+        promoted_parent.write_text(
+            (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8")
+            .replace('parent: "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]"', 'parent: "[[110.WHO.Vela-Identity-SoT#200.WHAT.Scope]]"')
+            .replace("**Parent:** [[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]", "**Parent:** [[110.WHO.Vela-Identity-SoT#200.WHAT.Scope]]")
+            .replace("- Parent: [[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]", "- Parent: [[110.WHO.Vela-Identity-SoT#200.WHAT.Scope]]")
+            .replace("# Vela Identity Source of Truth", "# Matrix Crew Source of Truth")
+            .replace("Vela Identity Source of Truth", "Matrix Crew Source of Truth")
+            .replace("Vela is the default bundled assistant identity inside Knosence's Knosence domain.", "Matrix Crew is a governed child branch beneath Vela.")
+            .replace("Vela-Identity-SoT", "Matrix-Crew-SoT"),
+            encoding="utf-8",
+        )
+        promoted_execution = plan_growth_execution_payload(
+            "spawn",
+            "knowledge/111.VELA.Matrix-Crew-SoT.md",
+            "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
+            "Matrix-Crew",
+        )
+        self.assertTrue(promoted_execution["ok"])
+        self.assertEqual(
+            promoted_execution["plan"]["target"],
+            "knowledge/140.WHO.Matrix-Crew-SoT.md",
+        )
+        promoted_parent_target = REPO_ROOT / "knowledge/140.WHO.Matrix-Crew-SoT.md"
+        promoted_parent_target.write_text(
+            render_growth_spawned_sot_payload(
+                "knowledge/140.WHO.Matrix-Crew-SoT.md",
+                "knowledge/111.VELA.Matrix-Crew-SoT.md",
+                "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
+                "2026-04-11",
+            )["content"],
+            encoding="utf-8",
+        )
+        grandchild_execution = plan_growth_execution_payload(
+            "spawn",
+            "knowledge/140.WHO.Matrix-Crew-SoT.md",
+            "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
+            "Grower",
+        )
+        self.assertTrue(grandchild_execution["ok"])
+        self.assertEqual(
+            grandchild_execution["plan"]["target"],
+            "knowledge/141.MATRIX-CREW.Grower-SoT.md",
         )
         growth_source_update = plan_growth_source_update_payload(
             "spawn",
