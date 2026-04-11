@@ -16,6 +16,7 @@ from .rust_bridge import route_for_target as rust_route_for_target
 from .rust_bridge import plan_event_append_payload
 from .rust_bridge import plan_growth_execution_payload
 from .rust_bridge import plan_growth_source_update_payload
+from .rust_bridge import apply_growth_source_update_payload
 from .rust_bridge import render_event_payload
 from .rust_bridge import render_growth_reference_note_payload
 from .rust_bridge import render_growth_spawned_sot_payload
@@ -632,20 +633,6 @@ def create_cross_reference(
         return {"ok": False, "findings": [finding.as_dict()]}
 
     content = claimant_path.read_text(encoding="utf-8")
-    section = _section_by_heading(content, claimant_dimension_heading)
-    if not section:
-        finding = annotate_finding(
-            ValidationFinding("CROSS_REFERENCE_DIMENSION_MISSING", f"Claimant dimension not found: {claimant_dimension_heading}")
-        )
-        return {"ok": False, "findings": [finding.as_dict()]}
-
-    active = _subsection(section, "### Active")
-    if not active:
-        finding = annotate_finding(
-            ValidationFinding("CROSS_REFERENCE_ACTIVE_SECTION_MISSING", f"Claimant Active section not found: {claimant_dimension_heading}")
-        )
-        return {"ok": False, "findings": [finding.as_dict()]}
-
     cross_ref_plan = plan_cross_reference_update_payload(
         content,
         claimant_dimension_heading,
@@ -806,125 +793,7 @@ def _inject_growth_source_updates(
         proposal_target,
     )
     plan = payload.get("plan") or {}
-    execution_name = Path(execution_target).stem
-
-    updated = _append_line_to_section(source_text, "### Links", str(plan.get("link_line", "")))
-    updated = _append_line_to_section(updated, "### Status", str(plan.get("status_line", "")))
-    updated = _append_line_to_section(updated, "### Next Actions", str(plan.get("next_action_line", "")))
-    updated = _append_line_to_section(updated, "### Decisions", str(plan.get("decision_line", "")))
-    if stage == "reference-note":
-        updated = _replace_entries_with_reference_pointer(
-            updated,
-            str(plan.get("target_dimension", "")),
-            list(plan.get("replacement_entries", [])),
-            str(plan.get("active_pointer_line", "")),
-        )
-    if stage == "spawn":
-        updated = _insert_spawn_branch_pointer(
-            updated,
-            str(plan.get("target_dimension", "")),
-            str(plan.get("active_pointer_line", "")),
-        )
-    return updated
-
-
-def _append_line_to_section(text: str, heading: str, addition: str) -> str:
-    if not addition.strip():
-        return text
-    start = text.find(heading)
-    if start == -1:
-        return text
-    rest = text[start + len(heading):]
-    next_heading_match = re.search(r"\n### |\n## ", rest)
-    end = start + len(heading) + next_heading_match.start() if next_heading_match else len(text)
-    section = text[start:end].rstrip("\n")
-    if addition in section:
-        return text
-    section = f"{section}\n\n{addition}\n"
-    return text[:start] + section + text[end:]
-
-
-def _replace_entries_with_reference_pointer(
-    source_text: str,
-    dimension_heading: str,
-    entries: list[str],
-    pointer: str,
-) -> str:
-    if not dimension_heading or not entries:
-        return source_text
-    section = _section_by_heading(source_text, dimension_heading)
-    if not section:
-        return source_text
-    active = _subsection(section, "### Active")
-    updated_active = active
-    for entry in entries:
-        updated_active = updated_active.replace(entry, "").strip()
-    if pointer not in updated_active:
-        updated_active = f"{updated_active}\n\n{pointer}".strip()
-    section_updated = section.replace(active, updated_active, 1)
-    return source_text.replace(section, section_updated, 1)
-
-
-def _insert_spawn_branch_pointer(source_text: str, dimension_heading: str, pointer: str) -> str:
-    if not dimension_heading or not pointer.strip():
-        return source_text
-    section = _section_by_heading(source_text, dimension_heading)
-    if not section:
-        return source_text
-    active = _subsection(section, "### Active")
-    updated_active = active if pointer in active else f"{active.rstrip()}\n\n{pointer}\n"
-    section_updated = section.replace(active, updated_active, 1)
-    return source_text.replace(section, section_updated, 1)
-
-
-def _dimension_heading(text: str, dimension: str) -> str:
-    match = re.search(rf"^(##\s{dimension}\.[^\n]+)$", text, flags=re.MULTILINE)
-    return match.group(1) if match else ""
-
-
-def _dimension_section(text: str, dimension: str) -> str:
-    return _section_by_heading(text, _dimension_heading(text, dimension))
-
-
-def _section_by_heading(text: str, heading: str) -> str:
-    if not heading:
-        return ""
-    start = text.find(heading)
-    if start == -1:
-        return ""
-    rest = text[start + len(heading):]
-    next_heading_match = re.search(r"\n## ", rest)
-    end = start + len(heading) + next_heading_match.start() if next_heading_match else len(text)
-    return text[start:end]
-
-
-def _subsection(section: str, heading: str) -> str:
-    start = section.find(heading)
-    if start == -1:
-        return ""
-    rest = section[start + len(heading):]
-    next_heading_match = re.search(r"\n### |\n## ", rest)
-    end = start + len(heading) + next_heading_match.start() if next_heading_match else len(section)
-    return section[start:end]
-
-
-def _entry_blocks(active_section: str) -> list[str]:
-    blocks: list[str] = []
-    current: list[str] = []
-    for line in active_section.splitlines():
-        if line.startswith("- "):
-            if current:
-                blocks.append("\n".join(current).strip())
-            current = [line]
-            continue
-        if current:
-            if line.startswith("### ") or line.startswith("## "):
-                break
-            if line.strip():
-                current.append(line)
-    if current:
-        blocks.append("\n".join(current).strip())
-    return [block for block in blocks if not block.startswith("- Detailed entries moved")]
+    return str(apply_growth_source_update_payload(source_text, stage, plan)["plan"]["updated_content"])
 
 
 def _mark_proposal_applied(proposal_text: str, execution_target: str, stage: str) -> str:

@@ -58,6 +58,7 @@ from prototypes.python.vela.rust_bridge import (
     plan_event_append_payload,
     plan_growth_execution_payload,
     plan_growth_source_update_payload,
+    apply_growth_source_update_payload,
     plan_night_cycle_payload,
     plan_dreamer_follow_up_apply_payload,
     plan_dreamer_proposals_payload,
@@ -2025,6 +2026,21 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(append_plan["ok"])
         self.assertEqual(append_plan["plan"]["anchor"], "200.WHAT.Scope")
+        growth_apply = apply_growth_source_update_payload(
+            "# Test\n\n### Links\n\n(None.)\n\n### Status\n\n(None.)\n\n### Next Actions\n\n(None.)\n\n### Decisions\n\n(None.)\n\n## 200.WHAT.Scope\n\n### Active\n\n- One. (2026-04-11)\n  - A.\n\n### Inactive\n\n(No inactive entries.)\n",
+            "reference-note",
+            {
+                "link_line": "- Reference Note: [[Ref.Test]]",
+                "status_line": "- Status update. (2026-04-11)\n  - Context. [AGENT:gpt-5]",
+                "next_action_line": "- Next action. (2026-04-11)\n  - Context. [AGENT:gpt-5]",
+                "decision_line": "- [2026-04-11] Decision note.",
+                "target_dimension": "## 200.WHAT.Scope",
+                "replacement_entries": ["- One. (2026-04-11)\n  - A."],
+                "active_pointer_line": "- Detailed entries moved to `[[Ref.Test]]`. (2026-04-11)\n  - Pointer context. [AGENT:gpt-5]",
+            },
+        )
+        self.assertTrue(growth_apply["ok"])
+        self.assertIn("Reference Note: [[Ref.Test]]", growth_apply["plan"]["updated_content"])
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",
             [

@@ -137,6 +137,11 @@ pub struct GrowthSourceUpdatePlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GrowthSourceApplyPlan {
+    pub updated_content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArchiveTransactionPlan {
     pub updated_content: String,
     pub archived_entry: String,

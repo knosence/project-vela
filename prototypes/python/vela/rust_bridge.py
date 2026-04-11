@@ -45,6 +45,25 @@ def plan_dimension_append_payload(content: str, dimension: str, value: str, cont
     return _run(["plan-dimension-append", dimension, value, context], stdin=content)
 
 
+def apply_growth_source_update_payload(source_text: str, stage: str, plan: dict[str, Any]) -> dict[str, Any]:
+    replacement_entries = [str(item) for item in plan.get("replacement_entries", [])]
+    replacement_blob = "\n===ENTRY===\n".join(replacement_entries)
+    stdin = f"{source_text}\n===REPLACEMENTS===\n{replacement_blob}"
+    return _run(
+        [
+            "apply-growth-source-update",
+            stage,
+            str(plan.get("link_line", "")),
+            str(plan.get("status_line", "")),
+            str(plan.get("next_action_line", "")),
+            str(plan.get("decision_line", "")),
+            str(plan.get("target_dimension", "")),
+            str(plan.get("active_pointer_line", "")),
+        ],
+        stdin=stdin,
+    )
+
+
 def match_dreamer_actions_payload(
     registry_json: str,
     mode: str,

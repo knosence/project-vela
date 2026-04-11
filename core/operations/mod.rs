@@ -4,9 +4,9 @@ use crate::models::{
     ArchiveTransactionPlan, CompanionPathPlan, CrossReferencePlan, CsvInboxEntry, CsvInboxPlan,
     DimensionAppendPlan, DreamerAction, DreamerActionRegistry, DreamerApplyPlan,
     DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan,
-    GrowthAssessment, GrowthExecutionPlan, GrowthSourceUpdatePlan, InboxTriagePlan, NightCyclePlan,
-    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan,
-    SchedulerPlan, ValidationFinding,
+    GrowthAssessment, GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan,
+    InboxTriagePlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
+    OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -364,6 +364,35 @@ pub fn plan_growth_source_update(
         }),
         Vec::new(),
     )
+}
+
+pub fn apply_growth_source_update(
+    source_text: &str,
+    stage: &str,
+    plan: &GrowthSourceUpdatePlan,
+) -> GrowthSourceApplyPlan {
+    let mut updated = append_line_to_section(source_text, "### Links", &plan.link_line);
+    updated = append_line_to_section(&updated, "### Status", &plan.status_line);
+    updated = append_line_to_section(&updated, "### Next Actions", &plan.next_action_line);
+    updated = append_line_to_section(&updated, "### Decisions", &plan.decision_line);
+    if stage == "reference-note" {
+        updated = replace_entries_with_reference_pointer(
+            &updated,
+            &plan.target_dimension,
+            &plan.replacement_entries,
+            &plan.active_pointer_line,
+        );
+    }
+    if stage == "spawn" {
+        updated = insert_spawn_branch_pointer(
+            &updated,
+            &plan.target_dimension,
+            &plan.active_pointer_line,
+        );
+    }
+    GrowthSourceApplyPlan {
+        updated_content: updated,
+    }
 }
 
 pub fn render_growth_reference_note(
@@ -2856,6 +2885,27 @@ fn locate_dimension_section(
     ))
 }
 
+fn append_line_to_section(text: &str, heading: &str, addition: &str) -> String {
+    if addition.trim().is_empty() {
+        return text.to_string();
+    }
+    let Some(start) = text.find(heading) else {
+        return text.to_string();
+    };
+    let rest = &text[start + heading.len()..];
+    let end = rest
+        .find("\n### ")
+        .or_else(|| rest.find("\n## "))
+        .map(|offset| start + heading.len() + offset)
+        .unwrap_or(text.len());
+    let section = text[start..end].trim_end_matches('\n');
+    if section.contains(addition) {
+        return text.to_string();
+    }
+    let replacement = format!("{section}\n\n{addition}\n");
+    format!("{}{}{}", &text[..start], replacement, &text[end..])
+}
+
 fn locate_active_inactive_bounds(section: &str) -> Option<(usize, usize)> {
     let active_start = section.find("### Active")?;
     let inactive_start = section.find("### Inactive")?;
@@ -2982,6 +3032,33 @@ fn section_by_heading(text: &str, heading: &str) -> String {
     text[start..end].to_string()
 }
 
+fn replace_entries_with_reference_pointer(
+    source_text: &str,
+    dimension_heading: &str,
+    entries: &[String],
+    pointer: &str,
+) -> String {
+    if dimension_heading.is_empty() || entries.is_empty() {
+        return source_text.to_string();
+    }
+    let section = section_by_heading(source_text, dimension_heading);
+    if section.is_empty() {
+        return source_text.to_string();
+    }
+    let active = subsection(section.as_str(), "### Active");
+    let mut updated_active = active.clone();
+    for entry in entries {
+        updated_active = updated_active.replace(entry, "").trim().to_string();
+    }
+    if !updated_active.contains(pointer) {
+        updated_active = format!("{}\n\n{}", updated_active.trim(), pointer)
+            .trim()
+            .to_string();
+    }
+    let section_updated = section.replacen(active.as_str(), &updated_active, 1);
+    source_text.replacen(section.as_str(), &section_updated, 1)
+}
+
 fn subsection(section: &str, heading: &str) -> String {
     let Some(start) = section.find(heading) else {
         return String::new();
@@ -2993,6 +3070,32 @@ fn subsection(section: &str, heading: &str) -> String {
         .map(|offset| start + heading.len() + offset)
         .unwrap_or(section.len());
     section[start..end].to_string()
+}
+
+fn insert_spawn_branch_pointer(
+    source_text: &str,
+    dimension_heading: &str,
+    pointer: &str,
+) -> String {
+    if dimension_heading.is_empty() || pointer.trim().is_empty() {
+        return source_text.to_string();
+    }
+    let section = section_by_heading(source_text, dimension_heading);
+    if section.is_empty() {
+        return source_text.to_string();
+    }
+    let active = subsection(section.as_str(), "### Active");
+    let updated_active = if active.contains(pointer) {
+        active
+    } else {
+        format!("{}\n\n{}\n", active.trim_end(), pointer)
+    };
+    let section_updated = section.replacen(
+        subsection(section.as_str(), "### Active").as_str(),
+        &updated_active,
+        1,
+    );
+    source_text.replacen(section.as_str(), &section_updated, 1)
 }
 
 fn entry_blocks(section: &str) -> Vec<String> {
@@ -3366,6 +3469,33 @@ mod tests {
         assert!(plan
             .active_pointer_line
             .contains("[[110.WHO.Vela-Identity.Spawned-Child-SoT]]"));
+    }
+
+    #[test]
+    fn applies_reference_growth_source_update() {
+        let source = "# Test\n\n### Links\n\n(None.)\n\n### Status\n\n(None.)\n\n### Next Actions\n\n(None.)\n\n### Decisions\n\n(None.)\n\n## 200.WHAT.Scope\n\n### Active\n\n- One. (2026-04-11)\n  - A.\n- Two. (2026-04-11)\n  - B.\n\n### Inactive\n\n(No inactive entries.)\n";
+        let plan = GrowthSourceUpdatePlan {
+            link_line: "- Reference Note: [[Ref.Test]]".to_string(),
+            status_line: "- Status update. (2026-04-11)\n  - Context. [AGENT:gpt-5]".to_string(),
+            next_action_line: "- Next action. (2026-04-11)\n  - Context. [AGENT:gpt-5]".to_string(),
+            decision_line: "- [2026-04-11] Decision note.".to_string(),
+            target_dimension: "## 200.WHAT.Scope".to_string(),
+            replacement_entries: vec![
+                "- One. (2026-04-11)\n  - A.".to_string(),
+                "- Two. (2026-04-11)\n  - B.".to_string(),
+            ],
+            active_pointer_line: "- Detailed entries moved to `[[Ref.Test]]`. (2026-04-11)\n  - Pointer context. [AGENT:gpt-5]".to_string(),
+        };
+        let applied = apply_growth_source_update(source, "reference-note", &plan);
+        assert!(applied
+            .updated_content
+            .contains("Reference Note: [[Ref.Test]]"));
+        assert!(applied
+            .updated_content
+            .contains("Detailed entries moved to `[[Ref.Test]]`."));
+        assert!(!applied
+            .updated_content
+            .contains("- One. (2026-04-11)\n  - A."));
     }
 
     #[test]

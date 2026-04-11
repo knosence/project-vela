@@ -16,11 +16,12 @@ use vela_core::matrix::{
 use vela_core::models::{
     ArchiveTransactionPlan, BlockedItemSummary, CompanionPathPlan, CrossReferencePlan,
     CsvInboxPlan, DimensionAppendPlan, DreamerProposalCandidate, GrowthAssessment,
-    GrowthExecutionPlan, GrowthSourceUpdatePlan, GrowthTarget, InboxTriagePlan, OnboardingConfig,
-    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget,
-    SchedulerPlan, Severity, ValidationFinding,
+    GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan, GrowthTarget,
+    InboxTriagePlan, OnboardingConfig, OperationLifecyclePlan, OperationLockRecord,
+    OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
+    apply_growth_source_update as apply_growth_source_update_policy,
     assess_growth_target as assess_growth_target_policy,
     classify_dreamer_follow_up as classify_dreamer_follow_up_policy,
     dreamer_existing_execution_target as dreamer_existing_execution_target_policy,
@@ -218,6 +219,54 @@ fn run() -> Result<(), String> {
             } else {
                 println!("{{\"ok\":true,\"plan\":null}}");
             }
+        }
+        "apply-growth-source-update" => {
+            let stage = args.next().ok_or_else(|| "missing stage".to_string())?;
+            let link_line = args.next().ok_or_else(|| "missing link line".to_string())?;
+            let status_line = args
+                .next()
+                .ok_or_else(|| "missing status line".to_string())?;
+            let next_action_line = args
+                .next()
+                .ok_or_else(|| "missing next action line".to_string())?;
+            let decision_line = args
+                .next()
+                .ok_or_else(|| "missing decision line".to_string())?;
+            let target_dimension = args
+                .next()
+                .ok_or_else(|| "missing target dimension".to_string())?;
+            let active_pointer_line = args
+                .next()
+                .ok_or_else(|| "missing active pointer line".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (source_text, replacement_blob) = content
+                .split_once("\n===REPLACEMENTS===\n")
+                .ok_or_else(|| "missing replacement split marker".to_string())?;
+            let replacement_entries = if replacement_blob.trim().is_empty() {
+                Vec::new()
+            } else {
+                replacement_blob
+                    .split("\n===ENTRY===\n")
+                    .map(|item| item.to_string())
+                    .collect()
+            };
+            let plan = GrowthSourceUpdatePlan {
+                link_line,
+                status_line,
+                next_action_line,
+                decision_line,
+                target_dimension,
+                replacement_entries,
+                active_pointer_line,
+            };
+            let applied = apply_growth_source_update_policy(source_text, &stage, &plan);
+            println!(
+                "{{\"ok\":true,\"plan\":{}}}",
+                render_growth_source_apply_plan(&applied)
+            );
         }
         "validate-subject-declaration" => {
             let approval_status = args
@@ -2143,6 +2192,13 @@ fn render_dimension_append_plan(item: &DimensionAppendPlan) -> String {
         "{{\"updated_content\":\"{}\",\"anchor\":\"{}\"}}",
         escape_json(&item.updated_content),
         escape_json(&item.anchor),
+    )
+}
+
+fn render_growth_source_apply_plan(item: &GrowthSourceApplyPlan) -> String {
+    format!(
+        "{{\"updated_content\":\"{}\"}}",
+        escape_json(&item.updated_content),
     )
 }
 
