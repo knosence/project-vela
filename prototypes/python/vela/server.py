@@ -23,8 +23,11 @@ from .operations_runtime import (
     apply_dreamer_follow_up,
     list_dreamer_follow_ups,
     list_dreamer_queue,
+    operations_state,
     review_dreamer_proposal,
+    run_night_cycle_scheduler,
     run_night_cycle,
+    run_warden_patrol_scheduler,
     run_warden_patrol,
 )
 from .paths import REPO_ROOT, VERIFICATION_STATUS_PATH
@@ -189,11 +192,34 @@ class VelaService:
             return envelope(True, "patrol-run", "accepted", "Warden patrol completed", data=result)
         return envelope(False, "patrol-run", "rejected", "Warden patrol blocked", data=result, errors=result.get("structural_flags", []))
 
+    def patrol_scheduler_run(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = run_warden_patrol_scheduler(
+            requested_by=payload.get("actor", "n8n"),
+            interval_seconds=int(payload.get("interval_seconds", 14400)),
+            max_runs=int(payload.get("max_runs", 1)),
+        )
+        if result["ok"]:
+            return envelope(True, "patrol-scheduler-run", "accepted", "Warden patrol scheduler completed", data=result)
+        return envelope(False, "patrol-scheduler-run", "rejected", "Warden patrol scheduler blocked", data=result, errors=result.get("runs", []))
+
     def night_cycle_run(self, payload: dict[str, Any]) -> dict[str, Any]:
         result = run_night_cycle(requested_by=payload.get("actor", "n8n"))
         if result["ok"]:
             return envelope(True, "night-cycle-run", "accepted", "Night cycle completed", data=result)
         return envelope(False, "night-cycle-run", "rejected", "Night cycle blocked", data=result, errors=result.get("structural_flags", []))
+
+    def night_cycle_scheduler_run(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = run_night_cycle_scheduler(
+            requested_by=payload.get("actor", "n8n"),
+            interval_seconds=int(payload.get("interval_seconds", 86400)),
+            max_runs=int(payload.get("max_runs", 1)),
+        )
+        if result["ok"]:
+            return envelope(True, "night-cycle-scheduler-run", "accepted", "Night cycle scheduler completed", data=result)
+        return envelope(False, "night-cycle-scheduler-run", "rejected", "Night cycle scheduler blocked", data=result, errors=result.get("runs", []))
+
+    def operations_state(self) -> dict[str, Any]:
+        return envelope(True, "operations-state", "accepted", "Operations runtime state listed", data=operations_state())
 
     def dreamer_queue(self) -> dict[str, Any]:
         return envelope(True, "dreamer-queue", "accepted", "Dreamer queue listed", data=list_dreamer_queue())
@@ -351,6 +377,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/n8n/profiles":
             self._send(self.service.profiles())
             return
+        if parsed.path == "/api/n8n/operations/state":
+            self._send(self.service.operations_state())
+            return
         if parsed.path == "/api/n8n/dreamer/queue":
             self._send(self.service.dreamer_queue())
             return
@@ -380,7 +409,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             "/api/n8n/inbox/triage": self.service.inbox_triage,
             "/api/n8n/cross-reference": self.service.cross_reference,
             "/api/n8n/patrol/run": self.service.patrol_run,
+            "/api/n8n/patrol/scheduler/run": self.service.patrol_scheduler_run,
             "/api/n8n/night-cycle/run": self.service.night_cycle_run,
+            "/api/n8n/night-cycle/scheduler/run": self.service.night_cycle_scheduler_run,
             "/api/n8n/dreamer/review": self.service.dreamer_review,
             "/api/n8n/dreamer/follow-ups/apply": self.service.dreamer_apply_follow_up,
             "/api/n8n/dreamer/actions/register": self.service.dreamer_register_action,

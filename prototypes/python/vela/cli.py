@@ -14,8 +14,11 @@ from .operations_runtime import (
     apply_dreamer_follow_up,
     list_dreamer_follow_ups,
     list_dreamer_queue,
+    operations_state,
     review_dreamer_proposal,
+    run_night_cycle_scheduler,
     run_night_cycle,
+    run_warden_patrol_scheduler,
     run_warden_patrol,
 )
 from .profiles import activate_profile, list_profiles
@@ -114,10 +117,27 @@ def cmd_patrol_run(_: argparse.Namespace) -> int:
     return 0 if result["ok"] else 1
 
 
+def cmd_patrol_loop(args: argparse.Namespace) -> int:
+    result = run_warden_patrol_scheduler(requested_by="human", interval_seconds=args.interval_seconds, max_runs=args.max_runs)
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
 def cmd_night_cycle_run(_: argparse.Namespace) -> int:
     result = run_night_cycle(requested_by="human")
     print(json.dumps(result, indent=2))
     return 0 if result["ok"] else 1
+
+
+def cmd_night_cycle_loop(args: argparse.Namespace) -> int:
+    result = run_night_cycle_scheduler(requested_by="human", interval_seconds=args.interval_seconds, max_runs=args.max_runs)
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
+def cmd_operations_state(_: argparse.Namespace) -> int:
+    print(json.dumps(operations_state(), indent=2))
+    return 0
 
 
 def cmd_dreamer_queue(_: argparse.Namespace) -> int:
@@ -301,11 +321,24 @@ def build_parser() -> argparse.ArgumentParser:
     patrol_sub = patrol_parser.add_subparsers(dest="patrol_command", required=True)
     patrol_run_parser = patrol_sub.add_parser("run")
     patrol_run_parser.set_defaults(func=cmd_patrol_run)
+    patrol_loop_parser = patrol_sub.add_parser("loop")
+    patrol_loop_parser.add_argument("--interval-seconds", type=int, default=14400)
+    patrol_loop_parser.add_argument("--max-runs", type=int, default=1)
+    patrol_loop_parser.set_defaults(func=cmd_patrol_loop)
 
     night_cycle_parser = sub.add_parser("night-cycle")
     night_cycle_sub = night_cycle_parser.add_subparsers(dest="night_cycle_command", required=True)
     night_cycle_run_parser = night_cycle_sub.add_parser("run")
     night_cycle_run_parser.set_defaults(func=cmd_night_cycle_run)
+    night_cycle_loop_parser = night_cycle_sub.add_parser("loop")
+    night_cycle_loop_parser.add_argument("--interval-seconds", type=int, default=86400)
+    night_cycle_loop_parser.add_argument("--max-runs", type=int, default=1)
+    night_cycle_loop_parser.set_defaults(func=cmd_night_cycle_loop)
+
+    operations_parser = sub.add_parser("operations")
+    operations_sub = operations_parser.add_subparsers(dest="operations_command", required=True)
+    operations_state_parser = operations_sub.add_parser("state")
+    operations_state_parser.set_defaults(func=cmd_operations_state)
 
     dreamer_parser = sub.add_parser("dreamer")
     dreamer_sub = dreamer_parser.add_subparsers(dest="dreamer_command", required=True)

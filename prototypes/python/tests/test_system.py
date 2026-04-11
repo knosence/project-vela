@@ -25,11 +25,14 @@ from prototypes.python.vela.operations_runtime import (
     apply_dreamer_follow_up,
     list_dreamer_follow_ups,
     list_dreamer_queue,
+    operations_state,
     review_dreamer_proposal,
+    run_night_cycle_scheduler,
     run_night_cycle,
+    run_warden_patrol_scheduler,
     run_warden_patrol,
 )
-from prototypes.python.vela.paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, PATCH_LOG_PATH, REPO_ROOT, STARTER_PATH
+from prototypes.python.vela.paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
 from prototypes.python.vela.repo_watch import analyze_release
 from prototypes.python.vela.rust_bridge import (
@@ -70,6 +73,8 @@ class VelaSystemTest(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+        if OPERATIONS_STATE_PATH.exists():
+            OPERATIONS_STATE_PATH.unlink()
         self._cleanup_generated_artifacts()
 
     def tearDown(self) -> None:
@@ -146,6 +151,10 @@ class VelaSystemTest(unittest.TestCase):
             path.unlink()
         if PATCH_LOG_PATH.exists():
             PATCH_LOG_PATH.unlink()
+        if OPERATIONS_STATE_PATH.exists():
+            OPERATIONS_STATE_PATH.unlink()
+        for path in QUEUE_DIR.glob("operation-*.lock"):
+            path.unlink()
 
     def test_config_boot(self) -> None:
         cfg = load_config()
@@ -970,6 +979,38 @@ class VelaSystemTest(unittest.TestCase):
         night_cycle = VelaService().night_cycle_run({"actor": "n8n"})
         self.assertTrue(night_cycle["ok"])
         self.assertEqual(night_cycle["endpoint"], "night-cycle-run")
+
+    def test_operations_state_and_scheduler_surfaces(self) -> None:
+        patrol_loop = run_warden_patrol_scheduler(requested_by="human", interval_seconds=0, max_runs=1)
+        self.assertTrue(patrol_loop["ok"])
+        self.assertEqual(patrol_loop["runs_attempted"], 1)
+        state = operations_state()
+        self.assertEqual(state["patrol"]["status"], "completed")
+        self.assertEqual(state["patrol"]["run_count"], 1)
+
+        night_loop = run_night_cycle_scheduler(requested_by="human", interval_seconds=0, max_runs=1)
+        self.assertTrue(night_loop["ok"])
+        state = operations_state()
+        self.assertEqual(state["night-cycle"]["status"], "completed")
+        self.assertEqual(state["night-cycle"]["run_count"], 1)
+
+        service_state = VelaService().operations_state()
+        self.assertTrue(service_state["ok"])
+        self.assertIn("patrol", service_state["data"])
+
+    def test_operation_overlap_lock_blocks_parallel_cycle(self) -> None:
+        QUEUE_DIR.mkdir(parents=True, exist_ok=True)
+        patrol_lock = QUEUE_DIR / "operation-patrol.lock"
+        patrol_lock.write_text("{}", encoding="utf-8")
+        blocked_patrol = run_warden_patrol(requested_by="human")
+        self.assertFalse(blocked_patrol["ok"])
+        self.assertTrue(any(item["code"] == "OPERATION_ALREADY_RUNNING" for item in blocked_patrol["findings"]))
+
+        night_lock = QUEUE_DIR / "operation-night-cycle.lock"
+        night_lock.write_text("{}", encoding="utf-8")
+        blocked_night = run_night_cycle(requested_by="human")
+        self.assertFalse(blocked_night["ok"])
+        self.assertTrue(any(item["code"] == "OPERATION_ALREADY_RUNNING" for item in blocked_night["findings"]))
 
     def test_dreamer_queue_and_review(self) -> None:
         for _ in range(3):

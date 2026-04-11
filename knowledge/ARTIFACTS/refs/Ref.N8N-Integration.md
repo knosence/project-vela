@@ -21,3 +21,6 @@ Repo-release, validation, reflection, approval, verification, and profile activa
 
 ## This Integration Also Exposes Governed Growth Proposal Execution
 `POST /api/n8n/growth/apply` accepts a proposal path plus an optional `approval_id` and applies the growth proposal through the same governed logic used by the CLI. The service blocks sovereign structural execution until approval exists, writes the resulting controlled artifact, updates the proposal status, and emits structured events.
+
+## This Integration Exposes Runtime Scheduling and State Without Surrendering Governance
+`POST /api/n8n/patrol/scheduler/run` and `POST /api/n8n/night-cycle/scheduler/run` execute the schedulable patrol and night-cycle runners with bounded loop parameters. `GET /api/n8n/operations/state` exposes the durable runtime ledger so workflows can see whether patrol or night-cycle is idle, running, completed, or overlap-blocked.

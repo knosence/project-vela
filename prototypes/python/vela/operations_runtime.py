@@ -5,6 +5,7 @@ import re
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+import time
 from typing import Any
 
 from .dreamer_actions import load_dreamer_actions
@@ -12,109 +13,241 @@ from .dreamer_actions import register_dreamer_action as register_dreamer_action_
 from .governance import append_event, record_approval, validate_target, write_text
 from .growth import assess_growth
 from .models import EventRecord
-from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, PATCH_LOG_PATH, REFS_DIR, REPO_ROOT
+from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
 from .rust_bridge import matrix_inventory_payload
+
+PATROL_INTERVAL_SECONDS = 4 * 60 * 60
+NIGHT_CYCLE_INTERVAL_SECONDS = 24 * 60 * 60
 
 
 def run_warden_patrol(requested_by: str = "system") -> dict[str, Any]:
+    started_at = datetime.now(timezone.utc).isoformat()
+    lock = _acquire_operation_lock("patrol", requested_by, started_at)
+    if not lock["ok"]:
+        _update_operation_state(
+            "patrol",
+            status="blocked",
+            requested_by=requested_by,
+            started_at=started_at,
+            last_error=lock["detail"],
+        )
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="patrol",
+                actor="warden",
+                target=lock["target"],
+                status="blocked",
+                reason=lock["detail"],
+                artifacts=[lock["target"]],
+                validation_summary={"requested_by": requested_by},
+            )
+        )
+        return {"ok": False, "report_target": "", "files_checked": 0, "structural_flags": [], "cosmetic_fixes": [], "findings": [lock]}
+    _update_operation_state("patrol", status="running", requested_by=requested_by, started_at=started_at)
     targets = _patched_targets()
     checked: list[dict[str, Any]] = []
     structural_flags: list[dict[str, Any]] = []
-    for target in targets:
-        path = REPO_ROOT / target
-        if not path.exists() or not path.is_file():
-            continue
-        if path.suffix not in {".md", ".json"}:
-            continue
-        content = path.read_text(encoding="utf-8")
-        findings = [item.as_dict() for item in validate_target(target, content)]
-        if any(item["severity"] == "error" for item in findings):
-            structural_flags.append({"target": target, "findings": findings})
-        checked.append({"target": target, "findings": findings})
+    report_target = ""
+    try:
+        for target in targets:
+            path = REPO_ROOT / target
+            if not path.exists() or not path.is_file():
+                continue
+            if path.suffix not in {".md", ".json"}:
+                continue
+            content = path.read_text(encoding="utf-8")
+            findings = [item.as_dict() for item in validate_target(target, content)]
+            if any(item["severity"] == "error" for item in findings):
+                structural_flags.append({"target": target, "findings": findings})
+            checked.append({"target": target, "findings": findings})
 
-    stamp = _stamp()
-    report_target = f"knowledge/ARTIFACTS/refs/Warden-Patrol-{stamp}.md"
-    report = _render_patrol_report(stamp, requested_by, checked, structural_flags)
-    result = write_text(report_target, report, actor="warden", endpoint="patrol", reason="warden patrol report")
-    append_event(
-        EventRecord(
-            source="vela",
-            endpoint="patrol",
-            actor="warden",
-            target=report_target,
-            status="committed" if result["ok"] else "blocked",
-            reason="warden patrol executed",
-            artifacts=result.get("artifacts", [report_target]),
-            validation_summary={
-                "requested_by": requested_by,
-                "files_checked": len(checked),
-                "structural_flags": len(structural_flags),
-            },
+        stamp = _stamp()
+        report_target = f"knowledge/ARTIFACTS/refs/Warden-Patrol-{stamp}.md"
+        report = _render_patrol_report(stamp, requested_by, checked, structural_flags)
+        result = write_text(report_target, report, actor="warden", endpoint="patrol", reason="warden patrol report")
+        _update_operation_state(
+            "patrol",
+            status="completed" if result["ok"] else "blocked",
+            requested_by=requested_by,
+            started_at=started_at,
+            completed_at=datetime.now(timezone.utc).isoformat(),
+            last_report_target=report_target,
+            last_error="" if result["ok"] else "warden patrol blocked",
+            increment_runs=result["ok"],
         )
-    )
-    return {
-        "ok": result["ok"],
-        "report_target": report_target,
-        "files_checked": len(checked),
-        "structural_flags": structural_flags,
-        "cosmetic_fixes": [],
-    }
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="patrol",
+                actor="warden",
+                target=report_target,
+                status="committed" if result["ok"] else "blocked",
+                reason="warden patrol executed",
+                artifacts=result.get("artifacts", [report_target]),
+                validation_summary={
+                    "requested_by": requested_by,
+                    "files_checked": len(checked),
+                    "structural_flags": len(structural_flags),
+                },
+            )
+        )
+        return {
+            "ok": result["ok"],
+            "report_target": report_target,
+            "files_checked": len(checked),
+            "structural_flags": structural_flags,
+            "cosmetic_fixes": [],
+        }
+    finally:
+        _release_operation_lock("patrol")
 
 
 def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
-    patrol = run_warden_patrol(requested_by=requested_by)
-    growth_candidates = _growth_candidates()
-    blocked_items = _blocked_items()
-    dreamer_patterns = _dreamer_patterns(blocked_items)
-    stamp = _stamp()
-    dreamer_proposals = _write_dreamer_proposals(stamp, requested_by, dreamer_patterns, blocked_items)
-    dreamer_report_target = f"knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-{stamp}.md"
-    dreamer_report = _render_dreamer_report(stamp, requested_by, dreamer_patterns, blocked_items, dreamer_proposals)
-    dreamer_result = write_text(
-        dreamer_report_target,
-        dreamer_report,
-        actor="reflector",
-        endpoint="night-cycle",
-        reason="dreamer pattern report",
-    )
-    report_target = f"knowledge/ARTIFACTS/refs/DC-Night-Report-{stamp}.md"
-    report = _render_night_report(stamp, requested_by, patrol, growth_candidates, dreamer_patterns, blocked_items, dreamer_report_target, dreamer_proposals)
-    result = write_text(report_target, report, actor="system", endpoint="night-cycle", reason="dc night cycle report")
-    append_event(
-        EventRecord(
-            source="vela",
-            endpoint="night-cycle",
-            actor="dc",
-            target=report_target,
-            status="committed" if result["ok"] else "blocked",
-            reason="dc night cycle executed",
-            artifacts=[
-                dreamer_report_target,
-                report_target,
-                *dreamer_result.get("artifacts", [dreamer_report_target]),
-                *result.get("artifacts", [report_target]),
-            ],
-            validation_summary={
-                "requested_by": requested_by,
-                "growth_candidates": len(growth_candidates),
-                "dreamer_patterns": dreamer_patterns,
-                "blocked_items": len(blocked_items),
-                "patrol_report": patrol.get("report_target", ""),
-                "dreamer_report": dreamer_report_target,
-                "dreamer_proposals": [item["target"] for item in dreamer_proposals],
-            },
+    started_at = datetime.now(timezone.utc).isoformat()
+    lock = _acquire_operation_lock("night-cycle", requested_by, started_at)
+    if not lock["ok"]:
+        _update_operation_state(
+            "night-cycle",
+            status="blocked",
+            requested_by=requested_by,
+            started_at=started_at,
+            last_error=lock["detail"],
         )
-    )
-    return {
-        "ok": result["ok"] and dreamer_result["ok"],
-        "report_target": report_target,
-        "dreamer_report_target": dreamer_report_target,
-        "patrol": patrol,
-        "growth_candidates": growth_candidates,
-        "dreamer_patterns": dreamer_patterns,
-        "blocked_items": blocked_items,
-        "dreamer_proposals": dreamer_proposals,
-    }
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="night-cycle",
+                actor="dc",
+                target=lock["target"],
+                status="blocked",
+                reason=lock["detail"],
+                artifacts=[lock["target"]],
+                validation_summary={"requested_by": requested_by},
+            )
+        )
+        return {
+            "ok": False,
+            "report_target": "",
+            "dreamer_report_target": "",
+            "patrol": {"ok": False},
+            "growth_candidates": [],
+            "dreamer_patterns": {},
+            "blocked_items": [],
+            "dreamer_proposals": [],
+            "findings": [lock],
+        }
+    _update_operation_state("night-cycle", status="running", requested_by=requested_by, started_at=started_at)
+    report_target = ""
+    dreamer_report_target = ""
+    try:
+        patrol = run_warden_patrol(requested_by=f"night-cycle:{requested_by}")
+        if not patrol["ok"]:
+            _update_operation_state(
+                "night-cycle",
+                status="blocked",
+                requested_by=requested_by,
+                started_at=started_at,
+                completed_at=datetime.now(timezone.utc).isoformat(),
+                last_error="night cycle could not acquire dependent patrol execution",
+            )
+            return {
+                "ok": False,
+                "report_target": "",
+                "dreamer_report_target": "",
+                "patrol": patrol,
+                "growth_candidates": [],
+                "dreamer_patterns": {},
+                "blocked_items": [],
+                "dreamer_proposals": [],
+                "findings": patrol.get("findings", []),
+            }
+        growth_candidates = _growth_candidates()
+        blocked_items = _blocked_items()
+        dreamer_patterns = _dreamer_patterns(blocked_items)
+        stamp = _stamp()
+        dreamer_proposals = _write_dreamer_proposals(stamp, requested_by, dreamer_patterns, blocked_items)
+        dreamer_report_target = f"knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-{stamp}.md"
+        dreamer_report = _render_dreamer_report(stamp, requested_by, dreamer_patterns, blocked_items, dreamer_proposals)
+        dreamer_result = write_text(
+            dreamer_report_target,
+            dreamer_report,
+            actor="reflector",
+            endpoint="night-cycle",
+            reason="dreamer pattern report",
+        )
+        report_target = f"knowledge/ARTIFACTS/refs/DC-Night-Report-{stamp}.md"
+        report = _render_night_report(stamp, requested_by, patrol, growth_candidates, dreamer_patterns, blocked_items, dreamer_report_target, dreamer_proposals)
+        result = write_text(report_target, report, actor="system", endpoint="night-cycle", reason="dc night cycle report")
+        _update_operation_state(
+            "night-cycle",
+            status="completed" if result["ok"] and dreamer_result["ok"] else "blocked",
+            requested_by=requested_by,
+            started_at=started_at,
+            completed_at=datetime.now(timezone.utc).isoformat(),
+            last_report_target=report_target,
+            last_error="" if result["ok"] and dreamer_result["ok"] else "night cycle blocked",
+            increment_runs=result["ok"] and dreamer_result["ok"],
+        )
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="night-cycle",
+                actor="dc",
+                target=report_target,
+                status="committed" if result["ok"] else "blocked",
+                reason="dc night cycle executed",
+                artifacts=[
+                    dreamer_report_target,
+                    report_target,
+                    *dreamer_result.get("artifacts", [dreamer_report_target]),
+                    *result.get("artifacts", [report_target]),
+                ],
+                validation_summary={
+                    "requested_by": requested_by,
+                    "growth_candidates": len(growth_candidates),
+                    "dreamer_patterns": dreamer_patterns,
+                    "blocked_items": len(blocked_items),
+                    "patrol_report": patrol.get("report_target", ""),
+                    "dreamer_report": dreamer_report_target,
+                    "dreamer_proposals": [item["target"] for item in dreamer_proposals],
+                },
+            )
+        )
+        return {
+            "ok": result["ok"] and dreamer_result["ok"],
+            "report_target": report_target,
+            "dreamer_report_target": dreamer_report_target,
+            "patrol": patrol,
+            "growth_candidates": growth_candidates,
+            "dreamer_patterns": dreamer_patterns,
+            "blocked_items": blocked_items,
+            "dreamer_proposals": dreamer_proposals,
+        }
+    finally:
+        _release_operation_lock("night-cycle")
+
+
+def run_warden_patrol_scheduler(
+    *,
+    requested_by: str = "system",
+    interval_seconds: int = PATROL_INTERVAL_SECONDS,
+    max_runs: int = 1,
+) -> dict[str, Any]:
+    return _run_scheduler("patrol", requested_by=requested_by, interval_seconds=interval_seconds, max_runs=max_runs)
+
+
+def run_night_cycle_scheduler(
+    *,
+    requested_by: str = "system",
+    interval_seconds: int = NIGHT_CYCLE_INTERVAL_SECONDS,
+    max_runs: int = 1,
+) -> dict[str, Any]:
+    return _run_scheduler("night-cycle", requested_by=requested_by, interval_seconds=interval_seconds, max_runs=max_runs)
+
+
+def operations_state() -> dict[str, Any]:
+    return _load_operations_state()
 
 
 def list_dreamer_queue() -> dict[str, Any]:
@@ -717,6 +850,126 @@ def _register_dreamer_action(
         "target": str(DREAMER_ACTIONS_PATH.relative_to(REPO_ROOT)),
         "findings": result.get("findings", []),
     }
+
+
+def _operation_lock_path(name: str) -> Path:
+    QUEUE_DIR.mkdir(parents=True, exist_ok=True)
+    return QUEUE_DIR / f"operation-{name}.lock"
+
+
+def _acquire_operation_lock(name: str, requested_by: str, started_at: str) -> dict[str, Any]:
+    lock_path = _operation_lock_path(name)
+    if lock_path.exists():
+        return {
+            "ok": False,
+            "code": "OPERATION_ALREADY_RUNNING",
+            "detail": f"Operation `{name}` is already running.",
+            "target": str(lock_path.relative_to(REPO_ROOT)),
+        }
+    lock_path.write_text(
+        json.dumps({"name": name, "requested_by": requested_by, "started_at": started_at}, indent=2),
+        encoding="utf-8",
+    )
+    return {"ok": True, "target": str(lock_path.relative_to(REPO_ROOT))}
+
+
+def _release_operation_lock(name: str) -> None:
+    lock_path = _operation_lock_path(name)
+    if lock_path.exists():
+        lock_path.unlink()
+
+
+def _default_operations_state() -> dict[str, Any]:
+    return {
+        "patrol": {
+            "status": "idle",
+            "last_started": "",
+            "last_completed": "",
+            "last_report_target": "",
+            "last_error": "",
+            "requested_by": "",
+            "run_count": 0,
+        },
+        "night-cycle": {
+            "status": "idle",
+            "last_started": "",
+            "last_completed": "",
+            "last_report_target": "",
+            "last_error": "",
+            "requested_by": "",
+            "run_count": 0,
+        },
+    }
+
+
+def _load_operations_state() -> dict[str, Any]:
+    if not OPERATIONS_STATE_PATH.exists():
+        return _default_operations_state()
+    return json.loads(OPERATIONS_STATE_PATH.read_text(encoding="utf-8"))
+
+
+def _write_operations_state(state: dict[str, Any]) -> None:
+    OPERATIONS_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    OPERATIONS_STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+
+def _update_operation_state(
+    name: str,
+    *,
+    status: str,
+    requested_by: str,
+    started_at: str | None = None,
+    completed_at: str | None = None,
+    last_report_target: str | None = None,
+    last_error: str | None = None,
+    increment_runs: bool = False,
+) -> None:
+    state = _load_operations_state()
+    entry = dict(state.get(name, {}))
+    entry.setdefault("run_count", 0)
+    entry["status"] = status
+    entry["requested_by"] = requested_by
+    if started_at is not None:
+        entry["last_started"] = started_at
+    if completed_at is not None:
+        entry["last_completed"] = completed_at
+    if last_report_target is not None:
+        entry["last_report_target"] = last_report_target
+    if last_error is not None:
+        entry["last_error"] = last_error
+    if increment_runs:
+        entry["run_count"] = int(entry.get("run_count", 0)) + 1
+    state[name] = entry
+    _write_operations_state(state)
+
+
+def _run_scheduler(name: str, *, requested_by: str, interval_seconds: int, max_runs: int) -> dict[str, Any]:
+    runs: list[dict[str, Any]] = []
+    executed = 0
+    while max_runs <= 0 or executed < max_runs:
+        if name == "patrol":
+            result = run_warden_patrol(requested_by=requested_by)
+        else:
+            result = run_night_cycle(requested_by=requested_by)
+        runs.append(result)
+        executed += 1
+        if not result.get("ok", False):
+            break
+        if max_runs > 0 and executed >= max_runs:
+            break
+        time.sleep(interval_seconds)
+    return {
+        "ok": all(item.get("ok", False) for item in runs),
+        "operation": name,
+        "interval_seconds": interval_seconds,
+        "runs_attempted": executed,
+        "runs": runs,
+        "state": operations_state().get(name, {}),
+    }
+
+
+def operations_state() -> dict[str, Any]:
+    return _load_operations_state()
 
 
 def _stamp() -> str:

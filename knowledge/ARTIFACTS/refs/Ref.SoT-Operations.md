@@ -46,8 +46,15 @@ This note records the active mechanical operating rules for Vela's local Matrix 
 ## Patrol And Night Cycle Use Explicit Runtime Entry Points
 
 - `vela patrol run` executes the Warden patrol skeleton.
+- `vela patrol loop --interval-seconds <n> --max-runs <n>` executes the schedulable patrol runner.
 - `vela night-cycle run` executes the DC night-cycle skeleton.
+- `vela night-cycle loop --interval-seconds <n> --max-runs <n>` executes the schedulable night-cycle runner.
+- `vela operations state` reports last start, last completion, last report target, and overlap status.
 - `/api/n8n/patrol/run` triggers patrol through the service layer.
+- `/api/n8n/patrol/scheduler/run` triggers the schedulable patrol runner through the service layer.
 - `/api/n8n/night-cycle/run` triggers the night cycle through the service layer.
+- `/api/n8n/night-cycle/scheduler/run` triggers the schedulable night-cycle runner through the service layer.
+- `/api/n8n/operations/state` exposes the runtime operation ledger.
 - Patrol writes artifact-space reports only.
 - Night cycle packages patrol status, growth candidates, and blocked-pattern counts into a DC report.
+- Both operations use dedicated overlap locks so two patrols or two night cycles cannot run at once.
