@@ -1,7 +1,7 @@
 use crate::models::{
     DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
-    DreamerProposalSummary, DreamerReviewPlan, OperationLockRecord, OperationStateEntry,
-    OperationsState, ValidationFinding,
+    DreamerProposalSummary, DreamerReviewPlan, NightCyclePlan, OperationLockRecord,
+    OperationStateEntry, OperationsState, PatrolPlan, ValidationFinding,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -718,6 +718,91 @@ pub fn plan_dreamer_follow_up_apply(
     )
 }
 
+pub fn plan_warden_patrol(
+    stamp: &str,
+    requested_by: &str,
+    checked_targets_json: &str,
+    structural_flag_targets_json: &str,
+) -> (Option<PatrolPlan>, Vec<ValidationFinding>) {
+    let checked_targets = extract_json_string_list(checked_targets_json);
+    let structural_flag_targets = extract_json_string_list(structural_flag_targets_json);
+    let report_target = format!("knowledge/ARTIFACTS/refs/Warden-Patrol-{stamp}.md");
+    let report_content = render_warden_patrol_report(
+        stamp,
+        requested_by,
+        &checked_targets,
+        &structural_flag_targets,
+    );
+    let findings = validate_warden_patrol_report(&report_content);
+    if !findings.is_empty() {
+        return (None, findings);
+    }
+    (
+        Some(PatrolPlan {
+            report_target,
+            report_content,
+            files_checked: checked_targets.len(),
+            structural_flags_count: structural_flag_targets.len(),
+        }),
+        Vec::new(),
+    )
+}
+
+pub fn plan_night_cycle(
+    stamp: &str,
+    requested_by: &str,
+    patrol_report_target: &str,
+    files_checked: usize,
+    structural_flags_count: usize,
+    growth_candidates_json: &str,
+    dreamer_patterns_json: &str,
+    blocked_items_json: &str,
+    dreamer_proposals_json: &str,
+) -> (Option<NightCyclePlan>, Vec<ValidationFinding>) {
+    let dreamer_report_target =
+        format!("knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-{stamp}.md");
+    let dreamer_report_content = render_dreamer_pattern_report(
+        stamp,
+        requested_by,
+        dreamer_patterns_json,
+        blocked_items_json,
+        dreamer_proposals_json,
+    );
+    let dreamer_findings = validate_dreamer_pattern_report(&dreamer_report_content);
+    if !dreamer_findings.is_empty() {
+        return (None, dreamer_findings);
+    }
+
+    let report_target = format!("knowledge/ARTIFACTS/refs/DC-Night-Report-{stamp}.md");
+    let report_content = render_dc_night_report(
+        stamp,
+        requested_by,
+        patrol_report_target,
+        files_checked,
+        structural_flags_count,
+        growth_candidates_json,
+        dreamer_patterns_json,
+        blocked_items_json,
+        &dreamer_report_target,
+        dreamer_proposals_json,
+    );
+    let report_findings = validate_dc_night_report(&report_content);
+    if !report_findings.is_empty() {
+        return (None, report_findings);
+    }
+    (
+        Some(NightCyclePlan {
+            report_target,
+            report_content,
+            dreamer_report_target,
+            dreamer_report_content,
+            growth_candidates_count: extract_object_blocks(growth_candidates_json).len(),
+            blocked_items_count: extract_object_blocks(blocked_items_json).len(),
+        }),
+        Vec::new(),
+    )
+}
+
 pub fn parse_dreamer_action_registry(
     registry_json: &str,
 ) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
@@ -1384,6 +1469,28 @@ fn extract_json_map_entries(text: &str) -> Vec<(String, usize)> {
     }
     entries.sort_by(|left, right| left.0.cmp(&right.0));
     entries
+}
+
+fn extract_json_string_list(text: &str) -> Vec<String> {
+    let trimmed = text.trim();
+    if trimmed.len() < 2 || !trimmed.starts_with('[') || !trimmed.ends_with(']') {
+        return Vec::new();
+    }
+    let inner = &trimmed[1..trimmed.len() - 1];
+    if inner.trim().is_empty() {
+        return Vec::new();
+    }
+    inner
+        .split(',')
+        .filter_map(|part| {
+            let item = part.trim().trim_matches('"');
+            if item.is_empty() {
+                None
+            } else {
+                Some(item.to_string())
+            }
+        })
+        .collect()
 }
 
 fn missing_shape_findings(content: &str, required: &[&str], code: &str) -> Vec<ValidationFinding> {

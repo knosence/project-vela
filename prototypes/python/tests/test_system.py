@@ -48,8 +48,10 @@ from prototypes.python.vela.rust_bridge import (
     parse_dreamer_actions_payload,
     parse_operations_state_payload,
     plan_event_append_payload,
+    plan_night_cycle_payload,
     plan_dreamer_follow_up_apply_payload,
     plan_dreamer_review_payload,
+    plan_warden_patrol_payload,
     render_dc_night_report_payload,
     render_dreamer_execution_artifact_payload,
     render_dreamer_follow_up_payload,
@@ -1792,6 +1794,18 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(patrol_rendered["ok"])
         self.assertIn("# Warden Patrol Report", patrol_rendered["content"])
+        patrol_plan = plan_warden_patrol_payload(
+            "20260411-0200",
+            "system",
+            ["knowledge/110.WHO.Vela-Identity-SoT.md"],
+            ["knowledge/ARTIFACTS/proposals/example.md"],
+        )
+        self.assertTrue(patrol_plan["ok"])
+        self.assertEqual(
+            patrol_plan["plan"]["report_target"],
+            "knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-0200.md",
+        )
+        self.assertIn("# Warden Patrol Report", patrol_plan["plan"]["report_content"])
 
         proposal_rendered = render_dreamer_proposal_payload(
             "2026-04-11",
@@ -1812,6 +1826,41 @@ class VelaSystemTest(unittest.TestCase):
         self.assertIn("# Dreamer Proposal", proposal_rendered["content"])
         inspected_proposal = inspect_dreamer_proposal_payload(proposal_rendered["content"])
         self.assertEqual(inspected_proposal["reason"], "validator rule drift")
+        night_plan = plan_night_cycle_payload(
+            "20260411-0300",
+            "system",
+            "knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-0200.md",
+            1,
+            1,
+            [{"target": "knowledge/210.WHAT.Vela-Capabilities-SoT.md", "stage": "fractal"}],
+            {"validator rule drift": 3},
+            [
+                {
+                    "target": "knowledge/ARTIFACTS/proposals/example.md",
+                    "endpoint": "validate",
+                    "actor": "dreamer",
+                    "reason": "validator rule drift",
+                }
+            ],
+            [
+                {
+                    "target": "knowledge/ARTIFACTS/proposals/Dreamer-Proposal-20260411.md",
+                    "reason": "validator rule drift",
+                    "count": 3,
+                }
+            ],
+        )
+        self.assertTrue(night_plan["ok"])
+        self.assertEqual(
+            night_plan["plan"]["dreamer_report_target"],
+            "knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-20260411-0300.md",
+        )
+        self.assertEqual(
+            night_plan["plan"]["report_target"],
+            "knowledge/ARTIFACTS/refs/DC-Night-Report-20260411-0300.md",
+        )
+        self.assertIn("# Dreamer Pattern Report", night_plan["plan"]["dreamer_report_content"])
+        self.assertIn("# DC Night Report", night_plan["plan"]["report_content"])
 
         follow_up_rendered = render_dreamer_follow_up_payload(
             "2026-04-11",

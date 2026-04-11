@@ -219,6 +219,49 @@ def plan_dreamer_follow_up_apply_payload(
     )
 
 
+def plan_warden_patrol_payload(
+    stamp: str,
+    requested_by: str,
+    checked_targets: list[str],
+    structural_flag_targets: list[str],
+) -> dict[str, Any]:
+    return _run(
+        ["plan-warden-patrol", stamp, requested_by],
+        stdin=f"{json.dumps(checked_targets)}\n===INPUT===\n{json.dumps(structural_flag_targets)}",
+    )
+
+
+def plan_night_cycle_payload(
+    stamp: str,
+    requested_by: str,
+    patrol_report_target: str,
+    files_checked: int,
+    structural_flags_count: int,
+    growth_candidates: list[dict[str, Any]],
+    dreamer_patterns: dict[str, int],
+    blocked_items: list[dict[str, str]],
+    dreamer_proposals: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return _run(
+        [
+            "plan-night-cycle",
+            stamp,
+            requested_by,
+            patrol_report_target,
+            str(files_checked),
+            str(structural_flags_count),
+        ],
+        stdin="\n===INPUT===\n".join(
+            [
+                json.dumps(growth_candidates),
+                json.dumps(dreamer_patterns),
+                json.dumps(blocked_items),
+                json.dumps(dreamer_proposals),
+            ]
+        ),
+    )
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 

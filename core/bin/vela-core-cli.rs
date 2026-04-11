@@ -28,7 +28,8 @@ use vela_core::operations::{
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
     plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
-    plan_dreamer_review as plan_dreamer_review_policy,
+    plan_dreamer_review as plan_dreamer_review_policy, plan_night_cycle as plan_night_cycle_policy,
+    plan_warden_patrol as plan_warden_patrol_policy,
     register_dreamer_action as register_dreamer_action_policy,
     render_applied_dreamer_follow_up as render_applied_dreamer_follow_up_policy,
     render_dc_night_report as render_dc_night_report_policy,
@@ -818,6 +819,95 @@ fn run() -> Result<(), String> {
                     .join(",")
             );
         }
+        "plan-warden-patrol" => {
+            let stamp = args.next().ok_or_else(|| "missing stamp".to_string())?;
+            let requested_by = args
+                .next()
+                .ok_or_else(|| "missing requested_by".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (checked_targets_json, structural_flag_targets_json) = content
+                .split_once("\n===INPUT===\n")
+                .ok_or_else(|| "missing patrol plan split marker".to_string())?;
+            let (plan, findings) = plan_warden_patrol_policy(
+                &stamp,
+                &requested_by,
+                checked_targets_json,
+                structural_flag_targets_json,
+            );
+            println!(
+                "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                plan.as_ref()
+                    .map(render_patrol_plan)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
+        "plan-night-cycle" => {
+            let stamp = args.next().ok_or_else(|| "missing stamp".to_string())?;
+            let requested_by = args
+                .next()
+                .ok_or_else(|| "missing requested_by".to_string())?;
+            let patrol_report_target = args
+                .next()
+                .ok_or_else(|| "missing patrol report target".to_string())?;
+            let files_checked = args
+                .next()
+                .ok_or_else(|| "missing files checked".to_string())?
+                .parse::<usize>()
+                .map_err(|err| format!("invalid files checked: {err}"))?;
+            let structural_flags_count = args
+                .next()
+                .ok_or_else(|| "missing structural flags count".to_string())?
+                .parse::<usize>()
+                .map_err(|err| format!("invalid structural flags count: {err}"))?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let parts: Vec<&str> = content.split("\n===INPUT===\n").collect();
+            if parts.len() != 4 {
+                return Err("missing night-cycle plan split markers".to_string());
+            }
+            let (plan, findings) = plan_night_cycle_policy(
+                &stamp,
+                &requested_by,
+                &patrol_report_target,
+                files_checked,
+                structural_flags_count,
+                parts[0],
+                parts[1],
+                parts[2],
+                parts[3],
+            );
+            println!(
+                "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                plan.as_ref()
+                    .map(render_night_cycle_plan)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "validate-config" => {
             let owner_name = args
                 .next()
@@ -1371,6 +1461,28 @@ fn render_event_append_plan(item: &vela_core::models::EventAppendPlan) -> String
         escape_json(&item.line),
         escape_json(&item.event_id),
         escape_json(&item.timestamp),
+    )
+}
+
+fn render_patrol_plan(item: &vela_core::models::PatrolPlan) -> String {
+    format!(
+        "{{\"report_target\":\"{}\",\"report_content\":\"{}\",\"files_checked\":{},\"structural_flags_count\":{}}}",
+        escape_json(&item.report_target),
+        escape_json(&item.report_content),
+        item.files_checked,
+        item.structural_flags_count,
+    )
+}
+
+fn render_night_cycle_plan(item: &vela_core::models::NightCyclePlan) -> String {
+    format!(
+        "{{\"report_target\":\"{}\",\"report_content\":\"{}\",\"dreamer_report_target\":\"{}\",\"dreamer_report_content\":\"{}\",\"growth_candidates_count\":{},\"blocked_items_count\":{}}}",
+        escape_json(&item.report_target),
+        escape_json(&item.report_content),
+        escape_json(&item.dreamer_report_target),
+        escape_json(&item.dreamer_report_content),
+        item.growth_candidates_count,
+        item.blocked_items_count,
     )
 }
 

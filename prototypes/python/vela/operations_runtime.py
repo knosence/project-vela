@@ -20,8 +20,10 @@ from .rust_bridge import (
     list_dreamer_follow_ups_payload,
     list_dreamer_queue_payload,
     matrix_inventory_payload,
+    plan_night_cycle_payload,
     plan_dreamer_follow_up_apply_payload,
     plan_dreamer_review_payload,
+    plan_warden_patrol_payload,
     render_dc_night_report_payload,
     render_dreamer_pattern_report_payload,
     render_dreamer_proposal_payload,
@@ -115,18 +117,25 @@ def run_warden_patrol(requested_by: str = "system") -> dict[str, Any]:
             checked.append({"target": target, "findings": findings})
 
         stamp = _stamp()
-        report_target = f"knowledge/ARTIFACTS/refs/Warden-Patrol-{stamp}.md"
-        report = _render_patrol_report(stamp, requested_by, checked, structural_flags)
-        report_findings = validate_warden_patrol_report_payload(report).get("findings", [])
-        if report_findings:
+        plan_payload = plan_warden_patrol_payload(
+            stamp,
+            requested_by,
+            [item["target"] for item in checked],
+            [item["target"] for item in structural_flags],
+        )
+        plan = plan_payload.get("plan")
+        plan_findings = plan_payload.get("findings", [])
+        if not plan_payload.get("ok") or not plan:
             return {
                 "ok": False,
-                "report_target": report_target,
+                "report_target": plan["report_target"] if plan else "",
                 "files_checked": len(checked),
                 "structural_flags": structural_flags,
                 "cosmetic_fixes": [],
-                "findings": report_findings,
+                "findings": plan_findings,
             }
+        report_target = str(plan["report_target"])
+        report = str(plan["report_content"])
         result = write_text(report_target, report, actor="warden", endpoint="patrol", reason="warden patrol report")
         _update_operation_state(
             "patrol",
@@ -261,21 +270,33 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
         dreamer_patterns = _dreamer_patterns(blocked_items)
         stamp = _stamp()
         dreamer_proposals = _write_dreamer_proposals(stamp, requested_by, dreamer_patterns, blocked_items)
-        dreamer_report_target = f"knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-{stamp}.md"
-        dreamer_report = _render_dreamer_report(stamp, requested_by, dreamer_patterns, blocked_items, dreamer_proposals)
-        dreamer_report_findings = validate_dreamer_pattern_report_payload(dreamer_report).get("findings", [])
-        if dreamer_report_findings:
+        plan_payload = plan_night_cycle_payload(
+            stamp,
+            requested_by,
+            patrol.get("report_target", ""),
+            int(patrol.get("files_checked", 0)),
+            len(patrol.get("structural_flags", [])),
+            growth_candidates,
+            dreamer_patterns,
+            blocked_items,
+            dreamer_proposals,
+        )
+        plan = plan_payload.get("plan")
+        plan_findings = plan_payload.get("findings", [])
+        if not plan_payload.get("ok") or not plan:
             return {
                 "ok": False,
                 "report_target": "",
-                "dreamer_report_target": dreamer_report_target,
+                "dreamer_report_target": plan["dreamer_report_target"] if plan else "",
                 "patrol": patrol,
                 "growth_candidates": growth_candidates,
                 "dreamer_patterns": dreamer_patterns,
                 "blocked_items": blocked_items,
                 "dreamer_proposals": dreamer_proposals,
-                "findings": dreamer_report_findings,
+                "findings": plan_findings,
             }
+        dreamer_report_target = str(plan["dreamer_report_target"])
+        dreamer_report = str(plan["dreamer_report_content"])
         dreamer_result = write_text(
             dreamer_report_target,
             dreamer_report,
@@ -283,21 +304,8 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
             endpoint="night-cycle",
             reason="dreamer pattern report",
         )
-        report_target = f"knowledge/ARTIFACTS/refs/DC-Night-Report-{stamp}.md"
-        report = _render_night_report(stamp, requested_by, patrol, growth_candidates, dreamer_patterns, blocked_items, dreamer_report_target, dreamer_proposals)
-        report_findings = validate_dc_night_report_payload(report).get("findings", [])
-        if report_findings:
-            return {
-                "ok": False,
-                "report_target": report_target,
-                "dreamer_report_target": dreamer_report_target,
-                "patrol": patrol,
-                "growth_candidates": growth_candidates,
-                "dreamer_patterns": dreamer_patterns,
-                "blocked_items": blocked_items,
-                "dreamer_proposals": dreamer_proposals,
-                "findings": report_findings,
-            }
+        report_target = str(plan["report_target"])
+        report = str(plan["report_content"])
         result = write_text(report_target, report, actor="system", endpoint="night-cycle", reason="dc night cycle report")
         _update_operation_state(
             "night-cycle",

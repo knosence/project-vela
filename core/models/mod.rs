@@ -121,6 +121,24 @@ pub struct EventAppendPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PatrolPlan {
+    pub report_target: String,
+    pub report_content: String,
+    pub files_checked: usize,
+    pub structural_flags_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NightCyclePlan {
+    pub report_target: String,
+    pub report_content: String,
+    pub dreamer_report_target: String,
+    pub dreamer_report_content: String,
+    pub growth_candidates_count: usize,
+    pub blocked_items_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OperationStateEntry {
     pub status: String,
     pub last_started: String,
