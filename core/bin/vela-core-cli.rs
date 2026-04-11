@@ -23,13 +23,17 @@ use vela_core::operations::{
     update_dreamer_action_status as update_dreamer_action_status_policy,
     update_operations_state as update_operations_state_policy,
     validate_archive_postconditions as validate_archive_outcome,
+    validate_dc_night_report as validate_dc_night_report_policy,
+    validate_dreamer_execution_artifact as validate_dreamer_execution_artifact_policy,
     validate_dreamer_follow_up_apply as validate_dreamer_follow_up_apply_policy,
+    validate_dreamer_pattern_report as validate_dreamer_pattern_report_policy,
     validate_dreamer_review as validate_dreamer_review_policy,
     validate_growth_stage as validate_growth_stage_policy,
     validate_operation_lock as validate_operation_lock_policy,
     validate_operation_request as validate_operation_request_policy,
     validate_operation_state_transition as validate_operation_state_transition_policy,
     validate_subject_declaration_change as validate_subject_declaration_policy,
+    validate_warden_patrol_report as validate_warden_patrol_report_policy,
 };
 use vela_core::parser::{build_runtime_config, parse_system_identity};
 use vela_core::policy::{route_for_target, validate_commit_policy};
@@ -395,6 +399,38 @@ fn run() -> Result<(), String> {
                 escape_json(&queue_name),
                 escape_json(&registry_mode),
             );
+        }
+        "validate-dreamer-execution-artifact" => {
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let findings = validate_dreamer_execution_artifact_policy(&content);
+            print_findings(&findings, None);
+        }
+        "validate-warden-patrol-report" => {
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let findings = validate_warden_patrol_report_policy(&content);
+            print_findings(&findings, None);
+        }
+        "validate-dc-night-report" => {
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let findings = validate_dc_night_report_policy(&content);
+            print_findings(&findings, None);
+        }
+        "validate-dreamer-pattern-report" => {
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let findings = validate_dreamer_pattern_report_policy(&content);
+            print_findings(&findings, None);
         }
         "validate-config" => {
             let owner_name = args

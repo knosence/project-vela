@@ -47,12 +47,16 @@ from prototypes.python.vela.rust_bridge import (
     route_for_target,
     route_inbox_payload,
     validate_dreamer_follow_up_apply_payload,
+    validate_dreamer_execution_artifact_payload,
+    validate_dc_night_report_payload,
+    validate_dreamer_pattern_report_payload,
     validate_dreamer_review_payload,
     update_operations_state_payload,
     update_dreamer_action_status_payload,
     validate_operation_lock_payload,
     validate_operation_request_payload,
     validate_operation_transition_payload,
+    validate_warden_patrol_report_payload,
     validate_archive_postconditions_payload,
     validate_config_payload,
     validate_growth_stage_payload,
@@ -1085,6 +1089,26 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(inspected["ok"])
         self.assertEqual(inspected["registry_mode"], "workflow")
         self.assertEqual(inspected["queue_name"], "Workflow-Change-Queue")
+
+        execution_shape = validate_dreamer_execution_artifact_payload(
+            "# Dreamer Execution\n\n## This Reference Records the Concrete Queue Item Opened from an Approved Dreamer Follow Up\n\n## Classification\n\n- kind: `workflow-change`\n- pattern: `workflow queue`\n- queue: `[[Workflow-Change-Queue]]`\n\n## Execution\n\n- reason: tighten flow\n- next step: implement.\n"
+        )
+        self.assertTrue(execution_shape["ok"])
+
+        patrol_shape = validate_warden_patrol_report_payload(
+            "# Warden Patrol Report\n\n## This Report Records the Latest Patrol Validation Pass Over Recent Day Shift Activity\n\n## Checked Targets\n\n- One\n\n## Structural Flags\n\n- None\n\n## Cosmetic Fixes\n\n- None\n"
+        )
+        self.assertTrue(patrol_shape["ok"])
+
+        night_shape = validate_dc_night_report_payload(
+            "# DC Night Report\n\n## This Report Records the Coordinated Night Cycle Across Patrol, Growth Review, and Pattern Review\n\n## Warden Patrol Summary\n\n- Patrol report: `[[Warden-Patrol]]`\n\n## Grower Activity\n\n- None\n\n## Dreamer Activity\n\n- Pattern report: `[[Dreamer-Pattern-Report]]`\n\n## Dreamer Proposals\n\n- None\n\n## Blocked (Needs Dario)\n\n- None\n"
+        )
+        self.assertTrue(night_shape["ok"])
+
+        dreamer_report_shape = validate_dreamer_pattern_report_payload(
+            "# Dreamer Pattern Report\n\n## This Report Records Repeated Blocked Patterns Worth Further Review\n\n## Three Strike Patterns\n\n- None\n\n## Proposed Responses\n\n- None\n\n## Recent Blocked Items\n\n- None\n"
+        )
+        self.assertTrue(dreamer_report_shape["ok"])
 
     def test_operations_runtime_blocks_unauthorized_requester(self) -> None:
         blocked_patrol = run_warden_patrol(requested_by="vela")

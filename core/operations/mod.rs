@@ -274,6 +274,56 @@ pub fn dreamer_follow_up_queue_name(kind: &str) -> Result<&'static str, Vec<Vali
     })
 }
 
+pub fn validate_dreamer_execution_artifact(content: &str) -> Vec<ValidationFinding> {
+    let required = [
+        "# Dreamer Execution",
+        "## This Reference Records the Concrete Queue Item Opened from an Approved Dreamer Follow Up",
+        "## Classification",
+        "- kind:",
+        "- pattern:",
+        "- queue:",
+        "## Execution",
+        "- reason:",
+        "- next step:",
+    ];
+    missing_shape_findings(content, &required, "DREAMER_EXECUTION_SHAPE_INVALID")
+}
+
+pub fn validate_warden_patrol_report(content: &str) -> Vec<ValidationFinding> {
+    let required = [
+        "# Warden Patrol Report",
+        "## This Report Records the Latest Patrol Validation Pass Over Recent Day Shift Activity",
+        "## Checked Targets",
+        "## Structural Flags",
+        "## Cosmetic Fixes",
+    ];
+    missing_shape_findings(content, &required, "WARDEN_PATROL_REPORT_INVALID")
+}
+
+pub fn validate_dc_night_report(content: &str) -> Vec<ValidationFinding> {
+    let required = [
+        "# DC Night Report",
+        "## This Report Records the Coordinated Night Cycle Across Patrol, Growth Review, and Pattern Review",
+        "## Warden Patrol Summary",
+        "## Grower Activity",
+        "## Dreamer Activity",
+        "## Dreamer Proposals",
+        "## Blocked (Needs Dario)",
+    ];
+    missing_shape_findings(content, &required, "DC_NIGHT_REPORT_INVALID")
+}
+
+pub fn validate_dreamer_pattern_report(content: &str) -> Vec<ValidationFinding> {
+    let required = [
+        "# Dreamer Pattern Report",
+        "## This Report Records Repeated Blocked Patterns Worth Further Review",
+        "## Three Strike Patterns",
+        "## Proposed Responses",
+        "## Recent Blocked Items",
+    ];
+    missing_shape_findings(content, &required, "DREAMER_PATTERN_REPORT_INVALID")
+}
+
 pub fn parse_dreamer_action_registry(
     registry_json: &str,
 ) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
@@ -647,6 +697,25 @@ fn extract_json_u32(text: &str, key: &str) -> Option<u32> {
         .find(|c: char| !c.is_ascii_digit())
         .unwrap_or(remainder.len());
     remainder[..end].parse::<u32>().ok()
+}
+
+fn missing_shape_findings(content: &str, required: &[&str], code: &str) -> Vec<ValidationFinding> {
+    let missing: Vec<&str> = required
+        .iter()
+        .copied()
+        .filter(|item| !content.contains(item))
+        .collect();
+    if missing.is_empty() {
+        Vec::new()
+    } else {
+        vec![ValidationFinding::error(
+            code,
+            format!(
+                "Missing required operational artifact sections: {}",
+                missing.join(", ")
+            ),
+        )]
+    }
 }
 
 fn meaningful_tokens(value: &str) -> Vec<String> {
@@ -1030,5 +1099,21 @@ mod tests {
         assert!(findings
             .iter()
             .any(|item| item.code == "DREAMER_FOLLOW_UP_KIND_INVALID"));
+    }
+
+    #[test]
+    fn validates_dreamer_execution_shape() {
+        let findings = validate_dreamer_execution_artifact(
+            "# Dreamer Execution\n\n## This Reference Records the Concrete Queue Item Opened from an Approved Dreamer Follow Up\n\n## Classification\n\n- kind: `workflow-change`\n- pattern: `workflow queue`\n- queue: `[[Workflow-Change-Queue]]`\n\n## Execution\n\n- reason: tighten workflow\n- next step: implement.\n",
+        );
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn validates_patrol_report_shape() {
+        let findings = validate_warden_patrol_report(
+            "# Warden Patrol Report\n\n## This Report Records the Latest Patrol Validation Pass Over Recent Day Shift Activity\n\n## Checked Targets\n\n- One\n\n## Structural Flags\n\n- None\n\n## Cosmetic Fixes\n\n- None\n",
+        );
+        assert!(findings.is_empty());
     }
 }

@@ -145,6 +145,22 @@ def inspect_dreamer_follow_up_kind_payload(kind: str) -> dict[str, Any]:
     return _run(["inspect-dreamer-follow-up-kind", kind])
 
 
+def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
+    return _run(["validate-dreamer-execution-artifact"], stdin=content)
+
+
+def validate_warden_patrol_report_payload(content: str) -> dict[str, Any]:
+    return _run(["validate-warden-patrol-report"], stdin=content)
+
+
+def validate_dc_night_report_payload(content: str) -> dict[str, Any]:
+    return _run(["validate-dc-night-report"], stdin=content)
+
+
+def validate_dreamer_pattern_report_payload(content: str) -> dict[str, Any]:
+    return _run(["validate-dreamer-pattern-report"], stdin=content)
+
+
 def route_inbox_payload(content: str) -> dict[str, Any]:
     return _run(["route-inbox"], stdin=content)
 

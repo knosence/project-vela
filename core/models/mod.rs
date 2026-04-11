@@ -256,6 +256,13 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
             "Role Purity".to_string(),
             "One Home, Many Pointers".to_string(),
         ],
+        "DREAMER_EXECUTION_SHAPE_INVALID"
+        | "WARDEN_PATROL_REPORT_INVALID"
+        | "DC_NIGHT_REPORT_INVALID"
+        | "DREAMER_PATTERN_REPORT_INVALID" => vec![
+            "SoT Operations Reference: Three-Tier Vault Maintenance".to_string(),
+            "Pattern 17 SoT-Native Output".to_string(),
+        ],
         _ => Vec::new(),
     }
 }

@@ -18,13 +18,17 @@ from .rust_bridge import (
     classify_dreamer_follow_up_payload,
     inspect_dreamer_follow_up_kind_payload,
     matrix_inventory_payload,
+    validate_dc_night_report_payload,
     validate_dreamer_follow_up_apply_payload,
+    validate_dreamer_pattern_report_payload,
+    validate_dreamer_execution_artifact_payload,
     validate_dreamer_review_payload,
     parse_operations_state_payload,
     update_operations_state_payload,
     validate_operation_lock_payload,
     validate_operation_request_payload,
     validate_operation_transition_payload,
+    validate_warden_patrol_report_payload,
 )
 
 PATROL_INTERVAL_SECONDS = 4 * 60 * 60
@@ -105,6 +109,16 @@ def run_warden_patrol(requested_by: str = "system") -> dict[str, Any]:
         stamp = _stamp()
         report_target = f"knowledge/ARTIFACTS/refs/Warden-Patrol-{stamp}.md"
         report = _render_patrol_report(stamp, requested_by, checked, structural_flags)
+        report_findings = validate_warden_patrol_report_payload(report).get("findings", [])
+        if report_findings:
+            return {
+                "ok": False,
+                "report_target": report_target,
+                "files_checked": len(checked),
+                "structural_flags": structural_flags,
+                "cosmetic_fixes": [],
+                "findings": report_findings,
+            }
         result = write_text(report_target, report, actor="warden", endpoint="patrol", reason="warden patrol report")
         _update_operation_state(
             "patrol",
@@ -241,6 +255,19 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
         dreamer_proposals = _write_dreamer_proposals(stamp, requested_by, dreamer_patterns, blocked_items)
         dreamer_report_target = f"knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-{stamp}.md"
         dreamer_report = _render_dreamer_report(stamp, requested_by, dreamer_patterns, blocked_items, dreamer_proposals)
+        dreamer_report_findings = validate_dreamer_pattern_report_payload(dreamer_report).get("findings", [])
+        if dreamer_report_findings:
+            return {
+                "ok": False,
+                "report_target": "",
+                "dreamer_report_target": dreamer_report_target,
+                "patrol": patrol,
+                "growth_candidates": growth_candidates,
+                "dreamer_patterns": dreamer_patterns,
+                "blocked_items": blocked_items,
+                "dreamer_proposals": dreamer_proposals,
+                "findings": dreamer_report_findings,
+            }
         dreamer_result = write_text(
             dreamer_report_target,
             dreamer_report,
@@ -250,6 +277,19 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
         )
         report_target = f"knowledge/ARTIFACTS/refs/DC-Night-Report-{stamp}.md"
         report = _render_night_report(stamp, requested_by, patrol, growth_candidates, dreamer_patterns, blocked_items, dreamer_report_target, dreamer_proposals)
+        report_findings = validate_dc_night_report_payload(report).get("findings", [])
+        if report_findings:
+            return {
+                "ok": False,
+                "report_target": report_target,
+                "dreamer_report_target": dreamer_report_target,
+                "patrol": patrol,
+                "growth_candidates": growth_candidates,
+                "dreamer_patterns": dreamer_patterns,
+                "blocked_items": blocked_items,
+                "dreamer_proposals": dreamer_proposals,
+                "findings": report_findings,
+            }
         result = write_text(report_target, report, actor="system", endpoint="night-cycle", reason="dc night cycle report")
         _update_operation_state(
             "night-cycle",
@@ -433,6 +473,8 @@ def apply_dreamer_follow_up(target: str, actor: str, reason: str) -> dict[str, A
     kind = _follow_up_kind(current)
     follow_up_reason = _follow_up_reason(current)
     execution = _build_follow_up_execution(target, kind, follow_up_reason, actor, reason)
+    if execution.get("findings"):
+        return {"ok": False, "findings": execution["findings"]}
     execution_result = write_text(
         execution["target"],
         execution["content"],
@@ -853,6 +895,9 @@ def _build_follow_up_execution(
         f"- reason: {execution_reason}\n"
         "- next step: implement the queued change through the governed validation or workflow path.\n"
     )
+    findings = validate_dreamer_execution_artifact_payload(content).get("findings", [])
+    if findings:
+        return {"target": execution_target, "content": content, "findings": findings}
     return {"target": execution_target, "content": content}
 
 
