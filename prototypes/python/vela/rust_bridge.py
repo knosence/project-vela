@@ -392,6 +392,10 @@ def list_growth_targets_payload() -> dict[str, Any]:
     return _run(["list-growth-targets"])
 
 
+def list_merge_candidates_payload() -> dict[str, Any]:
+    return _run(["list-merge-candidates"])
+
+
 def assess_growth_payload(target: str) -> dict[str, Any]:
     return _run(["assess-growth-target", target])
 

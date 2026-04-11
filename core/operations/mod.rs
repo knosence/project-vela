@@ -10,8 +10,9 @@ use crate::models::{
     DimensionAppendPlan, DreamerAction, DreamerActionRegistry, DreamerApplyPlan,
     DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan,
     GrowthAssessment, GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan,
-    InboxTriagePlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
-    OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
+    InboxTriagePlan, MergeCandidateSummary, NightCyclePlan, OperationLifecyclePlan,
+    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan,
+    ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -1211,6 +1212,52 @@ pub fn classify_dreamer_follow_up(reason: &str) -> String {
     } else {
         "refusal-tightening".to_string()
     }
+}
+
+pub fn list_merge_candidates(root: &str) -> Vec<MergeCandidateSummary> {
+    let knowledge_root = Path::new(root).join("knowledge");
+    let Ok(entries) = fs::read_dir(&knowledge_root) else {
+        return Vec::new();
+    };
+    let mut owners_by_ref: BTreeMap<String, std::collections::BTreeSet<String>> = BTreeMap::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|item| item.to_str()) else {
+            continue;
+        };
+        if !name.ends_with("-SoT.md") {
+            continue;
+        }
+        let rel = path
+            .strip_prefix(root)
+            .ok()
+            .map(|item| item.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_else(|| path.to_string_lossy().replace('\\', "/"));
+        let Ok(text) = fs::read_to_string(&path) else {
+            continue;
+        };
+        for target in extract_reference_targets(&text) {
+            owners_by_ref.entry(target).or_default().insert(rel.clone());
+        }
+    }
+    owners_by_ref
+        .into_iter()
+        .filter_map(|(ref_target, owners)| {
+            let count = owners.len();
+            if count >= 3 {
+                Some(MergeCandidateSummary {
+                    ref_target,
+                    owners: owners.into_iter().collect(),
+                    count,
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 pub fn validate_dreamer_follow_up_kind(kind: &str) -> Vec<ValidationFinding> {
@@ -2940,6 +2987,26 @@ fn today_utc() -> String {
     civil_from_days(seconds.div_euclid(86_400))
 }
 
+fn extract_reference_targets(text: &str) -> Vec<String> {
+    let mut targets = Vec::new();
+    let mut remaining = text;
+    while let Some(start) = remaining.find("[[") {
+        let after_start = &remaining[start + 2..];
+        let Some(end) = after_start.find("]]") else {
+            break;
+        };
+        let raw = &after_start[..end];
+        let target = raw.split('#').next().unwrap_or("").trim();
+        if target.ends_with("-Ref") {
+            targets.push(target.to_string());
+        }
+        remaining = &after_start[end + 2..];
+    }
+    targets.sort();
+    targets.dedup();
+    targets
+}
+
 fn civil_from_days(days_since_epoch: i64) -> String {
     let z = days_since_epoch + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
@@ -3613,6 +3680,17 @@ mod tests {
         assert!(findings.is_empty());
         let plan = plan.expect("growth plan");
         assert_eq!(plan.target, "knowledge/111.VELA.Matrix-Crew-SoT.md");
+    }
+
+    #[test]
+    fn lists_merge_candidates_from_repo_state() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("repo root")
+            .to_string_lossy()
+            .to_string();
+        let items = list_merge_candidates(&root);
+        assert!(items.iter().all(|item| item.count >= 3));
     }
 
     #[test]

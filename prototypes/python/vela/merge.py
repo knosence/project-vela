@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .paths import PROPOSALS_DIR, REPO_ROOT
+from .rust_bridge import list_merge_candidates_payload
 
 REF_LINK_PATTERN = re.compile(r"\[\[([^\]#]+-Ref)(?:#[^\]]+)?\]\]")
 
@@ -25,23 +26,16 @@ class MergeCandidate:
 
 
 def detect_merge_candidates() -> list[MergeCandidate]:
-    owners_by_ref: dict[str, set[str]] = {}
-    for path in sorted((REPO_ROOT / "knowledge").glob("*-SoT.md")):
-        rel = str(path.relative_to(REPO_ROOT))
-        text = path.read_text(encoding="utf-8")
-        for link in {match.group(1) for match in REF_LINK_PATTERN.finditer(text)}:
-            owners_by_ref.setdefault(link, set()).add(rel)
-    candidates: list[MergeCandidate] = []
-    for ref_target, owners in sorted(owners_by_ref.items()):
-        if len(owners) >= 3:
-            candidates.append(
-                MergeCandidate(
-                    ref_target=ref_target,
-                    owners=sorted(owners),
-                    count=len(owners),
-                )
-            )
-    return candidates
+    payload = list_merge_candidates_payload()
+    items = payload.get("items", [])
+    return [
+        MergeCandidate(
+            ref_target=str(item.get("ref_target", "")),
+            owners=[str(owner) for owner in item.get("owners", [])],
+            count=int(item.get("count", 0)),
+        )
+        for item in items
+    ]
 
 
 def render_merge_proposal(candidate: MergeCandidate) -> str:

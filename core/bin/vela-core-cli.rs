@@ -17,8 +17,9 @@ use vela_core::models::{
     ArchiveTransactionPlan, BlockedItemSummary, CompanionPathPlan, CrossReferencePlan,
     CsvInboxPlan, DimensionAppendPlan, DreamerProposalCandidate, GrowthAssessment,
     GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan, GrowthTarget,
-    InboxTriagePlan, OnboardingConfig, OperationLifecyclePlan, OperationLockRecord,
-    OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan, Severity, ValidationFinding,
+    InboxTriagePlan, MergeCandidateSummary, OnboardingConfig, OperationLifecyclePlan,
+    OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan,
+    Severity, ValidationFinding,
 };
 use vela_core::operations::{
     apply_growth_source_update as apply_growth_source_update_policy,
@@ -32,6 +33,7 @@ use vela_core::operations::{
     dreamer_proposal_reason as dreamer_proposal_reason_policy,
     list_dreamer_follow_ups as list_dreamer_follow_ups_policy,
     list_dreamer_proposals as list_dreamer_proposals_policy,
+    list_merge_candidates as list_merge_candidates_policy,
     match_dreamer_actions as match_dreamer_actions_policy,
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
@@ -1099,6 +1101,21 @@ fn run() -> Result<(), String> {
                     .join(",")
             );
         }
+        "list-merge-candidates" => {
+            let repo_root = env::current_dir()
+                .map_err(|err| format!("failed reading current dir: {err}"))?
+                .to_string_lossy()
+                .to_string();
+            let items = list_merge_candidates_policy(&repo_root);
+            println!(
+                "{{\"ok\":true,\"items\":[{}]}}",
+                items
+                    .iter()
+                    .map(render_merge_candidate_summary)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "inspect-dreamer-follow-up" => {
             let mut content = String::new();
             io::stdin()
@@ -2058,6 +2075,19 @@ fn render_dreamer_proposal_candidate(item: &DreamerProposalCandidate) -> String 
         "{{\"target\":\"{}\",\"reason\":\"{}\",\"count\":{}}}",
         escape_json(&item.target),
         escape_json(&item.reason),
+        item.count,
+    )
+}
+
+fn render_merge_candidate_summary(item: &MergeCandidateSummary) -> String {
+    format!(
+        "{{\"ref_target\":\"{}\",\"owners\":[{}],\"count\":{}}}",
+        escape_json(&item.ref_target),
+        item.owners
+            .iter()
+            .map(|owner| format!("\"{}\"", escape_json(owner)))
+            .collect::<Vec<String>>()
+            .join(","),
         item.count,
     )
 }

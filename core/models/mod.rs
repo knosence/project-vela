@@ -92,6 +92,13 @@ pub struct DreamerProposalCandidate {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MergeCandidateSummary {
+    pub ref_target: String,
+    pub owners: Vec<String>,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockedItemSummary {
     pub target: String,
     pub reason: String,
