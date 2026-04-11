@@ -77,6 +77,23 @@ pub struct DreamerActionRegistry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DreamerProposalSummary {
+    pub target: String,
+    pub status: String,
+    pub created: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DreamerFollowUpSummary {
+    pub target: String,
+    pub status: String,
+    pub created: String,
+    pub kind: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OperationStateEntry {
     pub status: String,
     pub last_started: String,

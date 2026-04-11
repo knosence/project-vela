@@ -1,7 +1,9 @@
 use crate::models::{
-    DreamerAction, DreamerActionRegistry, OperationLockRecord, OperationStateEntry,
-    OperationsState, ValidationFinding,
+    DreamerAction, DreamerActionRegistry, DreamerFollowUpSummary, DreamerProposalSummary,
+    OperationLockRecord, OperationStateEntry, OperationsState, ValidationFinding,
 };
+use std::fs;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DreamerActionMatch {
@@ -576,6 +578,33 @@ pub fn render_applied_dreamer_follow_up(
     replace_or_append_section(&updated, "## Execution Outcome", &execution_section)
 }
 
+pub fn list_dreamer_proposals(repo_root: &str) -> Vec<DreamerProposalSummary> {
+    discover_dreamer_files(repo_root, "Dreamer-Proposal.")
+        .into_iter()
+        .map(|(target, text)| DreamerProposalSummary {
+            target,
+            status: extract_frontmatter_value(&text, "status")
+                .unwrap_or_else(|| "unknown".to_string()),
+            created: extract_frontmatter_value(&text, "created").unwrap_or_default(),
+            reason: dreamer_proposal_reason(&text),
+        })
+        .collect()
+}
+
+pub fn list_dreamer_follow_ups(repo_root: &str) -> Vec<DreamerFollowUpSummary> {
+    discover_dreamer_files(repo_root, "Dreamer-Follow-Up.")
+        .into_iter()
+        .map(|(target, text)| DreamerFollowUpSummary {
+            target,
+            status: extract_frontmatter_value(&text, "status")
+                .unwrap_or_else(|| "unknown".to_string()),
+            created: extract_frontmatter_value(&text, "created").unwrap_or_default(),
+            kind: dreamer_follow_up_kind(&text),
+            reason: dreamer_follow_up_reason(&text),
+        })
+        .collect()
+}
+
 pub fn parse_dreamer_action_registry(
     registry_json: &str,
 ) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
@@ -981,6 +1010,24 @@ fn extract_markdown_field(text: &str, prefix: &str) -> String {
     String::new()
 }
 
+fn extract_frontmatter_value(text: &str, key: &str) -> Option<String> {
+    let mut lines = text.lines();
+    if lines.next()? != "---" {
+        return None;
+    }
+    for line in lines {
+        if line == "---" {
+            break;
+        }
+        if let Some((line_key, value)) = line.split_once(':') {
+            if line_key.trim() == key {
+                return Some(value.trim().trim_matches('"').to_string());
+            }
+        }
+    }
+    None
+}
+
 fn replace_frontmatter_status(text: &str, status: &str) -> String {
     text.lines()
         .map(|line| {
@@ -1000,6 +1047,34 @@ fn replace_or_append_section(text: &str, heading: &str, section: &str) -> String
     } else {
         format!("{}{}", text.trim_end(), section)
     }
+}
+
+fn discover_dreamer_files(repo_root: &str, prefix: &str) -> Vec<(String, String)> {
+    let proposals_dir = Path::new(repo_root).join("knowledge/ARTIFACTS/proposals");
+    let mut items: Vec<(String, String)> = Vec::new();
+    if let Ok(entries) = fs::read_dir(&proposals_dir) {
+        let mut paths: Vec<PathBuf> = entries
+            .filter_map(|entry| entry.ok().map(|item| item.path()))
+            .filter(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .map(|name| name.starts_with(prefix) && name.ends_with(".md"))
+                    .unwrap_or(false)
+            })
+            .collect();
+        paths.sort();
+        for path in paths {
+            if let Ok(text) = fs::read_to_string(&path) {
+                let relative = path
+                    .strip_prefix(repo_root)
+                    .ok()
+                    .map(|item| item.to_string_lossy().to_string())
+                    .unwrap_or_else(|| path.to_string_lossy().to_string());
+                items.push((relative, text));
+            }
+        }
+    }
+    items
 }
 
 fn bucket_entries_mut<'a>(

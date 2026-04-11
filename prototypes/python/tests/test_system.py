@@ -42,6 +42,8 @@ from prototypes.python.vela.rust_bridge import (
     inspect_dreamer_follow_up_payload,
     inspect_dreamer_proposal_payload,
     inspect_reference_payload,
+    list_dreamer_follow_ups_payload,
+    list_dreamer_queue_payload,
     matrix_inventory_payload,
     parse_dreamer_actions_payload,
     parse_operations_state_payload,
@@ -1893,6 +1895,14 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(dc_report_rendered["ok"])
         self.assertIn("# DC Night Report", dc_report_rendered["content"])
+
+        queue_payload = list_dreamer_queue_payload()
+        self.assertTrue(queue_payload["ok"])
+        self.assertIsInstance(queue_payload["items"], list)
+
+        follow_ups_payload = list_dreamer_follow_ups_payload()
+        self.assertTrue(follow_ups_payload["ok"])
+        self.assertIsInstance(follow_ups_payload["items"], list)
 
     def test_matrix_parent_rule_rejects_direct_root_attachment_for_agent_branch(self) -> None:
         target = REPO_ROOT / "knowledge/ARTIFACTS/proposals/direct-root-agent-branch-test.md"

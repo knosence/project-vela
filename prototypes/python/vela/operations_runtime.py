@@ -18,6 +18,8 @@ from .rust_bridge import (
     inspect_dreamer_follow_up_payload,
     inspect_dreamer_follow_up_kind_payload,
     inspect_dreamer_proposal_payload,
+    list_dreamer_follow_ups_payload,
+    list_dreamer_queue_payload,
     matrix_inventory_payload,
     render_applied_dreamer_follow_up_payload,
     render_dc_night_report_payload,
@@ -372,37 +374,13 @@ def operations_state() -> dict[str, Any]:
 
 
 def list_dreamer_queue() -> dict[str, Any]:
-    items: list[dict[str, Any]] = []
-    for path in sorted((REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Proposal.*.md")):
-        text = path.read_text(encoding="utf-8")
-        frontmatter = _parse_frontmatter(text)
-        items.append(
-            {
-                "target": str(path.relative_to(REPO_ROOT)),
-                "status": str(frontmatter.get("status", "unknown")),
-                "created": str(frontmatter.get("created", "")),
-                "reason": str(inspect_dreamer_proposal_payload(text).get("reason", "")),
-            }
-        )
-    return {"ok": True, "items": items}
+    payload = list_dreamer_queue_payload()
+    return {"ok": bool(payload.get("ok")), "items": list(payload.get("items", []))}
 
 
 def list_dreamer_follow_ups() -> dict[str, Any]:
-    items: list[dict[str, Any]] = []
-    for path in sorted((REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Follow-Up.*.md")):
-        text = path.read_text(encoding="utf-8")
-        frontmatter = _parse_frontmatter(text)
-        follow_up_payload = inspect_dreamer_follow_up_payload(text)
-        items.append(
-            {
-                "target": str(path.relative_to(REPO_ROOT)),
-                "status": str(frontmatter.get("status", "unknown")),
-                "created": str(frontmatter.get("created", "")),
-                "kind": str(follow_up_payload.get("kind", "")),
-                "reason": str(follow_up_payload.get("reason", "")),
-            }
-        )
-    return {"ok": True, "items": items}
+    payload = list_dreamer_follow_ups_payload()
+    return {"ok": bool(payload.get("ok")), "items": list(payload.get("items", []))}
 
 
 def review_dreamer_proposal(target: str, decision: str, actor: str, reason: str) -> dict[str, Any]:

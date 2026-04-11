@@ -153,6 +153,14 @@ def inspect_dreamer_follow_up_payload(content: str) -> dict[str, Any]:
     return _run(["inspect-dreamer-follow-up"], stdin=content)
 
 
+def list_dreamer_queue_payload() -> dict[str, Any]:
+    return _run(["list-dreamer-queue"])
+
+
+def list_dreamer_follow_ups_payload() -> dict[str, Any]:
+    return _run(["list-dreamer-follow-ups"])
+
+
 def render_reviewed_dreamer_proposal_payload(
     content: str,
     decision: str,
