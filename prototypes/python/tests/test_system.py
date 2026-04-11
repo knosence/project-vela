@@ -39,6 +39,8 @@ from prototypes.python.vela.repo_watch import analyze_release
 from prototypes.python.vela.rust_bridge import (
     classify_dreamer_follow_up_payload,
     inspect_dreamer_follow_up_kind_payload,
+    inspect_dreamer_follow_up_payload,
+    inspect_dreamer_proposal_payload,
     inspect_reference_payload,
     matrix_inventory_payload,
     parse_dreamer_actions_payload,
@@ -48,7 +50,9 @@ from prototypes.python.vela.rust_bridge import (
     render_dreamer_follow_up_payload,
     render_dreamer_pattern_report_payload,
     render_dreamer_proposal_payload,
+    render_applied_dreamer_follow_up_payload,
     render_event_payload,
+    render_reviewed_dreamer_proposal_payload,
     render_warden_patrol_report_payload,
     register_dreamer_action_payload,
     route_for_target,
@@ -1784,6 +1788,8 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(proposal_rendered["ok"])
         self.assertIn("# Dreamer Proposal", proposal_rendered["content"])
+        inspected_proposal = inspect_dreamer_proposal_payload(proposal_rendered["content"])
+        self.assertEqual(inspected_proposal["reason"], "validator rule drift")
 
         follow_up_rendered = render_dreamer_follow_up_payload(
             "2026-04-11",
@@ -1794,6 +1800,9 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(follow_up_rendered["ok"])
         self.assertIn("# Dreamer Follow Up", follow_up_rendered["content"])
+        inspected_follow_up = inspect_dreamer_follow_up_payload(follow_up_rendered["content"])
+        self.assertEqual(inspected_follow_up["kind"], "validator-change")
+        self.assertEqual(inspected_follow_up["reason"], "validator rule drift")
 
         execution_rendered = render_dreamer_execution_artifact_payload(
             "2026-04-11",
@@ -1806,6 +1815,27 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(execution_rendered["ok"])
         self.assertIn("# Dreamer Execution", execution_rendered["content"])
+
+        reviewed_proposal = render_reviewed_dreamer_proposal_payload(
+            proposal_rendered["content"],
+            "approved",
+            "human",
+            "looks correct",
+            "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.example.md",
+        )
+        self.assertTrue(reviewed_proposal["ok"])
+        self.assertIn("## Review Outcome", reviewed_proposal["content"])
+        self.assertIn("status: approved", reviewed_proposal["content"])
+
+        applied_follow_up = render_applied_dreamer_follow_up_payload(
+            follow_up_rendered["content"],
+            "human",
+            "execute it",
+            "knowledge/ARTIFACTS/refs/Dreamer-Execution.example.md",
+        )
+        self.assertTrue(applied_follow_up["ok"])
+        self.assertIn("## Execution Outcome", applied_follow_up["content"])
+        self.assertIn("status: applied", applied_follow_up["content"])
 
         dreamer_report_rendered = render_dreamer_pattern_report_payload(
             "20260411-0200",

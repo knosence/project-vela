@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,13 +15,17 @@ from .models import EventRecord
 from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
 from .rust_bridge import (
     classify_dreamer_follow_up_payload,
+    inspect_dreamer_follow_up_payload,
     inspect_dreamer_follow_up_kind_payload,
+    inspect_dreamer_proposal_payload,
     matrix_inventory_payload,
+    render_applied_dreamer_follow_up_payload,
     render_dc_night_report_payload,
     render_dreamer_execution_artifact_payload,
     render_dreamer_follow_up_payload,
     render_dreamer_pattern_report_payload,
     render_dreamer_proposal_payload,
+    render_reviewed_dreamer_proposal_payload,
     render_warden_patrol_report_payload,
     validate_dc_night_report_payload,
     validate_dreamer_follow_up_apply_payload,
@@ -378,7 +381,7 @@ def list_dreamer_queue() -> dict[str, Any]:
                 "target": str(path.relative_to(REPO_ROOT)),
                 "status": str(frontmatter.get("status", "unknown")),
                 "created": str(frontmatter.get("created", "")),
-                "reason": _proposal_reason(text),
+                "reason": str(inspect_dreamer_proposal_payload(text).get("reason", "")),
             }
         )
     return {"ok": True, "items": items}
@@ -389,13 +392,14 @@ def list_dreamer_follow_ups() -> dict[str, Any]:
     for path in sorted((REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Follow-Up.*.md")):
         text = path.read_text(encoding="utf-8")
         frontmatter = _parse_frontmatter(text)
+        follow_up_payload = inspect_dreamer_follow_up_payload(text)
         items.append(
             {
                 "target": str(path.relative_to(REPO_ROOT)),
                 "status": str(frontmatter.get("status", "unknown")),
                 "created": str(frontmatter.get("created", "")),
-                "kind": _follow_up_kind(text),
-                "reason": _follow_up_reason(text),
+                "kind": str(follow_up_payload.get("kind", "")),
+                "reason": str(follow_up_payload.get("reason", "")),
             }
         )
     return {"ok": True, "items": items}
@@ -412,7 +416,15 @@ def review_dreamer_proposal(target: str, decision: str, actor: str, reason: str)
         return {"ok": False, "findings": review_findings}
     record_approval(f"dreamer_{_slug(target)}_{_stamp()}", decision, actor, reason, target)
     follow_up = _build_dreamer_follow_up(target, current, decision, actor)
-    updated = _mark_dreamer_proposal_reviewed(current, decision, actor, reason, follow_up["target"] if follow_up else None)
+    updated = str(
+        render_reviewed_dreamer_proposal_payload(
+            current,
+            decision,
+            actor,
+            reason,
+            follow_up["target"] if follow_up else None,
+        )["content"]
+    )
     result = write_text(target, updated, actor="system", endpoint="dreamer-review", reason=f"dreamer proposal {decision}")
     follow_up_result = {"ok": True, "target": None, "kind": None}
     if result["ok"] and follow_up:
@@ -474,10 +486,18 @@ def apply_dreamer_follow_up(target: str, actor: str, reason: str) -> dict[str, A
         )
         return {"ok": False, "findings": apply_findings}
     if status == "applied":
-        return {"ok": True, "target": target, "execution_target": _existing_execution_target(current), "kind": _follow_up_kind(current), "findings": []}
+        follow_up_payload = inspect_dreamer_follow_up_payload(current)
+        return {
+            "ok": True,
+            "target": target,
+            "execution_target": follow_up_payload.get("execution_target"),
+            "kind": str(follow_up_payload.get("kind", "")),
+            "findings": [],
+        }
 
-    kind = _follow_up_kind(current)
-    follow_up_reason = _follow_up_reason(current)
+    follow_up_payload = inspect_dreamer_follow_up_payload(current)
+    kind = str(follow_up_payload.get("kind", ""))
+    follow_up_reason = str(follow_up_payload.get("reason", ""))
     execution = _build_follow_up_execution(target, kind, follow_up_reason, actor, reason)
     if execution.get("findings"):
         return {"ok": False, "findings": execution["findings"]}
@@ -500,7 +520,14 @@ def apply_dreamer_follow_up(target: str, actor: str, reason: str) -> dict[str, A
         execution_reason=reason,
     )
 
-    updated = _mark_dreamer_follow_up_applied(current, actor, reason, execution["target"])
+    updated = str(
+        render_applied_dreamer_follow_up_payload(
+            current,
+            actor,
+            reason,
+            execution["target"],
+        )["content"]
+    )
     follow_up_result = write_text(
         target,
         updated,
@@ -726,53 +753,10 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
     return data
 
 
-def _proposal_reason(text: str) -> str:
-    for line in text.splitlines():
-        if line.startswith("- reason:"):
-            return line.split(":", 1)[1].strip().strip("`")
-    return ""
-
-
-def _follow_up_kind(text: str) -> str:
-    for line in text.splitlines():
-        if line.startswith("- kind:"):
-            return line.split(":", 1)[1].strip().strip("`")
-    return ""
-
-
-def _follow_up_reason(text: str) -> str:
-    for line in text.splitlines():
-        if line.startswith("- reason:"):
-            return line.split(":", 1)[1].strip().strip("`")
-    return ""
-
-
-def _mark_dreamer_proposal_reviewed(text: str, decision: str, actor: str, reason: str, follow_up_target: str | None) -> str:
-    status_map = {
-        "approved": "approved",
-        "denied": "denied",
-        "needs-more-info": "needs-more-info",
-    }
-    updated = re.sub(r"^status:\s*\w[\w-]*$", f"status: {status_map[decision]}", text, count=1, flags=re.MULTILINE)
-    review_section = (
-        "\n## Review Outcome\n\n"
-        f"- decision: `{decision}`\n"
-        f"- actor: `{actor}`\n"
-        f"- reason: {reason}\n"
-    )
-    if follow_up_target:
-        review_section += f"- follow up: `[[{Path(follow_up_target).stem}]]`\n"
-    if "## Review Outcome" in updated:
-        updated = re.sub(r"\n## Review Outcome.*$", review_section, updated, flags=re.DOTALL)
-    else:
-        updated = updated.rstrip() + review_section
-    return updated
-
-
 def _build_dreamer_follow_up(target: str, proposal_text: str, decision: str, actor: str) -> dict[str, str] | None:
     if decision != "approved":
         return None
-    reason = _proposal_reason(proposal_text)
+    reason = str(inspect_dreamer_proposal_payload(proposal_text).get("reason", ""))
     classification_payload = classify_dreamer_follow_up_payload(reason)
     classification = str(classification_payload.get("kind", "refusal-tightening"))
     stem = Path(target).stem.replace("Dreamer-Proposal.", "Dreamer-Follow-Up.")
@@ -828,30 +812,6 @@ def _build_follow_up_execution(
     if findings:
         return {"target": execution_target, "content": content, "findings": findings}
     return {"target": execution_target, "content": content}
-
-
-def _mark_dreamer_follow_up_applied(text: str, actor: str, reason: str, execution_target: str) -> str:
-    updated = re.sub(r"^status:\s*\w[\w-]*$", "status: applied", text, count=1, flags=re.MULTILINE)
-    execution_section = (
-        "\n## Execution Outcome\n\n"
-        "- decision: `applied`\n"
-        f"- actor: `{actor}`\n"
-        f"- reason: {reason}\n"
-        f"- execution: `[[{Path(execution_target).stem}]]`\n"
-    )
-    if "## Execution Outcome" in updated:
-        updated = re.sub(r"\n## Execution Outcome.*$", execution_section, updated, flags=re.DOTALL)
-    else:
-        updated = updated.rstrip() + execution_section
-    return updated
-
-
-def _existing_execution_target(text: str) -> str | None:
-    for line in text.splitlines():
-        if line.startswith("- execution:"):
-            return line.split("[[", 1)[1].split("]]", 1)[0]
-    return None
-
 
 def _load_dreamer_actions() -> dict[str, Any]:
     return load_dreamer_actions()

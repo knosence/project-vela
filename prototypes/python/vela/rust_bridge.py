@@ -145,6 +145,45 @@ def inspect_dreamer_follow_up_kind_payload(kind: str) -> dict[str, Any]:
     return _run(["inspect-dreamer-follow-up-kind", kind])
 
 
+def inspect_dreamer_proposal_payload(content: str) -> dict[str, Any]:
+    return _run(["inspect-dreamer-proposal"], stdin=content)
+
+
+def inspect_dreamer_follow_up_payload(content: str) -> dict[str, Any]:
+    return _run(["inspect-dreamer-follow-up"], stdin=content)
+
+
+def render_reviewed_dreamer_proposal_payload(
+    content: str,
+    decision: str,
+    actor: str,
+    reason: str,
+    follow_up_target: str | None,
+) -> dict[str, Any]:
+    return _run(
+        [
+            "render-reviewed-dreamer-proposal",
+            decision,
+            actor,
+            reason,
+            follow_up_target or "",
+        ],
+        stdin=content,
+    )
+
+
+def render_applied_dreamer_follow_up_payload(
+    content: str,
+    actor: str,
+    reason: str,
+    execution_target: str,
+) -> dict[str, Any]:
+    return _run(
+        ["render-applied-dreamer-follow-up", actor, reason, execution_target],
+        stdin=content,
+    )
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 

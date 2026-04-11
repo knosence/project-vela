@@ -15,17 +15,23 @@ use vela_core::models::{
 };
 use vela_core::operations::{
     classify_dreamer_follow_up as classify_dreamer_follow_up_policy,
+    dreamer_existing_execution_target as dreamer_existing_execution_target_policy,
+    dreamer_follow_up_kind as dreamer_follow_up_kind_policy,
     dreamer_follow_up_queue_name as dreamer_follow_up_queue_name_policy,
+    dreamer_follow_up_reason as dreamer_follow_up_reason_policy,
     dreamer_follow_up_registry_mode as dreamer_follow_up_registry_mode_policy,
+    dreamer_proposal_reason as dreamer_proposal_reason_policy,
     match_dreamer_actions as match_dreamer_actions_policy,
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
     register_dreamer_action as register_dreamer_action_policy,
+    render_applied_dreamer_follow_up as render_applied_dreamer_follow_up_policy,
     render_dc_night_report as render_dc_night_report_policy,
     render_dreamer_execution_artifact as render_dreamer_execution_artifact_policy,
     render_dreamer_follow_up as render_dreamer_follow_up_policy,
     render_dreamer_pattern_report as render_dreamer_pattern_report_policy,
     render_dreamer_proposal as render_dreamer_proposal_policy,
+    render_reviewed_dreamer_proposal as render_reviewed_dreamer_proposal_policy,
     render_warden_patrol_report as render_warden_patrol_report_policy,
     route_inbox_entry as route_inbox_dimension,
     update_dreamer_action_status as update_dreamer_action_status_policy,
@@ -654,6 +660,71 @@ fn run() -> Result<(), String> {
                     .collect::<Vec<String>>()
                     .join(",")
             );
+        }
+        "inspect-dreamer-proposal" => {
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            println!(
+                "{{\"ok\":true,\"reason\":\"{}\"}}",
+                escape_json(&dreamer_proposal_reason_policy(&content))
+            );
+        }
+        "inspect-dreamer-follow-up" => {
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let execution_target = dreamer_existing_execution_target_policy(&content)
+                .map(|item| format!("\"{}\"", escape_json(&item)))
+                .unwrap_or_else(|| "null".to_string());
+            println!(
+                "{{\"ok\":true,\"kind\":\"{}\",\"reason\":\"{}\",\"execution_target\":{}}}",
+                escape_json(&dreamer_follow_up_kind_policy(&content)),
+                escape_json(&dreamer_follow_up_reason_policy(&content)),
+                execution_target
+            );
+        }
+        "render-reviewed-dreamer-proposal" => {
+            let decision = args.next().ok_or_else(|| "missing decision".to_string())?;
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let follow_up_target = args.next().unwrap_or_default();
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let rendered = render_reviewed_dreamer_proposal_policy(
+                &content,
+                &decision,
+                &actor,
+                &reason,
+                if follow_up_target.is_empty() {
+                    None
+                } else {
+                    Some(follow_up_target.as_str())
+                },
+            );
+            println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&rendered));
+        }
+        "render-applied-dreamer-follow-up" => {
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let execution_target = args
+                .next()
+                .ok_or_else(|| "missing execution target".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let rendered = render_applied_dreamer_follow_up_policy(
+                &content,
+                &actor,
+                &reason,
+                &execution_target,
+            );
+            println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&rendered));
         }
         "validate-config" => {
             let owner_name = args

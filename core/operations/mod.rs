@@ -520,6 +520,62 @@ Follow up `[[{}]]` was executed by `{actor}` and opened a concrete `{kind}` queu
     )
 }
 
+pub fn dreamer_proposal_reason(text: &str) -> String {
+    extract_markdown_field(text, "- reason:")
+}
+
+pub fn dreamer_follow_up_kind(text: &str) -> String {
+    extract_markdown_field(text, "- kind:")
+}
+
+pub fn dreamer_follow_up_reason(text: &str) -> String {
+    extract_markdown_field(text, "- reason:")
+}
+
+pub fn dreamer_existing_execution_target(text: &str) -> Option<String> {
+    for line in text.lines() {
+        if line.starts_with("- execution:") {
+            return line
+                .split("[[")
+                .nth(1)
+                .and_then(|item| item.split("]]").next())
+                .map(|item| item.to_string());
+        }
+    }
+    None
+}
+
+pub fn render_reviewed_dreamer_proposal(
+    text: &str,
+    decision: &str,
+    actor: &str,
+    reason: &str,
+    follow_up_target: Option<&str>,
+) -> String {
+    let updated = replace_frontmatter_status(text, decision);
+    let mut review_section = format!(
+        "\n## Review Outcome\n\n- decision: `{decision}`\n- actor: `{actor}`\n- reason: {reason}\n"
+    );
+    if let Some(target) = follow_up_target {
+        review_section.push_str(&format!("- follow up: `[[{}]]`\n", stem_or_empty(target)));
+    }
+    replace_or_append_section(&updated, "## Review Outcome", &review_section)
+}
+
+pub fn render_applied_dreamer_follow_up(
+    text: &str,
+    actor: &str,
+    reason: &str,
+    execution_target: &str,
+) -> String {
+    let updated = replace_frontmatter_status(text, "applied");
+    let execution_section = format!(
+        "\n## Execution Outcome\n\n- decision: `applied`\n- actor: `{actor}`\n- reason: {reason}\n- execution: `[[{}]]`\n",
+        stem_or_empty(execution_target),
+    );
+    replace_or_append_section(&updated, "## Execution Outcome", &execution_section)
+}
+
 pub fn parse_dreamer_action_registry(
     registry_json: &str,
 ) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
@@ -910,6 +966,39 @@ fn render_matching_blocked_item_evidence(blocked_items_json: &str, reason: &str)
         "- No matching blocked items remained available.".to_string()
     } else {
         matches.join("\n")
+    }
+}
+
+fn extract_markdown_field(text: &str, prefix: &str) -> String {
+    for line in text.lines() {
+        if line.starts_with(prefix) {
+            return line
+                .split_once(':')
+                .map(|(_, value)| value.trim().trim_matches('`').to_string())
+                .unwrap_or_default();
+        }
+    }
+    String::new()
+}
+
+fn replace_frontmatter_status(text: &str, status: &str) -> String {
+    text.lines()
+        .map(|line| {
+            if line.starts_with("status: ") {
+                format!("status: {status}")
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+fn replace_or_append_section(text: &str, heading: &str, section: &str) -> String {
+    if let Some(start) = text.find(&format!("\n{heading}")) {
+        format!("{}{}", &text[..start], section)
+    } else {
+        format!("{}{}", text.trim_end(), section)
     }
 }
 
