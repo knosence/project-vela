@@ -68,6 +68,7 @@ from prototypes.python.vela.rust_bridge import (
     render_growth_spawned_sot_payload,
     render_applied_growth_action_payload,
     render_applied_growth_proposal_payload,
+    render_growth_fractalized_source_payload,
     render_dreamer_execution_artifact_payload,
     render_dreamer_follow_up_payload,
     render_dreamer_pattern_report_payload,
@@ -1949,6 +1950,13 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(rendered_applied["ok"])
         self.assertIn("Applied Growth Action", rendered_applied["content"])
+        rendered_fractal = render_growth_fractalized_source_payload(
+            (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
+            "knowledge/ARTIFACTS/proposals/example-growth.md",
+            "2026-04-11",
+        )
+        self.assertTrue(rendered_fractal["ok"])
+        self.assertIn("Grouping scaffold created", rendered_fractal["content"])
         rendered_proposal = render_applied_growth_proposal_payload(
             "---\nstatus: proposed\n---\n\n# Growth Proposal\n",
             "knowledge/ARTIFACTS/refs/Ref.example.md",

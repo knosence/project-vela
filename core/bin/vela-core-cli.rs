@@ -53,6 +53,7 @@ use vela_core::operations::{
     render_dreamer_follow_up as render_dreamer_follow_up_policy,
     render_dreamer_pattern_report as render_dreamer_pattern_report_policy,
     render_dreamer_proposal as render_dreamer_proposal_policy,
+    render_fractalized_growth_source as render_fractalized_growth_source_policy,
     render_growth_reference_note as render_growth_reference_note_policy,
     render_reviewed_dreamer_proposal as render_reviewed_dreamer_proposal_policy,
     render_spawned_sot as render_spawned_sot_policy,
@@ -292,6 +293,21 @@ fn run() -> Result<(), String> {
                 .map_err(|err| format!("failed reading stdin: {err}"))?;
             let content =
                 render_applied_growth_proposal_policy(&proposal_text, &execution_target, &stage);
+            println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&content));
+        }
+        "render-growth-fractalized-source" => {
+            let proposal_target = args
+                .next()
+                .ok_or_else(|| "missing proposal target".to_string())?;
+            let created = args
+                .next()
+                .ok_or_else(|| "missing created date".to_string())?;
+            let mut source_text = String::new();
+            io::stdin()
+                .read_to_string(&mut source_text)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let content =
+                render_fractalized_growth_source_policy(&source_text, &proposal_target, &created);
             println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&content));
         }
         "validate-archive-postconditions" => {

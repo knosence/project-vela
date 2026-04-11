@@ -514,6 +514,43 @@ pub fn render_applied_growth_proposal(
     updated
 }
 
+pub fn render_fractalized_growth_source(
+    source_text: &str,
+    proposal_target: &str,
+    created: &str,
+) -> String {
+    if source_text.lines().any(is_subgroup_heading) {
+        return source_text.to_string();
+    }
+
+    let counts = dimension_entry_counts_by_id(source_text);
+    if counts.is_empty() {
+        return source_text.to_string();
+    }
+    let mut densest = String::new();
+    let mut best_count = 0usize;
+    for (dimension, count) in &counts {
+        if *count > best_count {
+            best_count = *count;
+            densest = dimension.clone();
+        }
+    }
+    let subgroup_heading = format!(
+        "## {:03}.{}-Subgroup",
+        densest.parse::<usize>().unwrap_or_default() + 10,
+        dimension_label(source_text, &densest)
+    );
+    let subgroup = format!(
+        "{subgroup_heading}\n\n### Active\n\n- Grouping scaffold created from `{proposal_target}`. ({created})\n  - This subgroup marks the first structural split inside the densest dimension. [AGENT:gpt-5]\n\n### Inactive\n\n(No inactive entries.)\n\n"
+    );
+    let anchor = next_top_level_heading_for_dimension(source_text, &densest);
+    if anchor.is_empty() {
+        format!("{}\n\n{}", source_text.trim_end(), subgroup)
+    } else {
+        source_text.replacen(&anchor, &format!("{subgroup}{anchor}"), 1)
+    }
+}
+
 pub fn parse_operations_state(state_json: &str) -> (OperationsState, Vec<ValidationFinding>) {
     let mut findings = Vec::new();
     let mut state = default_operations_state();
@@ -2231,6 +2268,47 @@ fn dimension_heading(text: &str, dimension: &str) -> String {
         .to_string()
 }
 
+fn dimension_label(text: &str, dimension: &str) -> String {
+    let heading = dimension_heading(text, dimension);
+    let parts: Vec<&str> = heading.split('.').collect();
+    if parts.len() < 3 {
+        return "Grouping".to_string();
+    }
+    let raw = parts[2..].join(".");
+    let mut cleaned = String::new();
+    let mut previous_dash = false;
+    for ch in raw.chars() {
+        if ch.is_ascii_alphanumeric() {
+            cleaned.push(ch);
+            previous_dash = false;
+        } else if !previous_dash {
+            cleaned.push('-');
+            previous_dash = true;
+        }
+    }
+    let trimmed = cleaned.trim_matches('-').to_string();
+    if trimmed.is_empty() {
+        "Grouping".to_string()
+    } else {
+        trimmed
+    }
+}
+
+fn next_top_level_heading_for_dimension(text: &str, dimension: &str) -> String {
+    let current = dimension.parse::<usize>().unwrap_or_default();
+    for candidate in ((current + 100)..=700).step_by(100) {
+        let marker = format!("## {candidate:03}.");
+        if let Some(start) = text.find(&marker) {
+            let end = text[start..]
+                .find('\n')
+                .map(|offset| start + offset)
+                .unwrap_or(text.len());
+            return text[start..end].to_string();
+        }
+    }
+    String::new()
+}
+
 fn section_by_heading(text: &str, heading: &str) -> String {
     if heading.is_empty() {
         return String::new();
@@ -2630,6 +2708,18 @@ mod tests {
         assert!(plan
             .active_pointer_line
             .contains("[[110.WHO.Vela-Identity.Spawned-Child-SoT]]"));
+    }
+
+    #[test]
+    fn renders_fractalized_growth_source() {
+        let source = "# Test\n\n## 100.WHO.Identity\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n## 200.WHAT.Scope\n\n### Active\n\n- One. (2026-04-11)\n  - A.\n- Two. (2026-04-11)\n  - B.\n- Three. (2026-04-11)\n  - C.\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n## 300.WHERE.Place\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n";
+        let rendered = render_fractalized_growth_source(
+            source,
+            "knowledge/ARTIFACTS/proposals/example-growth.md",
+            "2026-04-11",
+        );
+        assert!(rendered.contains("## 210.Scope-Subgroup"));
+        assert!(rendered.contains("Grouping scaffold created"));
     }
 
     #[test]

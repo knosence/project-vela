@@ -435,6 +435,17 @@ def render_applied_growth_proposal_payload(
     )
 
 
+def render_growth_fractalized_source_payload(
+    source_text: str,
+    proposal_target: str,
+    created: str,
+) -> dict[str, Any]:
+    return _run(
+        ["render-growth-fractalized-source", proposal_target, created],
+        stdin=source_text,
+    )
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 

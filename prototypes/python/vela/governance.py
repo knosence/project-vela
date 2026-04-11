@@ -21,6 +21,7 @@ from .rust_bridge import render_growth_reference_note_payload
 from .rust_bridge import render_growth_spawned_sot_payload
 from .rust_bridge import render_applied_growth_action_payload
 from .rust_bridge import render_applied_growth_proposal_payload
+from .rust_bridge import render_growth_fractalized_source_payload
 from .rust_bridge import route_inbox_payload
 from .rust_bridge import validate_archive_postconditions_payload
 from .rust_bridge import validate_event_payload
@@ -740,7 +741,9 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
         return {"ok": False, "findings": [item.as_dict() for item in findings]}
 
     if stage == "fractal":
-        content = _fractalize_source(source_text, assessed_target, proposal_target, created)
+        content = render_growth_fractalized_source_payload(
+            source_text, proposal_target, created
+        )["content"]
         return {"ok": True, "target": str(plan["target"]), "content": content, "kind": str(plan["kind"])}
 
     if stage == "reference-note":
@@ -871,88 +874,6 @@ def _append_line_to_section(text: str, heading: str, addition: str) -> str:
         return text
     section = f"{section}\n\n{addition}\n"
     return text[:start] + section + text[end:]
-
-
-def _fractalize_source(source_text: str, assessed_target: str, proposal_target: str, created: str) -> str:
-    if re.search(r"^##\s[1-6][1-9]0\.", source_text, flags=re.MULTILINE):
-        return source_text
-
-    counts = _dimension_entry_counts(source_text)
-    if not counts:
-        return source_text
-    densest = max(counts, key=counts.get)
-    subgroup_heading = f"## {int(densest) + 10:03d}.{_dimension_label(source_text, densest)}-Subgroup"
-    subgroup = (
-        f"{subgroup_heading}\n\n"
-        "### Active\n\n"
-        f"- Grouping scaffold created from `{proposal_target}`. ({created})\n"
-        "  - This subgroup marks the first structural split inside the densest dimension. [AGENT:gpt-5]\n\n"
-        "### Inactive\n\n"
-        "(No inactive entries.)\n\n"
-    )
-    anchor = _next_top_level_heading_for_dimension(source_text, densest)
-    if anchor:
-        return source_text.replace(anchor, subgroup + anchor, 1)
-    return source_text.rstrip() + "\n\n" + subgroup
-
-
-def _dimension_entry_counts(text: str) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    current_dimension = ""
-    for line in text.splitlines():
-        match = re.match(r"^##\s(\d{3})\.", line.strip())
-        if match:
-            current_dimension = match.group(1)
-            if current_dimension in {"100", "200", "300", "400", "500", "600"}:
-                counts.setdefault(current_dimension, 0)
-            else:
-                current_dimension = ""
-            continue
-        if current_dimension and line.startswith("- "):
-            counts[current_dimension] += 1
-    return counts
-
-
-def _next_top_level_heading_for_dimension(text: str, dimension: str) -> str:
-    current = int(dimension)
-    for candidate in range(current + 100, 701, 100):
-        marker = f"## {candidate:03d}."
-        if marker in text:
-            start = text.find(marker)
-            end = text.find("\n", start)
-            return text[start:end] if end != -1 else text[start:]
-    return ""
-
-
-def _dimension_label(text: str, dimension: str) -> str:
-    match = re.search(rf"^##\s{dimension}\.[^.]+\.(.+)$", text, flags=re.MULTILINE)
-    if not match:
-        return "Grouping"
-    raw = re.sub(r"[^A-Za-z0-9]+", "-", match.group(1)).strip("-")
-    return raw or "Grouping"
-
-
-def _extract_reference_entries(source_text: str) -> dict[str, Any]:
-    counts = _dimension_entry_counts(source_text)
-    if not counts:
-        return {"dimension": "", "entries": []}
-    densest = max(counts, key=lambda item: (counts[item], _dimension_preference(item)))
-    section = _dimension_section(source_text, densest)
-    active = _subsection(section, "### Active")
-    entries = _entry_blocks(active)[:2]
-    return {"dimension": _dimension_heading(source_text, densest), "entries": entries}
-
-
-def _dimension_preference(dimension: str) -> int:
-    order = {
-        "200": 6,
-        "500": 5,
-        "300": 4,
-        "400": 3,
-        "600": 2,
-        "100": 1,
-    }
-    return order.get(dimension, 0)
 
 
 def _replace_entries_with_reference_pointer(
