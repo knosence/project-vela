@@ -262,6 +262,45 @@ def plan_night_cycle_payload(
     )
 
 
+def plan_operation_start_payload(
+    state_json: str,
+    name: str,
+    requested_by: str,
+    started_at: str,
+) -> dict[str, Any]:
+    return _run(["plan-operation-start", name, requested_by, started_at], stdin=state_json)
+
+
+def plan_operation_state_update_payload(
+    state_json: str,
+    name: str,
+    status: str,
+    requested_by: str,
+    *,
+    started_at: str = "",
+    completed_at: str = "",
+    last_report_target: str = "",
+    last_error: str = "",
+    increment_runs: bool = False,
+    release_lock: bool = False,
+) -> dict[str, Any]:
+    return _run(
+        [
+            "plan-operation-state-update",
+            name,
+            status,
+            requested_by,
+            started_at,
+            completed_at,
+            last_report_target,
+            last_error,
+            "true" if increment_runs else "false",
+            "true" if release_lock else "false",
+        ],
+        stdin=state_json,
+    )
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 

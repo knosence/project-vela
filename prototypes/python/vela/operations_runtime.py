@@ -23,6 +23,8 @@ from .rust_bridge import (
     plan_night_cycle_payload,
     plan_dreamer_follow_up_apply_payload,
     plan_dreamer_review_payload,
+    plan_operation_start_payload,
+    plan_operation_state_update_payload,
     plan_warden_patrol_payload,
     render_dc_night_report_payload,
     render_dreamer_pattern_report_payload,
@@ -34,10 +36,8 @@ from .rust_bridge import (
     validate_dreamer_execution_artifact_payload,
     validate_dreamer_review_payload,
     parse_operations_state_payload,
-    update_operations_state_payload,
     validate_operation_lock_payload,
     validate_operation_request_payload,
-    validate_operation_transition_payload,
     validate_warden_patrol_report_payload,
 )
 
@@ -98,82 +98,86 @@ def run_warden_patrol(requested_by: str = "system") -> dict[str, Any]:
             )
         )
         return {"ok": False, "report_target": "", "files_checked": 0, "structural_flags": [], "cosmetic_fixes": [], "findings": [lock]}
-    _update_operation_state("patrol", status="running", requested_by=requested_by, started_at=started_at)
     targets = _patched_targets()
     checked: list[dict[str, Any]] = []
     structural_flags: list[dict[str, Any]] = []
     report_target = ""
-    try:
-        for target in targets:
-            path = REPO_ROOT / target
-            if not path.exists() or not path.is_file():
-                continue
-            if path.suffix not in {".md", ".json"}:
-                continue
-            content = path.read_text(encoding="utf-8")
-            findings = [item.as_dict() for item in validate_target(target, content)]
-            if any(item["severity"] == "error" for item in findings):
-                structural_flags.append({"target": target, "findings": findings})
-            checked.append({"target": target, "findings": findings})
+    for target in targets:
+        path = REPO_ROOT / target
+        if not path.exists() or not path.is_file():
+            continue
+        if path.suffix not in {".md", ".json"}:
+            continue
+        content = path.read_text(encoding="utf-8")
+        findings = [item.as_dict() for item in validate_target(target, content)]
+        if any(item["severity"] == "error" for item in findings):
+            structural_flags.append({"target": target, "findings": findings})
+        checked.append({"target": target, "findings": findings})
 
-        stamp = _stamp()
-        plan_payload = plan_warden_patrol_payload(
-            stamp,
-            requested_by,
-            [item["target"] for item in checked],
-            [item["target"] for item in structural_flags],
-        )
-        plan = plan_payload.get("plan")
-        plan_findings = plan_payload.get("findings", [])
-        if not plan_payload.get("ok") or not plan:
-            return {
-                "ok": False,
-                "report_target": plan["report_target"] if plan else "",
-                "files_checked": len(checked),
-                "structural_flags": structural_flags,
-                "cosmetic_fixes": [],
-                "findings": plan_findings,
-            }
-        report_target = str(plan["report_target"])
-        report = str(plan["report_content"])
-        result = write_text(report_target, report, actor="warden", endpoint="patrol", reason="warden patrol report")
+    stamp = _stamp()
+    plan_payload = plan_warden_patrol_payload(
+        stamp,
+        requested_by,
+        [item["target"] for item in checked],
+        [item["target"] for item in structural_flags],
+    )
+    plan = plan_payload.get("plan")
+    plan_findings = plan_payload.get("findings", [])
+    if not plan_payload.get("ok") or not plan:
         _update_operation_state(
             "patrol",
-            status="completed" if result["ok"] else "blocked",
+            status="blocked",
             requested_by=requested_by,
             started_at=started_at,
             completed_at=datetime.now(timezone.utc).isoformat(),
-            last_report_target=report_target,
-            last_error="" if result["ok"] else "warden patrol blocked",
-            increment_runs=result["ok"],
-        )
-        append_event(
-            EventRecord(
-                source="vela",
-                endpoint="patrol",
-                actor="warden",
-                target=report_target,
-                status="committed" if result["ok"] else "blocked",
-                reason="warden patrol executed",
-                artifacts=result.get("artifacts", [report_target]),
-                validation_summary={
-                    "requested_by": requested_by,
-                    "files_checked": len(checked),
-                    "structural_flags": len(structural_flags),
-                },
-            )
+            last_error=plan_findings[0]["detail"] if plan_findings else "warden patrol planning failed",
+            release_lock=True,
         )
         return {
-            "ok": result["ok"],
-            "report_target": report_target,
+            "ok": False,
+            "report_target": plan["report_target"] if plan else "",
             "files_checked": len(checked),
             "structural_flags": structural_flags,
             "cosmetic_fixes": [],
+            "findings": plan_findings,
         }
-    finally:
-        _release_operation_lock("patrol")
-
-
+    report_target = str(plan["report_target"])
+    report = str(plan["report_content"])
+    result = write_text(report_target, report, actor="warden", endpoint="patrol", reason="warden patrol report")
+    _update_operation_state(
+        "patrol",
+        status="completed" if result["ok"] else "blocked",
+        requested_by=requested_by,
+        started_at=started_at,
+        completed_at=datetime.now(timezone.utc).isoformat(),
+        last_report_target=report_target,
+        last_error="" if result["ok"] else "warden patrol blocked",
+        increment_runs=result["ok"],
+        release_lock=True,
+    )
+    append_event(
+        EventRecord(
+            source="vela",
+            endpoint="patrol",
+            actor="warden",
+            target=report_target,
+            status="committed" if result["ok"] else "blocked",
+            reason="warden patrol executed",
+            artifacts=result.get("artifacts", [report_target]),
+            validation_summary={
+                "requested_by": requested_by,
+                "files_checked": len(checked),
+                "structural_flags": len(structural_flags),
+            },
+        )
+    )
+    return {
+        "ok": result["ok"],
+        "report_target": report_target,
+        "files_checked": len(checked),
+        "structural_flags": structural_flags,
+        "cosmetic_fixes": [],
+    }
 def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
     started_at = datetime.now(timezone.utc).isoformat()
     request_findings = validate_operation_request_payload("night-cycle", requested_by).get("findings", [])
@@ -240,120 +244,127 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
             "dreamer_proposals": [],
             "findings": [lock],
         }
-    _update_operation_state("night-cycle", status="running", requested_by=requested_by, started_at=started_at)
     report_target = ""
     dreamer_report_target = ""
-    try:
-        patrol = run_warden_patrol(requested_by=f"night-cycle:{requested_by}")
-        if not patrol["ok"]:
-            _update_operation_state(
-                "night-cycle",
-                status="blocked",
-                requested_by=requested_by,
-                started_at=started_at,
-                completed_at=datetime.now(timezone.utc).isoformat(),
-                last_error="night cycle could not acquire dependent patrol execution",
-            )
-            return {
-                "ok": False,
-                "report_target": "",
-                "dreamer_report_target": "",
-                "patrol": patrol,
-                "growth_candidates": [],
-                "dreamer_patterns": {},
-                "blocked_items": [],
-                "dreamer_proposals": [],
-                "findings": patrol.get("findings", []),
-            }
-        growth_candidates = _growth_candidates()
-        blocked_items = _blocked_items()
-        dreamer_patterns = _dreamer_patterns(blocked_items)
-        stamp = _stamp()
-        dreamer_proposals = _write_dreamer_proposals(stamp, requested_by, dreamer_patterns, blocked_items)
-        plan_payload = plan_night_cycle_payload(
-            stamp,
-            requested_by,
-            patrol.get("report_target", ""),
-            int(patrol.get("files_checked", 0)),
-            len(patrol.get("structural_flags", [])),
-            growth_candidates,
-            dreamer_patterns,
-            blocked_items,
-            dreamer_proposals,
-        )
-        plan = plan_payload.get("plan")
-        plan_findings = plan_payload.get("findings", [])
-        if not plan_payload.get("ok") or not plan:
-            return {
-                "ok": False,
-                "report_target": "",
-                "dreamer_report_target": plan["dreamer_report_target"] if plan else "",
-                "patrol": patrol,
-                "growth_candidates": growth_candidates,
-                "dreamer_patterns": dreamer_patterns,
-                "blocked_items": blocked_items,
-                "dreamer_proposals": dreamer_proposals,
-                "findings": plan_findings,
-            }
-        dreamer_report_target = str(plan["dreamer_report_target"])
-        dreamer_report = str(plan["dreamer_report_content"])
-        dreamer_result = write_text(
-            dreamer_report_target,
-            dreamer_report,
-            actor="reflector",
-            endpoint="night-cycle",
-            reason="dreamer pattern report",
-        )
-        report_target = str(plan["report_target"])
-        report = str(plan["report_content"])
-        result = write_text(report_target, report, actor="system", endpoint="night-cycle", reason="dc night cycle report")
+    patrol = run_warden_patrol(requested_by=f"night-cycle:{requested_by}")
+    if not patrol["ok"]:
         _update_operation_state(
             "night-cycle",
-            status="completed" if result["ok"] and dreamer_result["ok"] else "blocked",
+            status="blocked",
             requested_by=requested_by,
             started_at=started_at,
             completed_at=datetime.now(timezone.utc).isoformat(),
-            last_report_target=report_target,
-            last_error="" if result["ok"] and dreamer_result["ok"] else "night cycle blocked",
-            increment_runs=result["ok"] and dreamer_result["ok"],
-        )
-        append_event(
-            EventRecord(
-                source="vela",
-                endpoint="night-cycle",
-                actor="dc",
-                target=report_target,
-                status="committed" if result["ok"] else "blocked",
-                reason="dc night cycle executed",
-                artifacts=[
-                    dreamer_report_target,
-                    report_target,
-                    *dreamer_result.get("artifacts", [dreamer_report_target]),
-                    *result.get("artifacts", [report_target]),
-                ],
-                validation_summary={
-                    "requested_by": requested_by,
-                    "growth_candidates": len(growth_candidates),
-                    "dreamer_patterns": dreamer_patterns,
-                    "blocked_items": len(blocked_items),
-                    "patrol_report": patrol.get("report_target", ""),
-                    "dreamer_report": dreamer_report_target,
-                    "dreamer_proposals": [item["target"] for item in dreamer_proposals],
-                },
-            )
+            last_error="night cycle could not acquire dependent patrol execution",
+            release_lock=True,
         )
         return {
-            "ok": result["ok"] and dreamer_result["ok"],
-            "report_target": report_target,
-            "dreamer_report_target": dreamer_report_target,
+            "ok": False,
+            "report_target": "",
+            "dreamer_report_target": "",
+            "patrol": patrol,
+            "growth_candidates": [],
+            "dreamer_patterns": {},
+            "blocked_items": [],
+            "dreamer_proposals": [],
+            "findings": patrol.get("findings", []),
+        }
+    growth_candidates = _growth_candidates()
+    blocked_items = _blocked_items()
+    dreamer_patterns = _dreamer_patterns(blocked_items)
+    stamp = _stamp()
+    dreamer_proposals = _write_dreamer_proposals(stamp, requested_by, dreamer_patterns, blocked_items)
+    plan_payload = plan_night_cycle_payload(
+        stamp,
+        requested_by,
+        patrol.get("report_target", ""),
+        int(patrol.get("files_checked", 0)),
+        len(patrol.get("structural_flags", [])),
+        growth_candidates,
+        dreamer_patterns,
+        blocked_items,
+        dreamer_proposals,
+    )
+    plan = plan_payload.get("plan")
+    plan_findings = plan_payload.get("findings", [])
+    if not plan_payload.get("ok") or not plan:
+        _update_operation_state(
+            "night-cycle",
+            status="blocked",
+            requested_by=requested_by,
+            started_at=started_at,
+            completed_at=datetime.now(timezone.utc).isoformat(),
+            last_error=plan_findings[0]["detail"] if plan_findings else "night cycle planning failed",
+            release_lock=True,
+        )
+        return {
+            "ok": False,
+            "report_target": "",
+            "dreamer_report_target": plan["dreamer_report_target"] if plan else "",
             "patrol": patrol,
             "growth_candidates": growth_candidates,
             "dreamer_patterns": dreamer_patterns,
             "blocked_items": blocked_items,
             "dreamer_proposals": dreamer_proposals,
+            "findings": plan_findings,
         }
-    finally:
-        _release_operation_lock("night-cycle")
+    dreamer_report_target = str(plan["dreamer_report_target"])
+    dreamer_report = str(plan["dreamer_report_content"])
+    dreamer_result = write_text(
+        dreamer_report_target,
+        dreamer_report,
+        actor="reflector",
+        endpoint="night-cycle",
+        reason="dreamer pattern report",
+    )
+    report_target = str(plan["report_target"])
+    report = str(plan["report_content"])
+    result = write_text(report_target, report, actor="system", endpoint="night-cycle", reason="dc night cycle report")
+    _update_operation_state(
+        "night-cycle",
+        status="completed" if result["ok"] and dreamer_result["ok"] else "blocked",
+        requested_by=requested_by,
+        started_at=started_at,
+        completed_at=datetime.now(timezone.utc).isoformat(),
+        last_report_target=report_target,
+        last_error="" if result["ok"] and dreamer_result["ok"] else "night cycle blocked",
+        increment_runs=result["ok"] and dreamer_result["ok"],
+        release_lock=True,
+    )
+    append_event(
+        EventRecord(
+            source="vela",
+            endpoint="night-cycle",
+            actor="dc",
+            target=report_target,
+            status="committed" if result["ok"] else "blocked",
+            reason="dc night cycle executed",
+            artifacts=[
+                dreamer_report_target,
+                report_target,
+                *dreamer_result.get("artifacts", [dreamer_report_target]),
+                *result.get("artifacts", [report_target]),
+            ],
+            validation_summary={
+                "requested_by": requested_by,
+                "growth_candidates": len(growth_candidates),
+                "dreamer_patterns": dreamer_patterns,
+                "blocked_items": len(blocked_items),
+                "patrol_report": patrol.get("report_target", ""),
+                "dreamer_report": dreamer_report_target,
+                "dreamer_proposals": [item["target"] for item in dreamer_proposals],
+            },
+        )
+    )
+    return {
+        "ok": result["ok"] and dreamer_result["ok"],
+        "report_target": report_target,
+        "dreamer_report_target": dreamer_report_target,
+        "patrol": patrol,
+        "growth_candidates": growth_candidates,
+        "dreamer_patterns": dreamer_patterns,
+        "blocked_items": blocked_items,
+        "dreamer_proposals": dreamer_proposals,
+    }
 
 
 def run_warden_patrol_scheduler(
@@ -803,10 +814,22 @@ def _acquire_operation_lock(name: str, requested_by: str, started_at: str) -> di
             "target": str(lock_path.relative_to(REPO_ROOT)),
             "findings": findings,
         }
-    lock_path.write_text(
-        json.dumps({"name": name, "requested_by": requested_by, "started_at": started_at}, indent=2),
-        encoding="utf-8",
-    )
+    current_state = "{}"
+    if OPERATIONS_STATE_PATH.exists():
+        current_state = OPERATIONS_STATE_PATH.read_text(encoding="utf-8")
+    payload = plan_operation_start_payload(current_state, name, requested_by, started_at)
+    plan = payload.get("plan")
+    findings = payload.get("findings", [])
+    if not payload.get("ok") or not plan:
+        return {
+            "ok": False,
+            "code": "OPERATION_START_REJECTED",
+            "detail": findings[0]["detail"] if findings else f"Operation `{name}` could not start.",
+            "target": str(lock_path.relative_to(REPO_ROOT)),
+            "findings": findings,
+        }
+    _write_operations_state_json(str(plan["state_json"]))
+    lock_path.write_text(str(plan["lock_content"]), encoding="utf-8")
     return {"ok": True, "target": str(lock_path.relative_to(REPO_ROOT))}
 
 
@@ -833,6 +856,15 @@ def _write_operations_state(state: dict[str, Any]) -> None:
     OPERATIONS_STATE_PATH.write_text(json.dumps(payload.get("state", _default_operations_state()), indent=2), encoding="utf-8")
 
 
+def _write_operations_state_json(state_json: str) -> None:
+    OPERATIONS_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = parse_operations_state_payload(state_json)
+    OPERATIONS_STATE_PATH.write_text(
+        json.dumps(payload.get("state", _default_operations_state()), indent=2),
+        encoding="utf-8",
+    )
+
+
 def _update_operation_state(
     name: str,
     *,
@@ -843,16 +875,12 @@ def _update_operation_state(
     last_report_target: str | None = None,
     last_error: str | None = None,
     increment_runs: bool = False,
+    release_lock: bool = False,
 ) -> None:
     current_state = "{}"
-    current_status = "idle"
     if OPERATIONS_STATE_PATH.exists():
         current_state = OPERATIONS_STATE_PATH.read_text(encoding="utf-8")
-        current_status = parse_operations_state_payload(current_state).get("state", {}).get(name, {}).get("status", "idle")
-    transition = validate_operation_transition_payload(current_status, status)
-    if transition.get("findings"):
-        return
-    payload = update_operations_state_payload(
+    payload = plan_operation_state_update_payload(
         current_state,
         name,
         status,
@@ -862,8 +890,14 @@ def _update_operation_state(
         last_report_target=last_report_target or "",
         last_error=last_error or "",
         increment_runs=increment_runs,
+        release_lock=release_lock,
     )
-    _write_operations_state(payload.get("state", _default_operations_state()))
+    plan = payload.get("plan")
+    if not payload.get("ok") or not plan:
+        return
+    _write_operations_state_json(str(plan["state_json"]))
+    if bool(plan.get("release_lock")):
+        _release_operation_lock(name)
 
 
 def _run_scheduler(name: str, *, requested_by: str, interval_seconds: int, max_runs: int) -> dict[str, Any]:

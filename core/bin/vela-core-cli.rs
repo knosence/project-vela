@@ -11,8 +11,8 @@ use vela_core::matrix::{
     validate_sot_structure as validate_matrix_sot_structure,
 };
 use vela_core::models::{
-    OnboardingConfig, OperationLockRecord, OperationStateEntry, OperationsState, Severity,
-    ValidationFinding,
+    OnboardingConfig, OperationLifecyclePlan, OperationLockRecord, OperationStateEntry,
+    OperationsState, Severity, ValidationFinding,
 };
 use vela_core::operations::{
     classify_dreamer_follow_up as classify_dreamer_follow_up_policy,
@@ -29,6 +29,8 @@ use vela_core::operations::{
     parse_operations_state as parse_operations_state_policy,
     plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
     plan_dreamer_review as plan_dreamer_review_policy, plan_night_cycle as plan_night_cycle_policy,
+    plan_operation_start as plan_operation_start_policy,
+    plan_operation_state_update as plan_operation_state_update_policy,
     plan_warden_patrol as plan_warden_patrol_policy,
     register_dreamer_action as register_dreamer_action_policy,
     render_applied_dreamer_follow_up as render_applied_dreamer_follow_up_policy,
@@ -908,6 +910,98 @@ fn run() -> Result<(), String> {
                     .join(",")
             );
         }
+        "plan-operation-start" => {
+            let name = args.next().ok_or_else(|| "missing name".to_string())?;
+            let requested_by = args
+                .next()
+                .ok_or_else(|| "missing requested_by".to_string())?;
+            let started_at = args
+                .next()
+                .ok_or_else(|| "missing started_at".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (plan, findings) =
+                plan_operation_start_policy(&content, &name, &requested_by, &started_at);
+            println!(
+                "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                plan.as_ref()
+                    .map(render_operation_lifecycle_plan)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
+        "plan-operation-state-update" => {
+            let name = args.next().ok_or_else(|| "missing name".to_string())?;
+            let status = args.next().ok_or_else(|| "missing status".to_string())?;
+            let requested_by = args
+                .next()
+                .ok_or_else(|| "missing requested_by".to_string())?;
+            let started_at = args.next().unwrap_or_default();
+            let completed_at = args.next().unwrap_or_default();
+            let last_report_target = args.next().unwrap_or_default();
+            let last_error = args.next().unwrap_or_default();
+            let increment_runs = parse_bool(&args.next().unwrap_or_else(|| "false".to_string()))?;
+            let release_lock = parse_bool(&args.next().unwrap_or_else(|| "false".to_string()))?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (plan, findings) = plan_operation_state_update_policy(
+                &content,
+                &name,
+                &status,
+                &requested_by,
+                if started_at.is_empty() {
+                    None
+                } else {
+                    Some(started_at.as_str())
+                },
+                if completed_at.is_empty() {
+                    None
+                } else {
+                    Some(completed_at.as_str())
+                },
+                if last_report_target.is_empty() {
+                    None
+                } else {
+                    Some(last_report_target.as_str())
+                },
+                if last_error.is_empty() {
+                    None
+                } else {
+                    Some(last_error.as_str())
+                },
+                increment_runs,
+                release_lock,
+            );
+            println!(
+                "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                plan.as_ref()
+                    .map(render_operation_lifecycle_plan)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "validate-config" => {
             let owner_name = args
                 .next()
@@ -1483,6 +1577,17 @@ fn render_night_cycle_plan(item: &vela_core::models::NightCyclePlan) -> String {
         escape_json(&item.dreamer_report_content),
         item.growth_candidates_count,
         item.blocked_items_count,
+    )
+}
+
+fn render_operation_lifecycle_plan(item: &OperationLifecyclePlan) -> String {
+    format!(
+        "{{\"state_json\":\"{}\",\"state_status\":\"{}\",\"lock_target\":\"{}\",\"lock_content\":\"{}\",\"release_lock\":{}}}",
+        escape_json(&item.state_json),
+        escape_json(&item.state_status),
+        escape_json(&item.lock_target),
+        escape_json(&item.lock_content),
+        if item.release_lock { "true" } else { "false" },
     )
 }
 

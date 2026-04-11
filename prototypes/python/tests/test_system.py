@@ -51,6 +51,8 @@ from prototypes.python.vela.rust_bridge import (
     plan_night_cycle_payload,
     plan_dreamer_follow_up_apply_payload,
     plan_dreamer_review_payload,
+    plan_operation_start_payload,
+    plan_operation_state_update_payload,
     plan_warden_patrol_payload,
     render_dc_night_report_payload,
     render_dreamer_execution_artifact_payload,
@@ -1100,6 +1102,16 @@ class VelaSystemTest(unittest.TestCase):
             started_at="2026-04-10T10:00:00Z",
         )
         self.assertTrue(running["ok"])
+        start_plan = plan_operation_start_payload(
+            "{}",
+            "patrol",
+            "human",
+            "2026-04-10T10:00:00Z",
+        )
+        self.assertTrue(start_plan["ok"])
+        self.assertEqual(start_plan["plan"]["state_status"], "running")
+        self.assertEqual(start_plan["plan"]["lock_target"], "runtime/queues/operation-patrol.lock")
+        self.assertIn("\"requested_by\": \"human\"", start_plan["plan"]["lock_content"])
 
         updated = update_operations_state_payload(
             json.dumps(running["state"]),
@@ -1112,6 +1124,19 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(updated["ok"])
         self.assertEqual(updated["state"]["patrol"]["run_count"], 1)
+        complete_plan = plan_operation_state_update_payload(
+            json.dumps(running["state"]),
+            "patrol",
+            "completed",
+            "human",
+            completed_at="2026-04-10T10:10:00Z",
+            last_report_target="knowledge/ARTIFACTS/refs/Warden-Patrol-20260410-1010.md",
+            increment_runs=True,
+            release_lock=True,
+        )
+        self.assertTrue(complete_plan["ok"])
+        self.assertTrue(complete_plan["plan"]["release_lock"])
+        self.assertEqual(complete_plan["plan"]["state_status"], "completed")
 
         invalid_lock = validate_operation_lock_payload("{}", "patrol")
         self.assertFalse(invalid_lock["ok"])

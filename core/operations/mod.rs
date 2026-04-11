@@ -1,7 +1,7 @@
 use crate::models::{
     DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
-    DreamerProposalSummary, DreamerReviewPlan, NightCyclePlan, OperationLockRecord,
-    OperationStateEntry, OperationsState, PatrolPlan, ValidationFinding,
+    DreamerProposalSummary, DreamerReviewPlan, NightCyclePlan, OperationLifecyclePlan,
+    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, ValidationFinding,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -71,6 +71,98 @@ pub fn update_operations_state(
         entry.run_count += 1;
     }
     (state, findings)
+}
+
+pub fn render_operations_state_json(state: &OperationsState) -> String {
+    format!(
+        "{{\n  \"patrol\": {},\n  \"night-cycle\": {}\n}}",
+        render_operation_state_entry_json(&state.patrol),
+        render_operation_state_entry_json(&state.night_cycle)
+    )
+}
+
+pub fn render_operation_lock_json(record: &OperationLockRecord) -> String {
+    format!(
+        "{{\n  \"name\": \"{}\",\n  \"requested_by\": \"{}\",\n  \"started_at\": \"{}\"\n}}",
+        escape_json(&record.name),
+        escape_json(&record.requested_by),
+        escape_json(&record.started_at)
+    )
+}
+
+pub fn plan_operation_start(
+    current_state_json: &str,
+    name: &str,
+    requested_by: &str,
+    started_at: &str,
+) -> (Option<OperationLifecyclePlan>, Vec<ValidationFinding>) {
+    let (state, findings) = update_operations_state(
+        current_state_json,
+        name,
+        "running",
+        requested_by,
+        Some(started_at),
+        None,
+        None,
+        None,
+        false,
+    );
+    if !findings.is_empty() {
+        return (None, findings);
+    }
+    let lock_record = OperationLockRecord {
+        name: name.to_string(),
+        requested_by: requested_by.to_string(),
+        started_at: started_at.to_string(),
+    };
+    (
+        Some(OperationLifecyclePlan {
+            state_json: render_operations_state_json(&state),
+            state_status: "running".to_string(),
+            lock_target: format!("runtime/queues/operation-{name}.lock"),
+            lock_content: render_operation_lock_json(&lock_record),
+            release_lock: false,
+        }),
+        Vec::new(),
+    )
+}
+
+pub fn plan_operation_state_update(
+    current_state_json: &str,
+    name: &str,
+    status: &str,
+    requested_by: &str,
+    started_at: Option<&str>,
+    completed_at: Option<&str>,
+    last_report_target: Option<&str>,
+    last_error: Option<&str>,
+    increment_runs: bool,
+    release_lock: bool,
+) -> (Option<OperationLifecyclePlan>, Vec<ValidationFinding>) {
+    let (state, findings) = update_operations_state(
+        current_state_json,
+        name,
+        status,
+        requested_by,
+        started_at,
+        completed_at,
+        last_report_target,
+        last_error,
+        increment_runs,
+    );
+    if !findings.is_empty() {
+        return (None, findings);
+    }
+    (
+        Some(OperationLifecyclePlan {
+            state_json: render_operations_state_json(&state),
+            state_status: status.to_string(),
+            lock_target: format!("runtime/queues/operation-{name}.lock"),
+            lock_content: String::new(),
+            release_lock,
+        }),
+        Vec::new(),
+    )
 }
 
 pub fn validate_operation_lock(
@@ -1308,6 +1400,26 @@ fn default_operation_state_entry() -> OperationStateEntry {
         requested_by: String::new(),
         run_count: 0,
     }
+}
+
+fn render_operation_state_entry_json(entry: &OperationStateEntry) -> String {
+    format!(
+        "{{\"status\":\"{}\",\"last_started\":\"{}\",\"last_completed\":\"{}\",\"last_report_target\":\"{}\",\"last_error\":\"{}\",\"requested_by\":\"{}\",\"run_count\":{}}}",
+        escape_json(&entry.status),
+        escape_json(&entry.last_started),
+        escape_json(&entry.last_completed),
+        escape_json(&entry.last_report_target),
+        escape_json(&entry.last_error),
+        escape_json(&entry.requested_by),
+        entry.run_count,
+    )
+}
+
+fn escape_json(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
 }
 
 fn extract_operation_state_entry(

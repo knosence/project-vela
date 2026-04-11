@@ -163,6 +163,15 @@ pub struct OperationLockRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OperationLifecyclePlan {
+    pub state_json: String,
+    pub state_status: String,
+    pub lock_target: String,
+    pub lock_content: String,
+    pub release_lock: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationFinding {
     pub code: String,
     pub detail: String,
