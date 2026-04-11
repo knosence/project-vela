@@ -14,10 +14,10 @@ use vela_core::matrix::{
     validate_sot_structure as validate_matrix_sot_structure,
 };
 use vela_core::models::{
-    BlockedItemSummary, DreamerProposalCandidate, GrowthAssessment, GrowthExecutionPlan,
-    GrowthSourceUpdatePlan, GrowthTarget, OnboardingConfig, OperationLifecyclePlan,
-    OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan,
-    Severity, ValidationFinding,
+    ArchiveTransactionPlan, BlockedItemSummary, DreamerProposalCandidate, GrowthAssessment,
+    GrowthExecutionPlan, GrowthSourceUpdatePlan, GrowthTarget, OnboardingConfig,
+    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget,
+    SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
     assess_growth_target as assess_growth_target_policy,
@@ -33,6 +33,7 @@ use vela_core::operations::{
     match_dreamer_actions as match_dreamer_actions_policy,
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
+    plan_archive_transaction as plan_archive_transaction_policy,
     plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
     plan_dreamer_proposals as plan_dreamer_proposals_policy,
     plan_dreamer_review as plan_dreamer_review_policy,
@@ -309,6 +310,45 @@ fn run() -> Result<(), String> {
             let content =
                 render_fractalized_growth_source_policy(&source_text, &proposal_target, &created);
             println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&content));
+        }
+        "plan-archive-transaction" => {
+            let dimension_heading = args
+                .next()
+                .ok_or_else(|| "missing dimension heading".to_string())?;
+            let entry_value = args
+                .next()
+                .ok_or_else(|| "missing entry value".to_string())?;
+            let archived_reason = args
+                .next()
+                .ok_or_else(|| "missing archived reason".to_string())?;
+            let archived_date = args
+                .next()
+                .ok_or_else(|| "missing archived date".to_string())?;
+            let archive_stamp = args
+                .next()
+                .ok_or_else(|| "missing archive stamp".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (plan, findings) = plan_archive_transaction_policy(
+                &content,
+                &dimension_heading,
+                &entry_value,
+                &archived_reason,
+                &archived_date,
+                &archive_stamp,
+            );
+            if !findings.is_empty() {
+                print_findings(&findings, None);
+            } else if let Some(plan) = plan {
+                println!(
+                    "{{\"ok\":true,\"plan\":{}}}",
+                    render_archive_transaction_plan(&plan)
+                );
+            } else {
+                println!("{{\"ok\":true,\"plan\":null}}");
+            }
         }
         "validate-archive-postconditions" => {
             let entry_value = args
@@ -1918,6 +1958,15 @@ fn render_growth_source_update_plan(item: &GrowthSourceUpdatePlan) -> String {
         escape_json(&item.target_dimension),
         replacement_entries,
         escape_json(&item.active_pointer_line),
+    )
+}
+
+fn render_archive_transaction_plan(item: &ArchiveTransactionPlan) -> String {
+    format!(
+        "{{\"updated_content\":\"{}\",\"archived_entry\":\"{}\",\"archive_entry\":\"{}\"}}",
+        escape_json(&item.updated_content),
+        escape_json(&item.archived_entry),
+        escape_json(&item.archive_entry),
     )
 }
 

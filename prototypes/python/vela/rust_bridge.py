@@ -446,6 +446,27 @@ def render_growth_fractalized_source_payload(
     )
 
 
+def plan_archive_transaction_payload(
+    content: str,
+    dimension_heading: str,
+    entry_value: str,
+    archived_reason: str,
+    archived_date: str,
+    archive_stamp: str,
+) -> dict[str, Any]:
+    return _run(
+        [
+            "plan-archive-transaction",
+            dimension_heading,
+            entry_value,
+            archived_reason,
+            archived_date,
+            archive_stamp,
+        ],
+        stdin=content,
+    )
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 

@@ -23,6 +23,7 @@ from .rust_bridge import render_applied_growth_action_payload
 from .rust_bridge import render_applied_growth_proposal_payload
 from .rust_bridge import render_growth_fractalized_source_payload
 from .rust_bridge import route_inbox_payload
+from .rust_bridge import plan_archive_transaction_payload
 from .rust_bridge import validate_archive_postconditions_payload
 from .rust_bridge import validate_event_payload
 from .rust_bridge import validate_growth_stage_payload
@@ -335,38 +336,21 @@ def archive_dimension_entry(
         return {"ok": False, "findings": [finding.as_dict()]}
 
     active_section = dimension_section[active_start:inactive_start]
-    entry_block = _extract_entry_block(active_section, entry_value)
-    if not entry_block:
-        finding = annotate_finding(ValidationFinding("ARCHIVE_ACTIVE_ENTRY_NOT_FOUND", f"Active entry not found for archive: {entry_value}"))
-        return {"ok": False, "findings": [finding.as_dict()]}
-    archived_entry = (
-        f"{entry_block}\n"
-        f"  - Archived: {EventRecord(source='vela', endpoint='archive', actor=actor, target=target, status='archived', reason=reason).timestamp[:10]}\n"
-        f"  - Archived Reason: {archived_reason}"
+    timestamp = EventRecord(source='vela', endpoint='archive', actor=actor, target=target, status='archived', reason=reason).timestamp
+    archive_plan = plan_archive_transaction_payload(
+        content,
+        dimension_heading,
+        entry_value,
+        archived_reason,
+        timestamp[:10],
+        re.sub(r'[^0-9]', '', timestamp)[:12],
     )
-    updated_active = active_section.replace(entry_block, "").rstrip()
-    if updated_active.strip() == "### Active":
-        updated_active = "### Active\n\n(No active entries.)"
-    inactive_section = dimension_section[inactive_start:]
-    inactive_section = inactive_section.replace("### Inactive\n\n(No inactive entries.)", f"### Inactive\n\n{archived_entry}")
-    if archived_entry not in inactive_section:
-        inactive_section = inactive_section.rstrip() + f"\n\n{archived_entry}\n"
-    new_dimension_section = dimension_heading + "\n\n" + updated_active.lstrip("\n") + "\n\n" + inactive_section.lstrip("\n")
-    new_content = content[:section_start] + new_dimension_section + content[next_section if next_section != -1 else len(content):]
-
-    archive_heading = "## 700.Archive"
-    archive_pos = new_content.find(archive_heading)
-    if archive_pos == -1:
-        finding = annotate_finding(ValidationFinding("ARCHIVE_BLOCK_MISSING", "700.Archive is missing from target SoT"))
-        return {"ok": False, "findings": [finding.as_dict()]}
-    archive_entry = (
-        f"[{re.sub(r'[^0-9]', '', EventRecord(source='vela', endpoint='archive', actor=actor, target=target, status='archived', reason=reason).timestamp)[:12]}] "
-        f"FROM: {dimension_heading}\n{archived_entry}\n"
-    )
-    if "(No archived entries.)" in new_content[archive_pos:]:
-        new_content = new_content.replace("(No archived entries.)", archive_entry.strip())
-    else:
-        new_content = new_content.rstrip() + "\n\n" + archive_entry
+    if not archive_plan.get("ok") or not archive_plan.get("plan"):
+        findings = annotate_findings(
+            [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in archive_plan.get("findings", [])]
+        )
+        return {"ok": False, "findings": [item.as_dict() for item in findings]}
+    new_content = str(archive_plan["plan"]["updated_content"])
 
     result = write_text(target, new_content, actor=actor, endpoint=endpoint, reason=reason, approval_id=approval_id)
     if result["ok"]:
@@ -392,30 +376,6 @@ def archive_dimension_entry(
             )
         )
     return result
-
-
-def _extract_entry_block(section: str, entry_value: str) -> str:
-    lines = section.splitlines()
-    start_index: int | None = None
-    block: list[str] = []
-    marker = f"- {entry_value}"
-    for idx, line in enumerate(lines):
-        if line.strip() == marker:
-            start_index = idx
-            break
-    if start_index is None:
-        return ""
-    for line in lines[start_index:]:
-        if line.startswith("- ") and block:
-            break
-        if line.startswith("### ") and block:
-            break
-        if line.startswith("## ") and block:
-            break
-        block.append(line)
-    return "\n".join(block).strip()
-
-
 def governance_snapshot() -> dict[str, Any]:
     cfg = load_config()
     return {

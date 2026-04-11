@@ -80,6 +80,7 @@ from prototypes.python.vela.rust_bridge import (
     register_dreamer_action_payload,
     route_for_target,
     route_inbox_payload,
+    plan_archive_transaction_payload,
     validate_dreamer_follow_up_apply_payload,
     validate_dreamer_execution_artifact_payload,
     validate_dc_night_report_payload,
@@ -1964,6 +1965,16 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(rendered_proposal["ok"])
         self.assertIn("status: applied", rendered_proposal["content"])
+        archive_plan = plan_archive_transaction_payload(
+            (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8"),
+            "## 100.WHO.Identity",
+            "Vela is the default installed assistant profile under Knosence. (2026-04-08)",
+            "Replaced for test coverage",
+            "2026-04-11",
+            "202604110300",
+        )
+        self.assertTrue(archive_plan["ok"])
+        self.assertIn("Archived Reason: Replaced for test coverage", archive_plan["plan"]["updated_content"])
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",
             [

@@ -1,11 +1,11 @@
 use crate::events::{plan_event_append, EventRecord, ValidationSummary};
 use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_path};
 use crate::models::{
-    DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
-    DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan, GrowthAssessment,
-    GrowthExecutionPlan, GrowthSourceUpdatePlan, NightCyclePlan, OperationLifecyclePlan,
-    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan,
-    ValidationFinding,
+    ArchiveTransactionPlan, DreamerAction, DreamerActionRegistry, DreamerApplyPlan,
+    DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan,
+    GrowthAssessment, GrowthExecutionPlan, GrowthSourceUpdatePlan, NightCyclePlan,
+    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan,
+    SchedulerPlan, ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -549,6 +549,116 @@ pub fn render_fractalized_growth_source(
     } else {
         source_text.replacen(&anchor, &format!("{subgroup}{anchor}"), 1)
     }
+}
+
+pub fn plan_archive_transaction(
+    content: &str,
+    dimension_heading: &str,
+    entry_value: &str,
+    archived_reason: &str,
+    archived_date: &str,
+    archive_stamp: &str,
+) -> (Option<ArchiveTransactionPlan>, Vec<ValidationFinding>) {
+    let Some((section_start, section_end, dimension_section)) =
+        locate_dimension_section(content, dimension_heading)
+    else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "ARCHIVE_DIMENSION_NOT_FOUND",
+                format!("Dimension not found: {dimension_heading}"),
+            )],
+        );
+    };
+
+    let Some((active_start, inactive_start)) = locate_active_inactive_bounds(&dimension_section)
+    else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "ARCHIVE_STRUCTURE_INVALID",
+                format!("Dimension missing Active/Inactive sections: {dimension_heading}"),
+            )],
+        );
+    };
+
+    let active_section = &dimension_section[active_start..inactive_start];
+    let Some(entry_block) = extract_entry_block(active_section, entry_value) else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "ARCHIVE_ACTIVE_ENTRY_NOT_FOUND",
+                format!("Active entry not found for archive: {entry_value}"),
+            )],
+        );
+    };
+
+    let archived_entry = format!(
+        "{}\n  - Archived: {}\n  - Archived Reason: {}",
+        entry_block, archived_date, archived_reason
+    );
+    let mut updated_active = active_section
+        .replacen(&entry_block, "", 1)
+        .trim_end()
+        .to_string();
+    if updated_active.trim() == "### Active" {
+        updated_active = "### Active\n\n(No active entries.)".to_string();
+    }
+
+    let mut inactive_section = dimension_section[inactive_start..].to_string();
+    let empty_inactive = "### Inactive\n\n(No inactive entries.)";
+    if inactive_section.contains(empty_inactive) {
+        inactive_section = inactive_section.replacen(
+            empty_inactive,
+            &format!("### Inactive\n\n{archived_entry}"),
+            1,
+        );
+    } else if !inactive_section.contains(&archived_entry) {
+        inactive_section = format!("{}\n\n{}\n", inactive_section.trim_end(), archived_entry);
+    }
+
+    let new_dimension_section = format!(
+        "{}\n\n{}\n\n{}",
+        dimension_heading,
+        updated_active.trim_start_matches('\n'),
+        inactive_section.trim_start_matches('\n')
+    );
+    let mut updated_content = format!(
+        "{}{}{}",
+        &content[..section_start],
+        new_dimension_section,
+        &content[section_end..]
+    );
+
+    let archive_heading = "## 700.Archive";
+    let Some(archive_pos) = updated_content.find(archive_heading) else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "ARCHIVE_BLOCK_MISSING",
+                "700.Archive is missing from target SoT",
+            )],
+        );
+    };
+    let archive_entry = format!(
+        "[{}] FROM: {}\n{}\n",
+        archive_stamp, dimension_heading, archived_entry
+    );
+    if updated_content[archive_pos..].contains("(No archived entries.)") {
+        updated_content =
+            updated_content.replacen("(No archived entries.)", archive_entry.trim(), 1);
+    } else {
+        updated_content = format!("{}\n\n{}", updated_content.trim_end(), archive_entry);
+    }
+
+    (
+        Some(ArchiveTransactionPlan {
+            updated_content,
+            archived_entry,
+            archive_entry,
+        }),
+        Vec::new(),
+    )
 }
 
 pub fn parse_operations_state(state_json: &str) -> (OperationsState, Vec<ValidationFinding>) {
@@ -2224,6 +2334,48 @@ fn extract_reference_entries(source_text: &str) -> (String, Vec<String>) {
     )
 }
 
+fn locate_dimension_section(
+    content: &str,
+    dimension_heading: &str,
+) -> Option<(usize, usize, String)> {
+    let section_start = content.find(dimension_heading)?;
+    let next_section = content[section_start + 1..]
+        .find("\n## ")
+        .map(|offset| section_start + 1 + offset)
+        .unwrap_or(content.len());
+    Some((
+        section_start,
+        next_section,
+        content[section_start..next_section].to_string(),
+    ))
+}
+
+fn locate_active_inactive_bounds(section: &str) -> Option<(usize, usize)> {
+    let active_start = section.find("### Active")?;
+    let inactive_start = section.find("### Inactive")?;
+    Some((active_start, inactive_start))
+}
+
+fn extract_entry_block(section: &str, entry_value: &str) -> Option<String> {
+    let lines: Vec<&str> = section.lines().collect();
+    let marker = format!("- {entry_value}");
+    let start_index = lines.iter().position(|line| line.trim() == marker)?;
+    let mut block = Vec::new();
+    for line in &lines[start_index..] {
+        if line.starts_with("- ") && !block.is_empty() {
+            break;
+        }
+        if line.starts_with("### ") && !block.is_empty() {
+            break;
+        }
+        if line.starts_with("## ") && !block.is_empty() {
+            break;
+        }
+        block.push((*line).to_string());
+    }
+    Some(block.join("\n").trim().to_string())
+}
+
 fn dimension_entry_counts_by_id(text: &str) -> BTreeMap<String, usize> {
     let mut counts = BTreeMap::new();
     let mut current_dimension = String::new();
@@ -2720,6 +2872,27 @@ mod tests {
         );
         assert!(rendered.contains("## 210.Scope-Subgroup"));
         assert!(rendered.contains("Grouping scaffold created"));
+    }
+
+    #[test]
+    fn plans_archive_transaction() {
+        let content = "## 100.WHO.Identity\n\n### Active\n\n- Sample value. (2026-04-08)\n  - Sample context.\n\n### Inactive\n\n(No inactive entries.)\n\n## 700.Archive\n\n(No archived entries.)\n";
+        let (plan, findings) = plan_archive_transaction(
+            content,
+            "## 100.WHO.Identity",
+            "Sample value. (2026-04-08)",
+            "Replaced for test",
+            "2026-04-11",
+            "202604110300",
+        );
+        assert!(findings.is_empty());
+        let plan = plan.expect("archive plan");
+        assert!(plan
+            .updated_content
+            .contains("Archived Reason: Replaced for test"));
+        assert!(plan
+            .updated_content
+            .contains("[202604110300] FROM: ## 100.WHO.Identity"));
     }
 
     #[test]
