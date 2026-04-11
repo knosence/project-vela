@@ -1,9 +1,10 @@
 use crate::events::{plan_event_append, EventRecord, ValidationSummary};
+use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_path};
 use crate::models::{
     DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
-    DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan, NightCyclePlan,
-    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan,
-    SchedulerPlan, ValidationFinding,
+    DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan, GrowthAssessment,
+    NightCyclePlan, OperationLifecyclePlan, OperationLockRecord, OperationStateEntry,
+    OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -19,6 +20,161 @@ pub fn default_operations_state() -> OperationsState {
     OperationsState {
         patrol: default_operation_state_entry(),
         night_cycle: default_operation_state_entry(),
+    }
+}
+
+pub fn assess_growth_target(root: &Path, target: &str) -> GrowthAssessment {
+    let inventory_role = inventory_role_for_growth_target(root, target);
+    let path = root.join(target);
+    let Ok(text) = fs::read_to_string(&path) else {
+        return GrowthAssessment {
+            stage: "flat".to_string(),
+            reason: "Target does not exist yet, so no growth signal can be assessed.".to_string(),
+            inventory_role,
+            exists: false,
+            line_count: 0,
+            densest_dimension_entries: 0,
+            has_subgroups: false,
+            living_record_markers: 0,
+        };
+    };
+
+    let line_count = text.lines().count();
+    let densest_dimension_entries = dimension_entry_counts(&text).into_iter().max().unwrap_or(0);
+    let has_subgroups = text.lines().any(is_subgroup_heading);
+    let living_record_markers = [
+        "### Status",
+        "### Decisions",
+        "### Open Questions",
+        "### Next Actions",
+    ]
+    .into_iter()
+    .map(|marker| text.matches(marker).count())
+    .sum();
+
+    if inventory_role == "cornerstone" {
+        if line_count > 260 || densest_dimension_entries >= 10 {
+            return GrowthAssessment {
+                stage: "spawn".to_string(),
+                reason: "The cornerstone should shed heavy branch detail into governed child SoTs rather than continue accumulating root complexity.".to_string(),
+                inventory_role,
+                exists: true,
+                line_count,
+                densest_dimension_entries,
+                has_subgroups,
+                living_record_markers,
+            };
+        }
+        return GrowthAssessment {
+            stage: "flat".to_string(),
+            reason: "The cornerstone should stay as stable as possible until branch pressure clearly warrants a governed spawn.".to_string(),
+            inventory_role,
+            exists: true,
+            line_count,
+            densest_dimension_entries,
+            has_subgroups,
+            living_record_markers,
+        };
+    }
+
+    if inventory_role == "dimension-hub" {
+        if has_subgroups || densest_dimension_entries >= 8 || line_count > 220 {
+            return GrowthAssessment {
+                stage: "spawn".to_string(),
+                reason: "A dimension hub should branch outward into child SoTs once one concern becomes dense enough to deserve its own governed home.".to_string(),
+                inventory_role,
+                exists: true,
+                line_count,
+                densest_dimension_entries,
+                has_subgroups,
+                living_record_markers,
+            };
+        }
+        return GrowthAssessment {
+            stage: "flat".to_string(),
+            reason: "The hub remains light enough to keep collecting branch pointers without further structural change.".to_string(),
+            inventory_role,
+            exists: true,
+            line_count,
+            densest_dimension_entries,
+            has_subgroups,
+            living_record_markers,
+        };
+    }
+
+    if inventory_role == "agent-identity" {
+        if has_subgroups || densest_dimension_entries >= 10 || line_count > 240 {
+            return GrowthAssessment {
+                stage: "reference-note".to_string(),
+                reason: "Identity branches should prefer clarifying companion references before spawning new structure, unless sovereignty explicitly requires a branch split.".to_string(),
+                inventory_role,
+                exists: true,
+                line_count,
+                densest_dimension_entries,
+                has_subgroups,
+                living_record_markers,
+            };
+        }
+        return GrowthAssessment {
+            stage: "flat".to_string(),
+            reason: "The identity branch should remain compact until interpretation pressure justifies a governed reference note.".to_string(),
+            inventory_role,
+            exists: true,
+            line_count,
+            densest_dimension_entries,
+            has_subgroups,
+            living_record_markers,
+        };
+    }
+
+    if has_subgroups && (line_count > 220 || densest_dimension_entries >= 10) {
+        return GrowthAssessment {
+            stage: "reference-note".to_string(),
+            reason: "The SoT already shows subgrouping and is getting heavy enough that extraction into a reference note is warranted.".to_string(),
+            inventory_role,
+            exists: true,
+            line_count,
+            densest_dimension_entries,
+            has_subgroups,
+            living_record_markers,
+        };
+    }
+
+    if line_count > 320 || (densest_dimension_entries >= 12 && living_record_markers >= 4) {
+        return GrowthAssessment {
+            stage: "spawn".to_string(),
+            reason: "The content is heavy enough and operational enough that it likely deserves its own SoT rather than remaining a section or ref.".to_string(),
+            inventory_role,
+            exists: true,
+            line_count,
+            densest_dimension_entries,
+            has_subgroups,
+            living_record_markers,
+        };
+    }
+
+    if densest_dimension_entries >= 8 {
+        return GrowthAssessment {
+            stage: "fractal".to_string(),
+            reason: "One dimension has become dense enough that grouping by sub-blocks would likely improve scanability.".to_string(),
+            inventory_role,
+            exists: true,
+            line_count,
+            densest_dimension_entries,
+            has_subgroups,
+            living_record_markers,
+        };
+    }
+
+    GrowthAssessment {
+        stage: "flat".to_string(),
+        reason: "The current SoT remains readable enough to stay flat.".to_string(),
+        inventory_role,
+        exists: true,
+        line_count,
+        densest_dimension_entries,
+        has_subgroups,
+        living_record_markers,
     }
 }
 
@@ -1582,6 +1738,56 @@ fn extract_operation_state_entry(
     }
 }
 
+fn inventory_role_for_growth_target(root: &Path, target: &str) -> String {
+    let (entries, _, _) = discover_matrix_inventory(root);
+    if let Some(entry) = entries.into_iter().find(|item| item.path == target) {
+        return entry.inventory_role;
+    }
+    inferred_inventory_role_for_path(target)
+        .unwrap_or("branch-sot")
+        .to_string()
+}
+
+fn dimension_entry_counts(text: &str) -> Vec<usize> {
+    let mut counts = BTreeMap::new();
+    let mut current_dimension = String::new();
+    for raw_line in text.lines() {
+        let line = raw_line.trim();
+        if let Some(prefix) = line.strip_prefix("## ") {
+            let dimension = prefix.split('.').next().unwrap_or_default();
+            if matches!(dimension, "100" | "200" | "300" | "400" | "500" | "600") {
+                current_dimension = dimension.to_string();
+                counts.entry(current_dimension.clone()).or_insert(0);
+            } else {
+                current_dimension.clear();
+            }
+            continue;
+        }
+        if !current_dimension.is_empty() && raw_line.starts_with("- ") {
+            *counts.entry(current_dimension.clone()).or_insert(0) += 1;
+        }
+    }
+    counts.into_values().collect()
+}
+
+fn is_subgroup_heading(line: &str) -> bool {
+    let Some(rest) = line.trim().strip_prefix("## ") else {
+        return false;
+    };
+    let mut parts = rest.split('.');
+    let Some(number) = parts.next() else {
+        return false;
+    };
+    number.len() == 3
+        && number.chars().all(|ch| ch.is_ascii_digit())
+        && matches!(
+            number.chars().next(),
+            Some('1' | '2' | '3' | '4' | '5' | '6')
+        )
+        && number.ends_with('0')
+        && !matches!(number, "100" | "200" | "300" | "400" | "500" | "600")
+}
+
 fn extract_bucket_entries(registry_json: &str, bucket: &str) -> Vec<DreamerAction> {
     let marker = format!("\"{bucket}\": [");
     let Some(start) = registry_json.find(&marker) else {
@@ -1868,6 +2074,18 @@ mod tests {
         assert!(findings
             .iter()
             .any(|item| item.code == "SPAWN_APPROVAL_REQUIRED"));
+    }
+
+    #[test]
+    fn assesses_growth_for_identity_branch() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("repo root")
+            .to_path_buf();
+        let assessment = assess_growth_target(&root, "knowledge/110.WHO.Vela-Identity-SoT.md");
+        assert_eq!(assessment.inventory_role, "agent-identity");
+        assert_eq!(assessment.stage, "flat");
+        assert!(assessment.exists);
     }
 
     #[test]

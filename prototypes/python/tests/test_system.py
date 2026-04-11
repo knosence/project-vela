@@ -38,6 +38,7 @@ from prototypes.python.vela.profiles import activate_profile, list_profiles, reg
 from prototypes.python.vela.repo_watch import analyze_release
 from prototypes.python.vela.rust_bridge import (
     classify_dreamer_follow_up_payload,
+    assess_growth_payload,
     inspect_dreamer_follow_up_kind_payload,
     inspect_dreamer_follow_up_payload,
     inspect_dreamer_proposal_payload,
@@ -1887,6 +1888,10 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(growth_targets["ok"])
         self.assertTrue(any(item["inventory_role"] == "cornerstone" for item in growth_targets["items"]))
         self.assertTrue(all(not item["path"].startswith("knowledge/ARTIFACTS/") for item in growth_targets["items"]))
+        growth_assessment = assess_growth_payload("knowledge/110.WHO.Vela-Identity-SoT.md")
+        self.assertTrue(growth_assessment["ok"])
+        self.assertEqual(growth_assessment["assessment"]["inventory_role"], "agent-identity")
+        self.assertEqual(growth_assessment["assessment"]["stage"], "flat")
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",
             [

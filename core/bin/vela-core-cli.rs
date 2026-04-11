@@ -14,11 +14,12 @@ use vela_core::matrix::{
     validate_sot_structure as validate_matrix_sot_structure,
 };
 use vela_core::models::{
-    BlockedItemSummary, DreamerProposalCandidate, GrowthTarget, OnboardingConfig,
+    BlockedItemSummary, DreamerProposalCandidate, GrowthAssessment, GrowthTarget, OnboardingConfig,
     OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget,
     SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
+    assess_growth_target as assess_growth_target_policy,
     classify_dreamer_follow_up as classify_dreamer_follow_up_policy,
     dreamer_existing_execution_target as dreamer_existing_execution_target_policy,
     dreamer_follow_up_kind as dreamer_follow_up_kind_policy,
@@ -142,6 +143,15 @@ fn run() -> Result<(), String> {
                 .ok_or_else(|| "missing approval status".to_string())?;
             let findings = validate_growth_stage_policy(&stage, approval_status == "approved");
             print_findings(&findings, None);
+        }
+        "assess-growth-target" => {
+            let target = args.next().ok_or_else(|| "missing target".to_string())?;
+            let repo_root = std::env::current_dir().map_err(|err| err.to_string())?;
+            let assessment = assess_growth_target_policy(std::path::Path::new(&repo_root), &target);
+            println!(
+                "{{\"ok\":true,\"assessment\":{}}}",
+                render_growth_assessment(&assessment)
+            );
         }
         "validate-archive-postconditions" => {
             let entry_value = args
@@ -1698,6 +1708,20 @@ fn render_growth_target(item: &GrowthTarget) -> String {
         "{{\"path\":\"{}\",\"inventory_role\":\"{}\"}}",
         escape_json(&item.path),
         escape_json(&item.inventory_role),
+    )
+}
+
+fn render_growth_assessment(item: &GrowthAssessment) -> String {
+    format!(
+        "{{\"stage\":\"{}\",\"reason\":\"{}\",\"inventory_role\":\"{}\",\"signals\":{{\"exists\":{},\"line_count\":{},\"densest_dimension_entries\":{},\"has_subgroups\":{},\"living_record_markers\":{}}}}}",
+        escape_json(&item.stage),
+        escape_json(&item.reason),
+        escape_json(&item.inventory_role),
+        if item.exists { "true" } else { "false" },
+        item.line_count,
+        item.densest_dimension_entries,
+        if item.has_subgroups { "true" } else { "false" },
+        item.living_record_markers,
     )
 }
 

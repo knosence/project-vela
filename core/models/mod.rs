@@ -106,6 +106,18 @@ pub struct GrowthTarget {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GrowthAssessment {
+    pub stage: String,
+    pub reason: String,
+    pub inventory_role: String,
+    pub exists: bool,
+    pub line_count: usize,
+    pub densest_dimension_entries: usize,
+    pub has_subgroups: bool,
+    pub living_record_markers: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PatchTarget {
     pub path: String,
 }
