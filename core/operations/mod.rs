@@ -9,12 +9,12 @@ use crate::models::{
     ArchiveTransactionPlan, CompanionPathPlan, CrossReferencePlan, CsvInboxEntry, CsvInboxPlan,
     DimensionAppendPlan, DreamerAction, DreamerActionRegistry, DreamerApplyPlan,
     DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan,
-    GrowthAssessment, GrowthExecutionPlan, GrowthProposalPlan, GrowthProposalSummary,
-    GrowthSourceApplyPlan, GrowthSourceUpdatePlan, InboxTriagePlan, MergeApplyPlan,
-    MergeCandidateSummary, MergeFollowUpSummary, MergeOwnerUpdate, MergeProposalPlan,
-    MergeProposalSummary, MergeReviewPlan, NightCyclePlan, OperationLifecyclePlan,
-    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan,
-    ValidationFinding,
+    GrowthAssessment, GrowthExecutionArtifact, GrowthExecutionPlan, GrowthProposalPlan,
+    GrowthProposalSummary, GrowthSourceApplyPlan, GrowthSourceUpdatePlan, InboxTriagePlan,
+    MergeApplyPlan, MergeCandidateSummary, MergeFollowUpSummary, MergeOwnerUpdate,
+    MergeProposalPlan, MergeProposalSummary, MergeReviewPlan, NightCyclePlan,
+    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan,
+    SchedulerPlan, ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -348,6 +348,53 @@ pub fn inspect_growth_proposal(content: &str) -> Option<GrowthProposalSummary> {
         recommended_stage,
         subject_hint,
     })
+}
+
+pub fn build_growth_execution(
+    root: &Path,
+    stage: &str,
+    assessed_target: &str,
+    proposal_target: &str,
+    subject_hint: &str,
+) -> (Option<GrowthExecutionArtifact>, Vec<ValidationFinding>) {
+    let created = today_utc();
+    let source_text = fs::read_to_string(root.join(assessed_target)).unwrap_or_default();
+    let (plan, findings) =
+        plan_growth_execution(root, stage, assessed_target, proposal_target, subject_hint);
+    let Some(plan) = plan else {
+        return (None, findings);
+    };
+    if !findings.is_empty() {
+        return (None, findings);
+    }
+
+    let content = if stage == "fractal" {
+        render_fractalized_growth_source(&source_text, proposal_target, &created)
+    } else if stage == "reference-note" {
+        render_growth_reference_note(
+            &plan.target,
+            assessed_target,
+            proposal_target,
+            &created,
+            &plan.dimension,
+            &plan.entries,
+        )
+    } else if stage == "spawn" && assessed_target.ends_with("-SoT.md") {
+        render_spawned_sot(&plan.target, assessed_target, proposal_target, &created)
+    } else {
+        render_applied_growth_action(stage, assessed_target, proposal_target)
+    };
+
+    (
+        Some(GrowthExecutionArtifact {
+            target: plan.target,
+            kind: plan.kind,
+            content,
+            dimension: plan.dimension,
+            entries: plan.entries,
+        }),
+        Vec::new(),
+    )
 }
 
 pub fn plan_growth_source_update(

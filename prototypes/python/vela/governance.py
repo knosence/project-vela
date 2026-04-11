@@ -14,16 +14,12 @@ from .models import EventRecord, ValidationFinding
 from .paths import APPROVALS_PATH, BACKUP_DIR, EVENT_LOG_PATH, QUEUE_DIR, REPO_ROOT
 from .rust_bridge import route_for_target as rust_route_for_target
 from .rust_bridge import plan_event_append_payload
-from .rust_bridge import plan_growth_execution_payload
+from .rust_bridge import build_growth_execution_payload
 from .rust_bridge import plan_growth_source_update_payload
 from .rust_bridge import apply_growth_source_update_payload
 from .rust_bridge import inspect_growth_proposal_payload
 from .rust_bridge import render_event_payload
-from .rust_bridge import render_growth_reference_note_payload
-from .rust_bridge import render_growth_spawned_sot_payload
-from .rust_bridge import render_applied_growth_action_payload
 from .rust_bridge import render_applied_growth_proposal_payload
-from .rust_bridge import render_growth_fractalized_source_payload
 from .rust_bridge import route_inbox_payload
 from .rust_bridge import plan_archive_transaction_payload
 from .rust_bridge import plan_cross_reference_update_payload
@@ -693,55 +689,21 @@ def _build_growth_execution(
     proposal_target: str,
     subject_hint: str = "",
 ) -> dict[str, str]:
-    created = datetime.now(timezone.utc).date().isoformat()
-    source_text = (REPO_ROOT / assessed_target).read_text(encoding="utf-8")
-    payload = plan_growth_execution_payload(stage, assessed_target, proposal_target, subject_hint)
-    plan = payload.get("plan")
-    if not payload.get("ok") or not plan:
+    payload = build_growth_execution_payload(stage, assessed_target, proposal_target, subject_hint)
+    artifact = payload.get("artifact")
+    if not payload.get("ok") or not artifact:
         findings = annotate_findings(
             [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload.get("findings", [])]
         )
         return {"ok": False, "findings": [item.as_dict() for item in findings]}
-
-    if stage == "fractal":
-        content = render_growth_fractalized_source_payload(
-            source_text, proposal_target, created
-        )["content"]
-        return {"ok": True, "target": str(plan["target"]), "content": content, "kind": str(plan["kind"])}
-
-    if stage == "reference-note":
-        execution_target = str(plan["target"])
-        extracted = {
-            "dimension": str(plan.get("dimension", "")),
-            "entries": list(plan.get("entries", [])),
-        }
-        content = render_growth_reference_note_payload(
-            execution_target=execution_target,
-            assessed_target=assessed_target,
-            proposal_target=proposal_target,
-            created=created,
-            dimension=extracted["dimension"],
-            entries=extracted["entries"],
-        )["content"]
-        return {
-            "ok": True,
-            "target": execution_target,
-            "content": content,
-            "kind": str(plan["kind"]),
-            "dimension": extracted["dimension"],
-            "entries": extracted["entries"],
-        }
-
-    if stage == "spawn" and assessed_target.endswith("-SoT.md"):
-        execution_target = str(plan["target"])
-        content = render_growth_spawned_sot_payload(
-            execution_target, assessed_target, proposal_target, created
-        )["content"]
-        return {"ok": True, "target": execution_target, "content": content, "kind": str(plan["kind"])}
-
-    execution_target = str(plan["target"])
-    content = render_applied_growth_action_payload(stage, assessed_target, proposal_target)["content"]
-    return {"ok": True, "target": execution_target, "content": content, "kind": str(plan["kind"])}
+    return {
+        "ok": True,
+        "target": str(artifact["target"]),
+        "content": str(artifact["content"]),
+        "kind": str(artifact["kind"]),
+        "dimension": str(artifact.get("dimension", "")),
+        "entries": list(artifact.get("entries", [])),
+    }
 
 
 def _archive_postcondition_failure(content: str, entry_value: str, archived_reason: str, dimension_heading: str) -> ValidationFinding | None:

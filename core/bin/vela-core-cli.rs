@@ -16,15 +16,17 @@ use vela_core::matrix::{
 use vela_core::models::{
     ArchiveTransactionPlan, BlockedItemSummary, CompanionPathPlan, CrossReferencePlan,
     CsvInboxPlan, DimensionAppendPlan, DreamerProposalCandidate, GrowthAssessment,
-    GrowthExecutionPlan, GrowthProposalPlan, GrowthProposalSummary, GrowthSourceApplyPlan,
-    GrowthSourceUpdatePlan, GrowthTarget, InboxTriagePlan, MergeApplyPlan, MergeCandidateSummary,
-    MergeFollowUpSummary, MergeOwnerUpdate, MergeProposalPlan, MergeProposalSummary,
-    MergeReviewPlan, OnboardingConfig, OperationLifecyclePlan, OperationLockRecord,
-    OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan, Severity, ValidationFinding,
+    GrowthExecutionArtifact, GrowthExecutionPlan, GrowthProposalPlan, GrowthProposalSummary,
+    GrowthSourceApplyPlan, GrowthSourceUpdatePlan, GrowthTarget, InboxTriagePlan, MergeApplyPlan,
+    MergeCandidateSummary, MergeFollowUpSummary, MergeOwnerUpdate, MergeProposalPlan,
+    MergeProposalSummary, MergeReviewPlan, OnboardingConfig, OperationLifecyclePlan,
+    OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan,
+    Severity, ValidationFinding,
 };
 use vela_core::operations::{
     apply_growth_source_update as apply_growth_source_update_policy,
     assess_growth_target as assess_growth_target_policy,
+    build_growth_execution as build_growth_execution_policy,
     classify_dreamer_follow_up as classify_dreamer_follow_up_policy,
     dreamer_existing_execution_target as dreamer_existing_execution_target_policy,
     dreamer_follow_up_kind as dreamer_follow_up_kind_policy,
@@ -381,6 +383,34 @@ fn run() -> Result<(), String> {
                 );
             } else {
                 println!("{{\"ok\":true,\"plan\":null}}");
+            }
+        }
+        "build-growth-execution" => {
+            let stage = args.next().ok_or_else(|| "missing stage".to_string())?;
+            let assessed_target = args
+                .next()
+                .ok_or_else(|| "missing assessed target".to_string())?;
+            let proposal_target = args
+                .next()
+                .ok_or_else(|| "missing proposal target".to_string())?;
+            let subject_hint = args.next().unwrap_or_default();
+            let repo_root = std::env::current_dir().map_err(|err| err.to_string())?;
+            let (artifact, findings) = build_growth_execution_policy(
+                std::path::Path::new(&repo_root),
+                &stage,
+                &assessed_target,
+                &proposal_target,
+                &subject_hint,
+            );
+            if !findings.is_empty() {
+                print_findings(&findings, None);
+            } else if let Some(item) = artifact {
+                println!(
+                    "{{\"ok\":true,\"artifact\":{}}}",
+                    render_growth_execution_artifact(&item)
+                );
+            } else {
+                println!("{{\"ok\":true,\"artifact\":null}}");
             }
         }
         "plan-growth-source-update" => {
@@ -2304,6 +2334,25 @@ fn render_growth_execution_plan(item: &GrowthExecutionPlan) -> String {
         "{{\"target\":\"{}\",\"kind\":\"{}\",\"dimension\":\"{}\",\"entries\":{}}}",
         escape_json(&item.target),
         escape_json(&item.kind),
+        escape_json(&item.dimension),
+        entries,
+    )
+}
+
+fn render_growth_execution_artifact(item: &GrowthExecutionArtifact) -> String {
+    let entries = format!(
+        "[{}]",
+        item.entries
+            .iter()
+            .map(|entry| format!("\"{}\"", escape_json(entry)))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    format!(
+        "{{\"target\":\"{}\",\"kind\":\"{}\",\"content\":\"{}\",\"dimension\":\"{}\",\"entries\":{}}}",
+        escape_json(&item.target),
+        escape_json(&item.kind),
+        escape_json(&item.content),
         escape_json(&item.dimension),
         entries,
     )

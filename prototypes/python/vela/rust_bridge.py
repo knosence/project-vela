@@ -63,6 +63,17 @@ def inspect_growth_proposal_payload(content: str) -> dict[str, Any]:
     return _run(["inspect-growth-proposal"], stdin=content)
 
 
+def build_growth_execution_payload(
+    stage: str,
+    assessed_target: str,
+    proposal_target: str,
+    subject_hint: str,
+) -> dict[str, Any]:
+    return _run(
+        ["build-growth-execution", stage, assessed_target, proposal_target, subject_hint]
+    )
+
+
 def apply_growth_source_update_payload(source_text: str, stage: str, plan: dict[str, Any]) -> dict[str, Any]:
     replacement_entries = [str(item) for item in plan.get("replacement_entries", [])]
     replacement_blob = "\n===ENTRY===\n".join(replacement_entries)

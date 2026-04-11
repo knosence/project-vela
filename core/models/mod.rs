@@ -157,6 +157,15 @@ pub struct GrowthExecutionPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GrowthExecutionArtifact {
+    pub target: String,
+    pub kind: String,
+    pub content: String,
+    pub dimension: String,
+    pub entries: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GrowthProposalPlan {
     pub target: String,
     pub content: String,
