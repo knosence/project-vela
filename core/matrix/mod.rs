@@ -1,7 +1,10 @@
 use std::fs;
 use std::path::Path;
 
-use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_path, inventory_area_for_path, inventory_role_for_path};
+use crate::inventory::{
+    discover_matrix_inventory, inferred_inventory_role_for_path, inventory_area_for_path,
+    inventory_role_for_path,
+};
 use crate::models::{GovernedReference, MatrixSoT, Severity, ValidationFinding};
 
 const REQUIRED_FRONTMATTER_FIELDS: [&str; 6] = [
@@ -31,7 +34,15 @@ const REQUIRED_HEADINGS: [&str; 16] = [
     "## 700.",
 ];
 
-pub fn build_matrix_index(root: &Path) -> (Vec<MatrixSoT>, Vec<GovernedReference>, Vec<ValidationFinding>, String, String) {
+pub fn build_matrix_index(
+    root: &Path,
+) -> (
+    Vec<MatrixSoT>,
+    Vec<GovernedReference>,
+    Vec<ValidationFinding>,
+    String,
+    String,
+) {
     let (entries, references, mut findings) = discover_matrix_inventory(root);
     findings.extend(validate_matrix_rules(&entries));
 
@@ -62,7 +73,9 @@ pub fn validate_sot_structure(path: &str, text: &str) -> Vec<ValidationFinding> 
         }
     }
 
-    let parent_value = frontmatter_value(&frontmatter, "parent").unwrap_or_default().trim();
+    let parent_value = frontmatter_value(&frontmatter, "parent")
+        .unwrap_or_default()
+        .trim();
     if is_cornerstone {
         let normalized_parent = normalize_parent(parent_value.to_string());
         if !matches!(normalized_parent.as_str(), "" | "none") {
@@ -115,18 +128,26 @@ pub fn validate_parent_consistency(path: &str, text: &str) -> Vec<ValidationFind
             .to_string(),
     );
     let declaration_parent = normalize_parent(extract_declaration_parent(text));
-    let domain = frontmatter_value(&frontmatter, "domain").unwrap_or_default().trim();
+    let domain = frontmatter_value(&frontmatter, "domain")
+        .unwrap_or_default()
+        .trim();
     let inventory_role = inventory_role_for_path(path)
         .or_else(|| match domain {
             "agents"
-                if path.rsplit('/').next().unwrap_or(path).contains("Identity-SoT")
+                if path
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(path)
+                    .contains("Identity-SoT")
                     || text.contains("## 100.WHO.")
                     || text.contains("## 100.WHO.Identity") =>
             {
                 Some("agent-identity")
             }
             "agents" => Some("branch-sot"),
-            "dimensions" if inferred_inventory_role_for_path(path) == Some("dimension-hub") => Some("dimension-hub"),
+            "dimensions" if inferred_inventory_role_for_path(path) == Some("dimension-hub") => {
+                Some("dimension-hub")
+            }
             "dimensions" => Some("branch-sot"),
             _ => inferred_inventory_role_for_path(path),
         })
@@ -156,8 +177,7 @@ pub fn validate_parent_consistency(path: &str, text: &str) -> Vec<ValidationFind
         ));
     }
 
-    if requires_hub_parent(inventory_role, area)
-        && fm_parent.contains("cornerstone.knosence-sot#")
+    if requires_hub_parent(inventory_role, area) && fm_parent.contains("cornerstone.knosence-sot#")
     {
         findings.push(ValidationFinding::error(
             "MATRIX_HUB_PARENT_REQUIRED",
@@ -180,7 +200,10 @@ fn parse_frontmatter(text: &str) -> Vec<(String, String)> {
             break;
         }
         if let Some((key, value)) = line.split_once(':') {
-            entries.push((key.trim().to_string(), value.trim().trim_matches('"').to_string()));
+            entries.push((
+                key.trim().to_string(),
+                value.trim().trim_matches('"').to_string(),
+            ));
         }
     }
     entries
@@ -202,7 +225,11 @@ fn extract_declaration_parent(text: &str) -> String {
 }
 
 fn normalize_parent(value: String) -> String {
-    value.trim().trim_matches('"').trim_matches('\'').to_lowercase()
+    value
+        .trim()
+        .trim_matches('"')
+        .trim_matches('\'')
+        .to_lowercase()
 }
 
 fn requires_hub_parent(inventory_role: &str, area: &str) -> bool {
@@ -279,7 +306,8 @@ fn render_matrix_index(entries: &[MatrixSoT], refs: &[GovernedReference]) -> Str
     ];
 
     for area in ["agents", "cornerstone", "dimensions", "knowledge"] {
-        let area_entries: Vec<&MatrixSoT> = entries.iter().filter(|item| item.area == area).collect();
+        let area_entries: Vec<&MatrixSoT> =
+            entries.iter().filter(|item| item.area == area).collect();
         if area_entries.is_empty() {
             continue;
         }
@@ -290,7 +318,11 @@ fn render_matrix_index(entries: &[MatrixSoT], refs: &[GovernedReference]) -> Str
         lines.push("| Title | Path | Type | Parent | Status |".to_string());
         lines.push("|---|---|---|---|---|".to_string());
         for item in area_entries {
-            let parent = if item.parent.is_empty() { "Cornerstone" } else { item.parent.as_str() };
+            let parent = if item.parent.is_empty() {
+                "Cornerstone"
+            } else {
+                item.parent.as_str()
+            };
             lines.push(format!(
                 "| {} | `{}` | `{}` | `{}` | `{}` |",
                 item.title, item.path, item.sot_type, parent, item.status
@@ -300,7 +332,8 @@ fn render_matrix_index(entries: &[MatrixSoT], refs: &[GovernedReference]) -> Str
     }
 
     if !refs.is_empty() {
-        lines.push("## This Section Lists Governed References Registered in the Matrix".to_string());
+        lines
+            .push("## This Section Lists Governed References Registered in the Matrix".to_string());
         lines.push("| Title | Path | Type | Parent | Status |".to_string());
         lines.push("|---|---|---|---|---|".to_string());
         for item in refs {
@@ -405,7 +438,10 @@ fn json_escape(value: &str) -> String {
 }
 
 fn indexed_areas(entries: &[MatrixSoT]) -> String {
-    let mut areas = entries.iter().map(|item| item.area.as_str()).collect::<Vec<&str>>();
+    let mut areas = entries
+        .iter()
+        .map(|item| item.area.as_str())
+        .collect::<Vec<&str>>();
     areas.sort();
     areas.dedup();
     areas.join(", ")
@@ -442,7 +478,9 @@ tags: [\"agent\"]\n\
 **Parent:** [[Cornerstone.Knosence-SoT#100.WHO.Circle]]\n";
 
         let findings = validate_parent_consistency("knowledge/WHO.Example-Identity-SoT.md", text);
-        assert!(findings.iter().any(|item| item.code == "MATRIX_HUB_PARENT_REQUIRED"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "MATRIX_HUB_PARENT_REQUIRED"));
     }
 
     #[test]
@@ -462,7 +500,9 @@ tags: [\"dimension\"]\n\
 **Parent:** [[Cornerstone.Knosence-SoT#200.WHAT.Domain]]\n";
 
         let findings = validate_parent_consistency("knowledge/WHAT.Example-Branch-SoT.md", text);
-        assert!(findings.iter().any(|item| item.code == "MATRIX_HUB_PARENT_REQUIRED"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "MATRIX_HUB_PARENT_REQUIRED"));
     }
 
     #[test]
@@ -470,8 +510,12 @@ tags: [\"dimension\"]\n\
         let text = "# Example\n\n## 000.Index\n\n### Subject Declaration\n\n**Parent:** None\n";
 
         let findings = validate_sot_structure("knowledge/Cornerstone.Knosence-SoT.md", text);
-        assert!(findings.iter().any(|item| item.code == "MATRIX_FRONTMATTER_REQUIRED"));
-        assert!(findings.iter().any(|item| item.code == "MATRIX_HEADING_REQUIRED"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "MATRIX_FRONTMATTER_REQUIRED"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "MATRIX_HEADING_REQUIRED"));
     }
 
     #[test]
@@ -622,13 +666,19 @@ Compass preserves purpose and refusal.\n\n\
 Archive preserves extracted history.\n";
 
         let findings = validate_sot_structure("knowledge/Cornerstone.Knosence-SoT.md", text);
-        assert!(findings.iter().any(|item| item.code == "MATRIX_ACTIVE_SECTION_REQUIRED"));
-        assert!(findings.iter().any(|item| item.code == "MATRIX_INACTIVE_SECTION_REQUIRED"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "MATRIX_ACTIVE_SECTION_REQUIRED"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "MATRIX_INACTIVE_SECTION_REQUIRED"));
     }
 
     #[test]
     fn builds_matrix_index_from_repo_state() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("workspace root");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root");
         let (entries, references, findings, markdown, snapshot_json) = build_matrix_index(root);
 
         assert!(!entries.is_empty());

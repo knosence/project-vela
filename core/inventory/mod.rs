@@ -4,7 +4,13 @@ use std::path::{Path, PathBuf};
 use crate::models::{GovernedReference, MatrixSoT, ValidationFinding};
 use crate::references::inspect_reference;
 
-pub fn discover_matrix_inventory(root: &Path) -> (Vec<MatrixSoT>, Vec<GovernedReference>, Vec<ValidationFinding>) {
+pub fn discover_matrix_inventory(
+    root: &Path,
+) -> (
+    Vec<MatrixSoT>,
+    Vec<GovernedReference>,
+    Vec<ValidationFinding>,
+) {
     let entries = discover_sots(root);
     let (references, findings) = discover_references(root);
     (entries, references, findings)
@@ -49,7 +55,9 @@ pub fn inferred_inventory_role_for_path(path: &str) -> Option<&'static str> {
         let name = path.rsplit('/').next().unwrap_or(path);
         if name == "Cornerstone.Knosence-SoT.md" {
             Some("cornerstone")
-        } else if (name.starts_with("WHO.") || name.contains("Identity-SoT")) && name.ends_with(".md") {
+        } else if (name.starts_with("WHO.") || name.contains("Identity-SoT"))
+            && name.ends_with(".md")
+        {
             Some("agent-identity")
         } else if is_dimension_hub(path) {
             Some("dimension-hub")
@@ -68,7 +76,9 @@ fn discover_sots(root: &Path) -> Vec<MatrixSoT> {
 
     let mut entries = Vec::new();
     for path in paths {
-        if path.parent() != Some(&root.join("knowledge")) || !path.to_string_lossy().ends_with("-SoT.md") {
+        if path.parent() != Some(&root.join("knowledge"))
+            || !path.to_string_lossy().ends_with("-SoT.md")
+        {
             continue;
         }
         let rel = relative_path(root, &path);
@@ -79,16 +89,26 @@ fn discover_sots(root: &Path) -> Vec<MatrixSoT> {
             continue;
         };
         let frontmatter = parse_frontmatter(&text);
-        let area = inventory_area_for_path(&rel).unwrap_or("knowledge").to_string();
+        let area = inventory_area_for_path(&rel)
+            .unwrap_or("knowledge")
+            .to_string();
         let inventory_role = classify_sot_role(&rel, &area).to_string();
         entries.push(MatrixSoT {
             path: rel.clone(),
             title: extract_title(&text, "Untitled SoT"),
-            sot_type: frontmatter_value(&frontmatter, "sot-type").unwrap_or("unknown").to_string(),
+            sot_type: frontmatter_value(&frontmatter, "sot-type")
+                .unwrap_or("unknown")
+                .to_string(),
             inventory_role,
-            parent: frontmatter_value(&frontmatter, "parent").unwrap_or_default().to_string(),
-            domain: frontmatter_value(&frontmatter, "domain").unwrap_or("unknown").to_string(),
-            status: frontmatter_value(&frontmatter, "status").unwrap_or("unknown").to_string(),
+            parent: frontmatter_value(&frontmatter, "parent")
+                .unwrap_or_default()
+                .to_string(),
+            domain: frontmatter_value(&frontmatter, "domain")
+                .unwrap_or("unknown")
+                .to_string(),
+            status: frontmatter_value(&frontmatter, "status")
+                .unwrap_or("unknown")
+                .to_string(),
             area,
             is_cornerstone: rel.ends_with("Cornerstone.Knosence-SoT.md"),
         });
@@ -104,8 +124,14 @@ fn discover_references(root: &Path) -> (Vec<GovernedReference>, Vec<ValidationFi
     let mut references = Vec::new();
     let mut findings = Vec::new();
     for path in paths {
-        let name = path.file_name().and_then(|item| item.to_str()).unwrap_or_default();
-        if !name.starts_with("Ref.") || !name.ends_with(".md") || name == "Index.Knosence-Matrix-Ref.md" {
+        let name = path
+            .file_name()
+            .and_then(|item| item.to_str())
+            .unwrap_or_default();
+        if !name.starts_with("Ref.")
+            || !name.ends_with(".md")
+            || name == "Index.Knosence-Matrix-Ref.md"
+        {
             continue;
         }
         let rel = relative_path(root, &path);
@@ -173,7 +199,10 @@ fn parse_frontmatter(text: &str) -> Vec<(String, String)> {
             break;
         }
         if let Some((key, value)) = line.split_once(':') {
-            entries.push((key.trim().to_string(), value.trim().trim_matches('"').to_string()));
+            entries.push((
+                key.trim().to_string(),
+                value.trim().trim_matches('"').to_string(),
+            ));
         }
     }
     entries
@@ -222,16 +251,28 @@ mod tests {
 
     #[test]
     fn discovers_matrix_inventory_from_repo_state() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("workspace root");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root");
         let (entries, references, findings) = discover_matrix_inventory(root);
 
         assert!(!entries.is_empty());
         assert!(entries.iter().any(|item| item.is_cornerstone));
-        assert!(entries.iter().any(|item| item.inventory_role == "cornerstone"));
-        assert!(entries.iter().any(|item| item.inventory_role == "dimension-hub"));
-        assert!(entries.iter().any(|item| item.inventory_role == "agent-identity"));
-        assert!(entries.iter().any(|item| item.inventory_role == "branch-sot"));
-        assert!(references.iter().all(|item| item.inventory_role == "governed-reference"));
+        assert!(entries
+            .iter()
+            .any(|item| item.inventory_role == "cornerstone"));
+        assert!(entries
+            .iter()
+            .any(|item| item.inventory_role == "dimension-hub"));
+        assert!(entries
+            .iter()
+            .any(|item| item.inventory_role == "agent-identity"));
+        assert!(entries
+            .iter()
+            .any(|item| item.inventory_role == "branch-sot"));
+        assert!(references
+            .iter()
+            .all(|item| item.inventory_role == "governed-reference"));
         assert!(findings.is_empty() || findings.iter().all(|item| !item.code.is_empty()));
     }
 }

@@ -141,7 +141,8 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
     match code {
         "SOVEREIGN_APPROVAL_REQUIRED" => vec![
             "Pattern 18 Human Gate".to_string(),
-            "Law 5 Sovereign Changes Shall Touch Roots and Rules Only Through Governed Paths".to_string(),
+            "Law 5 Sovereign Changes Shall Touch Roots and Rules Only Through Governed Paths"
+                .to_string(),
         ],
         "SPAWN_APPROVAL_REQUIRED" => vec![
             "Pattern 12 Sovereign Spawn".to_string(),
@@ -164,12 +165,15 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
         ],
         "MATRIX_HUB_PARENT_REQUIRED" => vec![
             "Pattern 15 Three-Hop Ceiling".to_string(),
-            "Law 6 Branch Sources of Truth Shall Prefer Hub Lineage Over Direct Root Attachment".to_string(),
+            "Law 6 Branch Sources of Truth Shall Prefer Hub Lineage Over Direct Root Attachment"
+                .to_string(),
         ],
-        "MATRIX_PARENT_DECLARATION_MISMATCH" | "MATRIX_CORNERSTONE_DECLARATION_PARENT_INVALID" => vec![
-            "Pattern 3 Single Parent".to_string(),
-            "Law 2 Every Non Cornerstone Source of Truth Shall Declare One Parent".to_string(),
-        ],
+        "MATRIX_PARENT_DECLARATION_MISMATCH" | "MATRIX_CORNERSTONE_DECLARATION_PARENT_INVALID" => {
+            vec![
+                "Pattern 3 Single Parent".to_string(),
+                "Law 2 Every Non Cornerstone Source of Truth Shall Declare One Parent".to_string(),
+            ]
+        }
         "MATRIX_FRONTMATTER_REQUIRED" | "MATRIX_CORNERSTONE_PARENT_MUST_BE_EMPTY" => vec![
             "Pattern 16 Frontmatter Contract".to_string(),
             "Law 2 Every Non Cornerstone Source of Truth Shall Declare One Parent".to_string(),
@@ -188,19 +192,17 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
             "Pattern 14 One Home, Many Pointers".to_string(),
             "Pattern 17 SoT-Native Output".to_string(),
         ],
-        "MATRIX_REFERENCE_FRONTMATTER_REQUIRED" | "MATRIX_REFERENCE_TYPE_REQUIRED" => vec![
-            "Pattern 16 Frontmatter Contract".to_string(),
-        ],
+        "MATRIX_REFERENCE_FRONTMATTER_REQUIRED" | "MATRIX_REFERENCE_TYPE_REQUIRED" => {
+            vec!["Pattern 16 Frontmatter Contract".to_string()]
+        }
         "MATRIX_REFERENCE_PARENT_REQUIRED" => vec![
             "Pattern 3 Single Parent".to_string(),
             "Law 2 Every Non Cornerstone Source of Truth Shall Declare One Parent".to_string(),
         ],
-        "MATRIX_REFERENCE_HEADING_REQUIRED" => vec![
-            "Pattern 17 SoT-Native Output".to_string(),
-        ],
-        "NARRATIVE_HEADING_REQUIRED" | "NARRATIVE_HEADING_WEAK" | "NARRATIVE_OPENING_REQUIRED" => vec![
-            "Pattern 17 SoT-Native Output".to_string(),
-        ],
+        "MATRIX_REFERENCE_HEADING_REQUIRED" => vec!["Pattern 17 SoT-Native Output".to_string()],
+        "NARRATIVE_HEADING_REQUIRED" | "NARRATIVE_HEADING_WEAK" | "NARRATIVE_OPENING_REQUIRED" => {
+            vec!["Pattern 17 SoT-Native Output".to_string()]
+        }
         "EVENT_ID_REQUIRED"
         | "EVENT_TIMESTAMP_REQUIRED"
         | "EVENT_SOURCE_REQUIRED"
@@ -208,9 +210,7 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
         | "EVENT_ACTOR_REQUIRED"
         | "EVENT_TARGET_REQUIRED"
         | "EVENT_STATUS_REQUIRED"
-        | "EVENT_REASON_REQUIRED" => vec![
-            "Directive 8 Event Log Everything Important".to_string(),
-        ],
+        | "EVENT_REASON_REQUIRED" => vec!["Directive 8 Event Log Everything Important".to_string()],
         "DREAMER_VALIDATOR_CHANGE_ACTIVE" => vec![
             "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
             "SoT Operations Reference: Three-Tier Vault Maintenance".to_string(),
@@ -234,6 +234,11 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
         "OPERATIONS_STATE_INVALID" | "OPERATIONS_STATE_NAME_INVALID" => vec![
             "SoT Operations Reference: Three-Tier Vault Maintenance".to_string(),
             "Pure Core, Impure Edges".to_string(),
+        ],
+        "OPERATION_REQUEST_NOT_ALLOWED" | "OPERATION_STATE_TRANSITION_INVALID" => vec![
+            "SoT Operations Reference: Three-Tier Vault Maintenance".to_string(),
+            "Role Purity".to_string(),
+            "Sequential Interplay Over Parallel Chaos".to_string(),
         ],
         _ => Vec::new(),
     }
@@ -261,10 +266,8 @@ mod tests {
 
     #[test]
     fn setup_findings_carry_setup_honesty_rule_ref() {
-        let finding = ValidationFinding::error(
-            "CONFIG_REQUIRED",
-            "Missing required field: owner.name",
-        );
+        let finding =
+            ValidationFinding::error("CONFIG_REQUIRED", "Missing required field: owner.name");
 
         assert!(finding
             .rule_refs

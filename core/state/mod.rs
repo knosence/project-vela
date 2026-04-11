@@ -34,4 +34,3 @@ mod tests {
         assert!(!state.is_locked("knowledge/ARTIFACTS/refs/test.md"));
     }
 }
-

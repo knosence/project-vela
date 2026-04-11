@@ -4,24 +4,26 @@ use std::io::{self, Read};
 use vela_core::events::{validate_event_record, EventRecord, ValidationSummary};
 use vela_core::inventory::discover_matrix_inventory;
 use vela_core::matrix::{
-    build_matrix_index,
-    validate_parent_consistency as validate_matrix_parent_consistency,
+    build_matrix_index, validate_parent_consistency as validate_matrix_parent_consistency,
     validate_sot_structure as validate_matrix_sot_structure,
 };
 use vela_core::models::{
-    OnboardingConfig, OperationLockRecord, OperationStateEntry, OperationsState, Severity, ValidationFinding,
+    OnboardingConfig, OperationLockRecord, OperationStateEntry, OperationsState, Severity,
+    ValidationFinding,
 };
 use vela_core::operations::{
-    parse_operations_state as parse_operations_state_policy,
     match_dreamer_actions as match_dreamer_actions_policy,
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
+    parse_operations_state as parse_operations_state_policy,
     register_dreamer_action as register_dreamer_action_policy,
     route_inbox_entry as route_inbox_dimension,
-    update_operations_state as update_operations_state_policy,
     update_dreamer_action_status as update_dreamer_action_status_policy,
-    validate_operation_lock as validate_operation_lock_policy,
+    update_operations_state as update_operations_state_policy,
     validate_archive_postconditions as validate_archive_outcome,
     validate_growth_stage as validate_growth_stage_policy,
+    validate_operation_lock as validate_operation_lock_policy,
+    validate_operation_request as validate_operation_request_policy,
+    validate_operation_state_transition as validate_operation_state_transition_policy,
     validate_subject_declaration_change as validate_subject_declaration_policy,
 };
 use vela_core::parser::{build_runtime_config, parse_system_identity};
@@ -29,7 +31,8 @@ use vela_core::policy::{route_for_target, validate_commit_policy};
 use vela_core::references::inspect_reference;
 use vela_core::repo_watch::assess_release;
 use vela_core::validator::{
-    has_blocking_findings, missing_required_fields, validate_narrative_document, validate_runtime_config,
+    has_blocking_findings, missing_required_fields, validate_narrative_document,
+    validate_runtime_config,
 };
 
 fn main() {
@@ -46,14 +49,19 @@ fn run() -> Result<(), String> {
     match command.as_str() {
         "validate-target" => {
             let target = args.next().ok_or_else(|| "missing target".to_string())?;
-            let approval_status = args.next().ok_or_else(|| "missing approval status".to_string())?;
+            let approval_status = args
+                .next()
+                .ok_or_else(|| "missing approval status".to_string())?;
             let mut content = String::new();
             io::stdin()
                 .read_to_string(&mut content)
                 .map_err(|err| format!("failed reading stdin: {err}"))?;
 
             let mut findings = validate_narrative_document(&content);
-            findings.extend(validate_commit_policy(&target, approval_status == "approved"));
+            findings.extend(validate_commit_policy(
+                &target,
+                approval_status == "approved",
+            ));
             print_findings(&findings, Some(route_for_target("write", &target)));
         }
         "route" => {
@@ -75,7 +83,9 @@ fn run() -> Result<(), String> {
             println!("{{\"ok\":true,\"dimension\":{route}}}");
         }
         "validate-subject-declaration" => {
-            let approval_status = args.next().ok_or_else(|| "missing approval status".to_string())?;
+            let approval_status = args
+                .next()
+                .ok_or_else(|| "missing approval status".to_string())?;
             let mut content = String::new();
             io::stdin()
                 .read_to_string(&mut content)
@@ -83,24 +93,38 @@ fn run() -> Result<(), String> {
             let (before, after) = content
                 .split_once("\n===AFTER===\n")
                 .ok_or_else(|| "missing subject declaration split marker".to_string())?;
-            let findings = validate_subject_declaration_policy(before, after, approval_status == "approved");
+            let findings =
+                validate_subject_declaration_policy(before, after, approval_status == "approved");
             print_findings(&findings, None);
         }
         "validate-growth-stage" => {
             let stage = args.next().ok_or_else(|| "missing stage".to_string())?;
-            let approval_status = args.next().ok_or_else(|| "missing approval status".to_string())?;
+            let approval_status = args
+                .next()
+                .ok_or_else(|| "missing approval status".to_string())?;
             let findings = validate_growth_stage_policy(&stage, approval_status == "approved");
             print_findings(&findings, None);
         }
         "validate-archive-postconditions" => {
-            let entry_value = args.next().ok_or_else(|| "missing entry value".to_string())?;
-            let archived_reason = args.next().ok_or_else(|| "missing archived reason".to_string())?;
-            let dimension_heading = args.next().ok_or_else(|| "missing dimension heading".to_string())?;
+            let entry_value = args
+                .next()
+                .ok_or_else(|| "missing entry value".to_string())?;
+            let archived_reason = args
+                .next()
+                .ok_or_else(|| "missing archived reason".to_string())?;
+            let dimension_heading = args
+                .next()
+                .ok_or_else(|| "missing dimension heading".to_string())?;
             let mut content = String::new();
             io::stdin()
                 .read_to_string(&mut content)
                 .map_err(|err| format!("failed reading stdin: {err}"))?;
-            let findings = validate_archive_outcome(&content, &entry_value, &archived_reason, &dimension_heading);
+            let findings = validate_archive_outcome(
+                &content,
+                &entry_value,
+                &archived_reason,
+                &dimension_heading,
+            );
             print_findings(&findings, None);
         }
         "match-dreamer-actions" => {
@@ -115,7 +139,14 @@ fn run() -> Result<(), String> {
             let (registry_json, text) = content
                 .split_once("\n===INPUT===\n")
                 .ok_or_else(|| "missing dreamer action split marker".to_string())?;
-            let matches = match_dreamer_actions_policy(registry_json, &mode, &target, &endpoint, &reason, text);
+            let matches = match_dreamer_actions_policy(
+                registry_json,
+                &mode,
+                &target,
+                &endpoint,
+                &reason,
+                text,
+            );
             println!(
                 "{{\"ok\":true,\"matches\":[{}]}}",
                 matches
@@ -146,12 +177,22 @@ fn run() -> Result<(), String> {
         }
         "register-dreamer-action" => {
             let kind = args.next().ok_or_else(|| "missing kind".to_string())?;
-            let follow_up_target = args.next().ok_or_else(|| "missing follow up target".to_string())?;
-            let execution_target = args.next().ok_or_else(|| "missing execution target".to_string())?;
-            let pattern_reason = args.next().ok_or_else(|| "missing pattern reason".to_string())?;
+            let follow_up_target = args
+                .next()
+                .ok_or_else(|| "missing follow up target".to_string())?;
+            let execution_target = args
+                .next()
+                .ok_or_else(|| "missing execution target".to_string())?;
+            let pattern_reason = args
+                .next()
+                .ok_or_else(|| "missing pattern reason".to_string())?;
             let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
-            let execution_reason = args.next().ok_or_else(|| "missing execution reason".to_string())?;
-            let applied_at = args.next().ok_or_else(|| "missing applied_at".to_string())?;
+            let execution_reason = args
+                .next()
+                .ok_or_else(|| "missing execution reason".to_string())?;
+            let applied_at = args
+                .next()
+                .ok_or_else(|| "missing applied_at".to_string())?;
             let status = args.next().ok_or_else(|| "missing status".to_string())?;
             let mut registry_json = String::new();
             io::stdin()
@@ -173,7 +214,9 @@ fn run() -> Result<(), String> {
             print_dreamer_registry(&registry, &findings);
         }
         "update-dreamer-action-status" => {
-            let follow_up_target = args.next().ok_or_else(|| "missing follow up target".to_string())?;
+            let follow_up_target = args
+                .next()
+                .ok_or_else(|| "missing follow up target".to_string())?;
             let status = args.next().ok_or_else(|| "missing status".to_string())?;
             let mut registry_json = String::new();
             io::stdin()
@@ -194,13 +237,18 @@ fn run() -> Result<(), String> {
         "update-operations-state" => {
             let name = args.next().ok_or_else(|| "missing name".to_string())?;
             let status = args.next().ok_or_else(|| "missing status".to_string())?;
-            let requested_by = args.next().ok_or_else(|| "missing requested_by".to_string())?;
+            let requested_by = args
+                .next()
+                .ok_or_else(|| "missing requested_by".to_string())?;
             let started_at = args.next().unwrap_or_default();
             let completed_at = args.next().unwrap_or_default();
             let last_report_target = args.next().unwrap_or_default();
             let last_error = args.next().unwrap_or_default();
-            let increment_runs =
-                parse_bool(&args.next().ok_or_else(|| "missing increment_runs".to_string())?)?;
+            let increment_runs = parse_bool(
+                &args
+                    .next()
+                    .ok_or_else(|| "missing increment_runs".to_string())?,
+            )?;
             let mut state_json = String::new();
             io::stdin()
                 .read_to_string(&mut state_json)
@@ -210,20 +258,34 @@ fn run() -> Result<(), String> {
                 &name,
                 &status,
                 &requested_by,
-                if started_at.is_empty() { None } else { Some(started_at.as_str()) },
-                if completed_at.is_empty() { None } else { Some(completed_at.as_str()) },
+                if started_at.is_empty() {
+                    None
+                } else {
+                    Some(started_at.as_str())
+                },
+                if completed_at.is_empty() {
+                    None
+                } else {
+                    Some(completed_at.as_str())
+                },
                 if last_report_target.is_empty() {
                     None
                 } else {
                     Some(last_report_target.as_str())
                 },
-                if last_error.is_empty() { None } else { Some(last_error.as_str()) },
+                if last_error.is_empty() {
+                    None
+                } else {
+                    Some(last_error.as_str())
+                },
                 increment_runs,
             );
             print_operations_state(&state, &findings);
         }
         "validate-operation-lock" => {
-            let expected_name = args.next().ok_or_else(|| "missing expected name".to_string())?;
+            let expected_name = args
+                .next()
+                .ok_or_else(|| "missing expected name".to_string())?;
             let mut lock_json = String::new();
             io::stdin()
                 .read_to_string(&mut lock_json)
@@ -231,32 +293,90 @@ fn run() -> Result<(), String> {
             let (record, findings) = validate_operation_lock_policy(&lock_json, &expected_name);
             println!(
                 "{{\"ok\":{},\"record\":{},\"findings\":[{}]}}",
-                if !has_blocking_findings(&findings) { "true" } else { "false" },
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
                 record
                     .as_ref()
                     .map(render_operation_lock)
                     .unwrap_or_else(|| "null".to_string()),
-                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
             );
         }
+        "validate-operation-request" => {
+            let name = args.next().ok_or_else(|| "missing name".to_string())?;
+            let requested_by = args
+                .next()
+                .ok_or_else(|| "missing requested_by".to_string())?;
+            let findings = validate_operation_request_policy(&name, &requested_by);
+            print_findings(&findings, None);
+        }
+        "validate-operation-transition" => {
+            let current_status = args
+                .next()
+                .ok_or_else(|| "missing current status".to_string())?;
+            let next_status = args
+                .next()
+                .ok_or_else(|| "missing next status".to_string())?;
+            let findings =
+                validate_operation_state_transition_policy(&current_status, &next_status);
+            print_findings(&findings, None);
+        }
         "validate-config" => {
-            let owner_name = args.next().ok_or_else(|| "missing owner name".to_string())?;
-            let primary_provider = args.next().ok_or_else(|| "missing primary provider".to_string())?;
-            let primary_model = args.next().ok_or_else(|| "missing primary model".to_string())?;
-            let deployment_target = args.next().ok_or_else(|| "missing deployment target".to_string())?;
-            let assistant_choice = args.next().ok_or_else(|| "missing assistant choice".to_string())?;
-            let relationship_stance = args.next().ok_or_else(|| "missing relationship stance".to_string())?;
-            let support_critique_balance =
-                args.next().ok_or_else(|| "missing support critique balance".to_string())?;
-            let subjectivity_boundaries =
-                args.next().ok_or_else(|| "missing subjectivity boundaries".to_string())?;
-            let project_name = args.next().ok_or_else(|| "missing project name".to_string())?;
-            let default_profile = args.next().ok_or_else(|| "missing default profile".to_string())?;
-            let active_profile = args.next().ok_or_else(|| "missing active profile".to_string())?;
-            let allow_replacement = parse_bool(&args.next().ok_or_else(|| "missing allow replacement".to_string())?)?;
-            let allow_multiple_profiles =
-                parse_bool(&args.next().ok_or_else(|| "missing allow multiple profiles".to_string())?)?;
-            let setup_complete = parse_bool(&args.next().ok_or_else(|| "missing setup complete".to_string())?)?;
+            let owner_name = args
+                .next()
+                .ok_or_else(|| "missing owner name".to_string())?;
+            let primary_provider = args
+                .next()
+                .ok_or_else(|| "missing primary provider".to_string())?;
+            let primary_model = args
+                .next()
+                .ok_or_else(|| "missing primary model".to_string())?;
+            let deployment_target = args
+                .next()
+                .ok_or_else(|| "missing deployment target".to_string())?;
+            let assistant_choice = args
+                .next()
+                .ok_or_else(|| "missing assistant choice".to_string())?;
+            let relationship_stance = args
+                .next()
+                .ok_or_else(|| "missing relationship stance".to_string())?;
+            let support_critique_balance = args
+                .next()
+                .ok_or_else(|| "missing support critique balance".to_string())?;
+            let subjectivity_boundaries = args
+                .next()
+                .ok_or_else(|| "missing subjectivity boundaries".to_string())?;
+            let project_name = args
+                .next()
+                .ok_or_else(|| "missing project name".to_string())?;
+            let default_profile = args
+                .next()
+                .ok_or_else(|| "missing default profile".to_string())?;
+            let active_profile = args
+                .next()
+                .ok_or_else(|| "missing active profile".to_string())?;
+            let allow_replacement = parse_bool(
+                &args
+                    .next()
+                    .ok_or_else(|| "missing allow replacement".to_string())?,
+            )?;
+            let allow_multiple_profiles = parse_bool(
+                &args
+                    .next()
+                    .ok_or_else(|| "missing allow multiple profiles".to_string())?,
+            )?;
+            let setup_complete = parse_bool(
+                &args
+                    .next()
+                    .ok_or_else(|| "missing setup complete".to_string())?,
+            )?;
 
             let config = build_runtime_config(
                 &owner_name,
@@ -283,14 +403,22 @@ fn run() -> Result<(), String> {
             let missing = missing_required_fields(&config);
             println!(
                 "{{\"ok\":{},\"setup_required\":{},\"missing_fields\":[{}],\"findings\":[{}]}}",
-                if !has_blocking_findings(&findings) { "true" } else { "false" },
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
                 if !missing.is_empty() { "true" } else { "false" },
                 missing
                     .iter()
                     .map(|item| format!("\"{}\"", escape_json(item)))
                     .collect::<Vec<String>>()
                     .join(","),
-                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
             );
         }
         "validate-event" => {
@@ -322,8 +450,16 @@ fn run() -> Result<(), String> {
             let findings = validate_event_record(&event);
             println!(
                 "{{\"ok\":{},\"findings\":[{}]}}",
-                if !has_blocking_findings(&findings) { "true" } else { "false" },
-                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
             );
         }
         "analyze-release" => {
@@ -334,7 +470,11 @@ fn run() -> Result<(), String> {
             let context_markers: Vec<String> = if context.is_empty() {
                 Vec::new()
             } else {
-                context.split(',').filter(|item| !item.is_empty()).map(|item| item.to_string()).collect()
+                context
+                    .split(',')
+                    .filter(|item| !item.is_empty())
+                    .map(|item| item.to_string())
+                    .collect()
             };
             let mut watchlist = String::new();
             io::stdin()
@@ -397,9 +537,17 @@ fn run() -> Result<(), String> {
                 .unwrap_or_else(|| "null".to_string());
             println!(
                 "{{\"ok\":{},\"reference\":{},\"findings\":[{}]}}",
-                if !has_blocking_findings(&findings) { "true" } else { "false" },
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
                 reference_json,
-                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
             );
         }
         "validate-parent" => {
@@ -411,8 +559,16 @@ fn run() -> Result<(), String> {
             let findings = validate_matrix_parent_consistency(&path, &content);
             println!(
                 "{{\"ok\":{},\"findings\":[{}]}}",
-                if !has_blocking_findings(&findings) { "true" } else { "false" },
-                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
             );
         }
         "validate-sot" => {
@@ -424,8 +580,16 @@ fn run() -> Result<(), String> {
             let findings = validate_matrix_sot_structure(&path, &content);
             println!(
                 "{{\"ok\":{},\"findings\":[{}]}}",
-                if !has_blocking_findings(&findings) { "true" } else { "false" },
-                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
             );
         }
         "render-matrix-index" => {
@@ -447,10 +611,26 @@ fn run() -> Result<(), String> {
             let (entries, references, findings) = discover_matrix_inventory(root);
             println!(
                 "{{\"ok\":{},\"entries\":[{}],\"references\":[{}],\"findings\":[{}]}}",
-                if !has_blocking_findings(&findings) { "true" } else { "false" },
-                entries.iter().map(render_matrix_sot).collect::<Vec<String>>().join(","),
-                references.iter().map(render_reference).collect::<Vec<String>>().join(","),
-                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                entries
+                    .iter()
+                    .map(render_matrix_sot)
+                    .collect::<Vec<String>>()
+                    .join(","),
+                references
+                    .iter()
+                    .map(render_reference)
+                    .collect::<Vec<String>>()
+                    .join(","),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
             );
         }
         other => return Err(format!("unknown command: {other}")),
@@ -473,9 +653,17 @@ fn print_findings(findings: &[ValidationFinding], route: Option<&str>) {
         .unwrap_or_else(|| "null".to_string());
     println!(
         "{{\"ok\":{},\"route\":{},\"findings\":[{}]}}",
-        if !has_blocking_findings(findings) { "true" } else { "false" },
+        if !has_blocking_findings(findings) {
+            "true"
+        } else {
+            "false"
+        },
         route_json,
-        findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+        findings
+            .iter()
+            .map(render_finding)
+            .collect::<Vec<String>>()
+            .join(",")
     );
 }
 
@@ -537,10 +725,18 @@ fn render_operation_state_entry(entry: &OperationStateEntry) -> String {
 fn print_operations_state(state: &OperationsState, findings: &[ValidationFinding]) {
     println!(
         "{{\"ok\":{},\"state\":{{\"patrol\":{},\"night-cycle\":{}}},\"findings\":[{}]}}",
-        if !has_blocking_findings(findings) { "true" } else { "false" },
+        if !has_blocking_findings(findings) {
+            "true"
+        } else {
+            "false"
+        },
         render_operation_state_entry(&state.patrol),
         render_operation_state_entry(&state.night_cycle),
-        findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+        findings
+            .iter()
+            .map(render_finding)
+            .collect::<Vec<String>>()
+            .join(",")
     );
 }
 

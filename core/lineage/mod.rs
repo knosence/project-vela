@@ -42,4 +42,3 @@ mod tests {
         assert!(!incomplete.is_complete());
     }
 }
-

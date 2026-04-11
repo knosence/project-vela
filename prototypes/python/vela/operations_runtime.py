@@ -19,6 +19,8 @@ from .rust_bridge import (
     parse_operations_state_payload,
     update_operations_state_payload,
     validate_operation_lock_payload,
+    validate_operation_request_payload,
+    validate_operation_transition_payload,
 )
 
 PATROL_INTERVAL_SECONDS = 4 * 60 * 60
@@ -27,6 +29,35 @@ NIGHT_CYCLE_INTERVAL_SECONDS = 24 * 60 * 60
 
 def run_warden_patrol(requested_by: str = "system") -> dict[str, Any]:
     started_at = datetime.now(timezone.utc).isoformat()
+    request_findings = validate_operation_request_payload("patrol", requested_by).get("findings", [])
+    if request_findings:
+        _update_operation_state(
+            "patrol",
+            status="blocked",
+            requested_by=requested_by,
+            started_at=started_at,
+            last_error=request_findings[0]["detail"],
+        )
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="patrol",
+                actor="warden",
+                target="runtime/config/operations-state.json",
+                status="blocked",
+                reason=request_findings[0]["detail"],
+                artifacts=["runtime/config/operations-state.json"],
+                validation_summary={"requested_by": requested_by},
+            )
+        )
+        return {
+            "ok": False,
+            "report_target": "",
+            "files_checked": 0,
+            "structural_flags": [],
+            "cosmetic_fixes": [],
+            "findings": request_findings,
+        }
     lock = _acquire_operation_lock("patrol", requested_by, started_at)
     if not lock["ok"]:
         _update_operation_state(
@@ -110,6 +141,38 @@ def run_warden_patrol(requested_by: str = "system") -> dict[str, Any]:
 
 def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
     started_at = datetime.now(timezone.utc).isoformat()
+    request_findings = validate_operation_request_payload("night-cycle", requested_by).get("findings", [])
+    if request_findings:
+        _update_operation_state(
+            "night-cycle",
+            status="blocked",
+            requested_by=requested_by,
+            started_at=started_at,
+            last_error=request_findings[0]["detail"],
+        )
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="night-cycle",
+                actor="dc",
+                target="runtime/config/operations-state.json",
+                status="blocked",
+                reason=request_findings[0]["detail"],
+                artifacts=["runtime/config/operations-state.json"],
+                validation_summary={"requested_by": requested_by},
+            )
+        )
+        return {
+            "ok": False,
+            "report_target": "",
+            "dreamer_report_target": "",
+            "patrol": {"ok": False},
+            "growth_candidates": [],
+            "dreamer_patterns": {},
+            "blocked_items": [],
+            "dreamer_proposals": [],
+            "findings": request_findings,
+        }
     lock = _acquire_operation_lock("night-cycle", requested_by, started_at)
     if not lock["ok"]:
         _update_operation_state(
@@ -915,8 +978,13 @@ def _update_operation_state(
     increment_runs: bool = False,
 ) -> None:
     current_state = "{}"
+    current_status = "idle"
     if OPERATIONS_STATE_PATH.exists():
         current_state = OPERATIONS_STATE_PATH.read_text(encoding="utf-8")
+        current_status = parse_operations_state_payload(current_state).get("state", {}).get(name, {}).get("status", "idle")
+    transition = validate_operation_transition_payload(current_status, status)
+    if transition.get("findings"):
+        return
     payload = update_operations_state_payload(
         current_state,
         name,

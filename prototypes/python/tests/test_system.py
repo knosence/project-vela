@@ -47,6 +47,8 @@ from prototypes.python.vela.rust_bridge import (
     update_operations_state_payload,
     update_dreamer_action_status_payload,
     validate_operation_lock_payload,
+    validate_operation_request_payload,
+    validate_operation_transition_payload,
     validate_archive_postconditions_payload,
     validate_config_payload,
     validate_growth_stage_payload,
@@ -735,6 +737,7 @@ class VelaSystemTest(unittest.TestCase):
         proposal_target = "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md"
         source_target = "knowledge/ARTIFACTS/proposals/spawn-source-SoT.md"
         source_path = REPO_ROOT / source_target
+        source_path.parent.mkdir(parents=True, exist_ok=True)
         source_path.write_text(
             (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"),
             encoding="utf-8",
@@ -810,6 +813,7 @@ class VelaSystemTest(unittest.TestCase):
         proposal_target = "knowledge/ARTIFACTS/proposals/growth-apply-fractal-test.md"
         source_target = "knowledge/ARTIFACTS/proposals/fractal-source-SoT.md"
         source_path = REPO_ROOT / source_target
+        source_path.parent.mkdir(parents=True, exist_ok=True)
         entries = "\n".join(
             f"- Entry {idx}. (2026-04-08)\n  - Context {idx}. [AGENT:gpt-5]"
             for idx in range(1, 10)
@@ -1028,12 +1032,20 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(parsed["ok"])
         self.assertEqual(parsed["state"]["patrol"]["status"], "idle")
 
-        updated = update_operations_state_payload(
+        running = update_operations_state_payload(
             "{}",
+            "patrol",
+            "running",
+            "human",
+            started_at="2026-04-10T10:00:00Z",
+        )
+        self.assertTrue(running["ok"])
+
+        updated = update_operations_state_payload(
+            json.dumps(running["state"]),
             "patrol",
             "completed",
             "human",
-            started_at="2026-04-10T10:00:00Z",
             completed_at="2026-04-10T10:10:00Z",
             last_report_target="knowledge/ARTIFACTS/refs/Warden-Patrol-20260410-1010.md",
             increment_runs=True,
@@ -1044,6 +1056,23 @@ class VelaSystemTest(unittest.TestCase):
         invalid_lock = validate_operation_lock_payload("{}", "patrol")
         self.assertFalse(invalid_lock["ok"])
         self.assertTrue(any(item["code"] == "OPERATION_LOCK_INVALID" for item in invalid_lock["findings"]))
+
+        invalid_request = validate_operation_request_payload("patrol", "vela")
+        self.assertFalse(invalid_request["ok"])
+        self.assertTrue(any(item["code"] == "OPERATION_REQUEST_NOT_ALLOWED" for item in invalid_request["findings"]))
+
+        invalid_transition = validate_operation_transition_payload("idle", "completed")
+        self.assertFalse(invalid_transition["ok"])
+        self.assertTrue(any(item["code"] == "OPERATION_STATE_TRANSITION_INVALID" for item in invalid_transition["findings"]))
+
+    def test_operations_runtime_blocks_unauthorized_requester(self) -> None:
+        blocked_patrol = run_warden_patrol(requested_by="vela")
+        self.assertFalse(blocked_patrol["ok"])
+        self.assertTrue(any(item["code"] == "OPERATION_REQUEST_NOT_ALLOWED" for item in blocked_patrol["findings"]))
+
+        blocked_night = run_night_cycle(requested_by="warden")
+        self.assertFalse(blocked_night["ok"])
+        self.assertTrue(any(item["code"] == "OPERATION_REQUEST_NOT_ALLOWED" for item in blocked_night["findings"]))
 
     def test_dreamer_queue_and_review(self) -> None:
         for _ in range(3):

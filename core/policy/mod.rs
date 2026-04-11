@@ -2,8 +2,10 @@ use crate::inventory::inferred_inventory_role_for_path;
 use crate::models::ValidationFinding;
 
 pub fn is_sovereign_target(path: &str) -> bool {
-    matches!(inferred_inventory_role_for_path(path), Some("cornerstone" | "agent-identity"))
-        || path == "knowledge/Cornerstone.Knosence-SoT.md"
+    matches!(
+        inferred_inventory_role_for_path(path),
+        Some("cornerstone" | "agent-identity")
+    ) || path == "knowledge/Cornerstone.Knosence-SoT.md"
         || path == "knowledge/ARTIFACTS/proposals/TEST.Sovereign-Guardrail-Fixture.md"
         || path == "knowledge/220.WHAT.Repo-Watchlist-SoT.md"
 }
@@ -43,13 +45,15 @@ mod tests {
 
     #[test]
     fn sovereign_targets_require_approval() {
-        let findings = validate_commit_policy(
-            "knowledge/Cornerstone.Knosence-SoT.md",
-            false,
-        );
+        let findings = validate_commit_policy("knowledge/Cornerstone.Knosence-SoT.md", false);
 
-        assert_eq!(route_for_target("write", "knowledge/Cornerstone.Knosence-SoT.md"), "sovereign-change");
-        assert!(findings.iter().any(|item| item.code == "SOVEREIGN_APPROVAL_REQUIRED"));
+        assert_eq!(
+            route_for_target("write", "knowledge/Cornerstone.Knosence-SoT.md"),
+            "sovereign-change"
+        );
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "SOVEREIGN_APPROVAL_REQUIRED"));
     }
 
     #[test]
@@ -62,7 +66,8 @@ mod tests {
 
     #[test]
     fn standard_targets_can_commit_without_approval() {
-        let findings = validate_commit_policy("knowledge/ARTIFACTS/refs/operational-note.md", false);
+        let findings =
+            validate_commit_policy("knowledge/ARTIFACTS/refs/operational-note.md", false);
         assert!(findings.is_empty());
     }
 }

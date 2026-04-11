@@ -137,7 +137,9 @@ pub fn validate_narrative_document(document: &str) -> Vec<ValidationFinding> {
 }
 
 pub fn has_blocking_findings(findings: &[ValidationFinding]) -> bool {
-    findings.iter().any(|finding| finding.severity == Severity::Error)
+    findings
+        .iter()
+        .any(|finding| finding.severity == Severity::Error)
 }
 
 fn is_missing(value: &str) -> bool {
@@ -195,15 +197,21 @@ mod tests {
         let findings = validate_runtime_config(&config);
 
         assert!(has_blocking_findings(&findings));
-        assert!(findings.iter().any(|item| item.code == "SETUP_STATE_INCONSISTENT"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "SETUP_STATE_INCONSISTENT"));
     }
 
     #[test]
     fn narrative_validator_requires_headings_and_opening_lines() {
         let findings = validate_narrative_document("# Short\n\n## Another Heading");
 
-        assert!(findings.iter().any(|item| item.code == "NARRATIVE_HEADING_WEAK"));
-        assert!(findings.iter().any(|item| item.code == "NARRATIVE_OPENING_REQUIRED"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "NARRATIVE_HEADING_WEAK"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "NARRATIVE_OPENING_REQUIRED"));
     }
 
     #[test]

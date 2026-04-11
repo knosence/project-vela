@@ -58,3 +58,6 @@ This note records the active mechanical operating rules for Vela's local Matrix 
 - Patrol writes artifact-space reports only.
 - Night cycle packages patrol status, growth candidates, and blocked-pattern counts into a DC report.
 - Both operations use dedicated overlap locks so two patrols or two night cycles cannot run at once.
+- Patrol may be requested by `human`, `system`, `n8n`, or internally by `night-cycle:*`.
+- Night cycle may be requested only by `human`, `system`, or `n8n`.
+- Valid state transitions are governed: `idle -> running|blocked`, `running -> completed|blocked`, and completed or blocked runs must return to `running` before they can complete again.

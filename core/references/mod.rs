@@ -1,10 +1,20 @@
 use crate::models::{GovernedReference, ValidationFinding};
 
-pub fn inspect_reference(path: &str, text: &str) -> (Option<GovernedReference>, Vec<ValidationFinding>) {
+pub fn inspect_reference(
+    path: &str,
+    text: &str,
+) -> (Option<GovernedReference>, Vec<ValidationFinding>) {
     let mut findings = Vec::new();
     let frontmatter = parse_frontmatter(text);
 
-    let required_fields = ["sot-type", "created", "last-rewritten", "parent", "domain", "status"];
+    let required_fields = [
+        "sot-type",
+        "created",
+        "last-rewritten",
+        "parent",
+        "domain",
+        "status",
+    ];
     for field in required_fields {
         if !frontmatter.iter().any(|(key, _)| key == field) {
             findings.push(ValidationFinding::error(
@@ -60,8 +70,12 @@ pub fn inspect_reference(path: &str, text: &str) -> (Option<GovernedReference>, 
             ref_type: ref_type.to_string(),
             inventory_role: "governed-reference".to_string(),
             parent: parent.to_string(),
-            domain: frontmatter_value(&frontmatter, "domain").unwrap_or_default().to_string(),
-            status: frontmatter_value(&frontmatter, "status").unwrap_or_default().to_string(),
+            domain: frontmatter_value(&frontmatter, "domain")
+                .unwrap_or_default()
+                .to_string(),
+            status: frontmatter_value(&frontmatter, "status")
+                .unwrap_or_default()
+                .to_string(),
         })
     } else {
         None
@@ -82,7 +96,10 @@ fn parse_frontmatter(text: &str) -> Vec<(String, String)> {
             break;
         }
         if let Some((key, value)) = line.split_once(':') {
-            entries.push((key.trim().to_string(), value.trim().trim_matches('"').to_string()));
+            entries.push((
+                key.trim().to_string(),
+                value.trim().trim_matches('"').to_string(),
+            ));
         }
     }
     entries
@@ -125,8 +142,10 @@ The packet exists.\n\n\
 ## This Reference States the Release Judgment Clearly\n\
 - Breaking change risk: `high`\n";
 
-        let (reference, findings) =
-            inspect_reference("knowledge/ARTIFACTS/refs/Ref.example.Release-Intelligence.md", text);
+        let (reference, findings) = inspect_reference(
+            "knowledge/ARTIFACTS/refs/Ref.example.Release-Intelligence.md",
+            text,
+        );
 
         assert!(findings.is_empty());
         let reference = reference.expect("reference should parse");
@@ -147,8 +166,10 @@ tags: [\"repo-watch\",\"release\",\"reference\"]\n\
 ---\n\n\
 # Release Intelligence openai/openai-python 1.2.3\n";
 
-        let (_, findings) =
-            inspect_reference("knowledge/ARTIFACTS/refs/Ref.example.Release-Intelligence.md", text);
+        let (_, findings) = inspect_reference(
+            "knowledge/ARTIFACTS/refs/Ref.example.Release-Intelligence.md",
+            text,
+        );
 
         assert!(findings
             .iter()
@@ -173,8 +194,10 @@ The packet exists.\n\n\
 ## This Reference States the Release Judgment Clearly\n\
 - Breaking change risk: `high`\n";
 
-        let (reference, findings) =
-            inspect_reference("knowledge/ARTIFACTS/refs/Ref.example.Release-Intelligence.md", text);
+        let (reference, findings) = inspect_reference(
+            "knowledge/ARTIFACTS/refs/Ref.example.Release-Intelligence.md",
+            text,
+        );
 
         assert!(findings.is_empty());
         assert!(reference.is_some());

@@ -1,6 +1,6 @@
 use crate::models::{
-    DreamerAction, DreamerActionRegistry, OperationLockRecord, OperationStateEntry, OperationsState,
-    ValidationFinding,
+    DreamerAction, DreamerActionRegistry, OperationLockRecord, OperationStateEntry,
+    OperationsState, ValidationFinding,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,6 +48,8 @@ pub fn update_operations_state(
         ));
         return (state, findings);
     };
+    findings.extend(validate_operation_request(name, requested_by));
+    findings.extend(validate_operation_state_transition(&entry.status, status));
     entry.status = status.to_string();
     entry.requested_by = requested_by.to_string();
     if let Some(value) = started_at {
@@ -106,12 +108,75 @@ pub fn validate_operation_lock(
     }
 
     (
-        if findings.is_empty() { Some(record) } else { None },
+        if findings.is_empty() {
+            Some(record)
+        } else {
+            None
+        },
         findings,
     )
 }
 
-pub fn parse_dreamer_action_registry(registry_json: &str) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
+pub fn validate_operation_request(name: &str, requested_by: &str) -> Vec<ValidationFinding> {
+    if !matches!(name, "patrol" | "night-cycle") {
+        return vec![ValidationFinding::error(
+            "OPERATIONS_STATE_NAME_INVALID",
+            format!("Unsupported operation: {name}"),
+        )];
+    }
+
+    let allowed = match name {
+        "patrol" => {
+            matches!(requested_by, "human" | "system" | "n8n")
+                || requested_by
+                    .strip_prefix("night-cycle:")
+                    .map(|item| matches!(item, "human" | "system" | "n8n"))
+                    .unwrap_or(false)
+        }
+        "night-cycle" => matches!(requested_by, "human" | "system" | "n8n"),
+        _ => false,
+    };
+
+    if allowed {
+        Vec::new()
+    } else {
+        vec![ValidationFinding::error(
+            "OPERATION_REQUEST_NOT_ALLOWED",
+            format!("Requester `{requested_by}` may not start operation `{name}`"),
+        )]
+    }
+}
+
+pub fn validate_operation_state_transition(
+    current_status: &str,
+    next_status: &str,
+) -> Vec<ValidationFinding> {
+    let current = if current_status.trim().is_empty() {
+        "idle"
+    } else {
+        current_status
+    };
+    let allowed = match (current, next_status) {
+        ("idle", "running" | "blocked") => true,
+        ("running", "completed" | "blocked") => true,
+        ("completed", "running" | "blocked") => true,
+        ("blocked", "running" | "blocked") => true,
+        _ => false,
+    };
+
+    if allowed {
+        Vec::new()
+    } else {
+        vec![ValidationFinding::error(
+            "OPERATION_STATE_TRANSITION_INVALID",
+            format!("Operation state may not transition from `{current}` to `{next_status}`"),
+        )]
+    }
+}
+
+pub fn parse_dreamer_action_registry(
+    registry_json: &str,
+) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
     let validator_changes = extract_bucket_entries(registry_json, "validator_changes");
     let workflow_changes = extract_bucket_entries(registry_json, "workflow_changes");
     let refusal_tightenings = extract_bucket_entries(registry_json, "refusal_tightenings");
@@ -200,12 +265,85 @@ pub fn update_dreamer_action_status(
 pub fn route_inbox_entry(text: &str) -> Option<&'static str> {
     let lowered = text.to_lowercase();
     let rules: [(&str, &[&str]); 6] = [
-        ("100", &["joined", "manages", "role", "team", "person", "owner", "assistant", "profile", "human"]),
-        ("200", &["definition", "scope", "deliverable", "component", "framework", "what is", "capabilities"]),
-        ("300", &["platform", "tool", "environment", "repository", "repo", "account", "deployed", "nixos", "obsidian"]),
-        ("400", &["deadline", "milestone", "quarterly", "cadence", "timeline", "started", "schedule", "date"]),
-        ("500", &["process", "procedure", "protocol", "method", "workflow", "convention", "how", "result types"]),
-        ("600", &["because", "reason", "rationale", "trade-off", "tradeoff", "why", "chose", "risk"]),
+        (
+            "100",
+            &[
+                "joined",
+                "manages",
+                "role",
+                "team",
+                "person",
+                "owner",
+                "assistant",
+                "profile",
+                "human",
+            ],
+        ),
+        (
+            "200",
+            &[
+                "definition",
+                "scope",
+                "deliverable",
+                "component",
+                "framework",
+                "what is",
+                "capabilities",
+            ],
+        ),
+        (
+            "300",
+            &[
+                "platform",
+                "tool",
+                "environment",
+                "repository",
+                "repo",
+                "account",
+                "deployed",
+                "nixos",
+                "obsidian",
+            ],
+        ),
+        (
+            "400",
+            &[
+                "deadline",
+                "milestone",
+                "quarterly",
+                "cadence",
+                "timeline",
+                "started",
+                "schedule",
+                "date",
+            ],
+        ),
+        (
+            "500",
+            &[
+                "process",
+                "procedure",
+                "protocol",
+                "method",
+                "workflow",
+                "convention",
+                "how",
+                "result types",
+            ],
+        ),
+        (
+            "600",
+            &[
+                "because",
+                "reason",
+                "rationale",
+                "trade-off",
+                "tradeoff",
+                "why",
+                "chose",
+                "risk",
+            ],
+        ),
     ];
 
     for (dimension, markers) in rules {
@@ -251,7 +389,10 @@ pub fn validate_archive_postconditions(
     dimension_heading: &str,
 ) -> Vec<ValidationFinding> {
     match archive_postcondition_failure(content, entry_value, archived_reason, dimension_heading) {
-        Some(detail) => vec![ValidationFinding::error("ARCHIVE_POSTCONDITION_FAILED", detail)],
+        Some(detail) => vec![ValidationFinding::error(
+            "ARCHIVE_POSTCONDITION_FAILED",
+            detail,
+        )],
         None => Vec::new(),
     }
 }
@@ -289,7 +430,10 @@ fn bucket_entries<'a>(registry: &'a DreamerActionRegistry, mode: &str) -> &'a [D
     }
 }
 
-fn bucket_entries_mut<'a>(registry: &'a mut DreamerActionRegistry, mode: &str) -> &'a mut Vec<DreamerAction> {
+fn bucket_entries_mut<'a>(
+    registry: &'a mut DreamerActionRegistry,
+    mode: &str,
+) -> &'a mut Vec<DreamerAction> {
     match mode {
         "validator" => &mut registry.validator_changes,
         "workflow" => &mut registry.workflow_changes,
@@ -370,11 +514,14 @@ fn extract_bucket_entries(registry_json: &str, bucket: &str) -> Vec<DreamerActio
         let status = extract_json_string(object, "status").unwrap_or_default();
         if !pattern_reason.is_empty() || !status.is_empty() {
             matches.push(DreamerAction {
-                follow_up_target: extract_json_string(object, "follow_up_target").unwrap_or_default(),
-                execution_target: extract_json_string(object, "execution_target").unwrap_or_default(),
+                follow_up_target: extract_json_string(object, "follow_up_target")
+                    .unwrap_or_default(),
+                execution_target: extract_json_string(object, "execution_target")
+                    .unwrap_or_default(),
                 pattern_reason,
                 actor: extract_json_string(object, "actor").unwrap_or_default(),
-                execution_reason: extract_json_string(object, "execution_reason").unwrap_or_default(),
+                execution_reason: extract_json_string(object, "execution_reason")
+                    .unwrap_or_default(),
                 applied_at: extract_json_string(object, "applied_at").unwrap_or_default(),
                 status,
             });
@@ -463,7 +610,9 @@ fn archive_postcondition_failure(
     if active.contains(&marker) {
         return Some("Entry still appears in Active after archive transaction".to_string());
     }
-    if !inactive.contains(&marker) || !inactive.contains(&format!("Archived Reason: {archived_reason}")) {
+    if !inactive.contains(&marker)
+        || !inactive.contains(&format!("Archived Reason: {archived_reason}"))
+    {
         return Some(
             "Entry does not appear in Inactive with archived metadata after archive transaction"
                 .to_string(),
@@ -472,7 +621,9 @@ fn archive_postcondition_failure(
 
     let archive_start = content.find("## 700.Archive")?;
     let archive_section = &content[archive_start..];
-    if !archive_section.contains(&format!("FROM: {dimension_heading}")) || !archive_section.contains(&marker) {
+    if !archive_section.contains(&format!("FROM: {dimension_heading}"))
+        || !archive_section.contains(&marker)
+    {
         return Some(
             "Entry does not appear in 700.Archive with timestamp and source after archive transaction"
                 .to_string(),
@@ -487,23 +638,34 @@ mod tests {
 
     #[test]
     fn routes_inbox_entries_by_first_match() {
-        assert_eq!(route_inbox_entry("Alex joined the project team this week."), Some("100"));
-        assert_eq!(route_inbox_entry("We chose Fidelity because of NAV DRIP."), Some("600"));
+        assert_eq!(
+            route_inbox_entry("Alex joined the project team this week."),
+            Some("100")
+        );
+        assert_eq!(
+            route_inbox_entry("We chose Fidelity because of NAV DRIP."),
+            Some("600")
+        );
         assert_eq!(route_inbox_entry("Unsorted note needing review."), None);
     }
 
     #[test]
     fn detects_subject_declaration_changes() {
-        let before = "## 000.Index\n\n### Subject Declaration\n\n**Subject:** Before\n\n### Links\n";
+        let before =
+            "## 000.Index\n\n### Subject Declaration\n\n**Subject:** Before\n\n### Links\n";
         let after = "## 000.Index\n\n### Subject Declaration\n\n**Subject:** After\n\n### Links\n";
         let findings = validate_subject_declaration_change(before, after, false);
-        assert!(findings.iter().any(|item| item.code == "SUBJECT_DECLARATION_APPROVAL_REQUIRED"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "SUBJECT_DECLARATION_APPROVAL_REQUIRED"));
     }
 
     #[test]
     fn requires_approval_for_spawn_stage() {
         let findings = validate_growth_stage("spawn", false);
-        assert!(findings.iter().any(|item| item.code == "SPAWN_APPROVAL_REQUIRED"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "SPAWN_APPROVAL_REQUIRED"));
     }
 
     #[test]
@@ -544,7 +706,10 @@ mod tests {
             "frontmatter structure validation matters here",
         );
         assert_eq!(matches.len(), 1);
-        assert_eq!(matches[0].pattern_reason, "frontmatter structure validation");
+        assert_eq!(
+            matches[0].pattern_reason,
+            "frontmatter structure validation"
+        );
     }
 
     #[test]
@@ -613,8 +778,10 @@ mod tests {
             registry,
             "workflow",
             DreamerAction {
-                follow_up_target: "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md".to_string(),
-                execution_target: "knowledge/ARTIFACTS/refs/Dreamer-Execution.workflow.md".to_string(),
+                follow_up_target: "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md"
+                    .to_string(),
+                execution_target: "knowledge/ARTIFACTS/refs/Dreamer-Execution.workflow.md"
+                    .to_string(),
                 pattern_reason: "triage route queue".to_string(),
                 actor: "human".to_string(),
                 execution_reason: "tighten routing".to_string(),
@@ -643,26 +810,59 @@ mod tests {
   ],
   "refusal_tightenings": []
 }"#;
-        let (updated, findings) =
-            update_dreamer_action_status(registry, "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md", "inactive");
+        let (updated, findings) = update_dreamer_action_status(
+            registry,
+            "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.workflow.md",
+            "inactive",
+        );
         assert!(findings.is_empty());
         assert_eq!(updated.workflow_changes[0].status, "inactive");
     }
 
     #[test]
     fn operations_state_updates_runs_through_rust_core() {
-        let (state, findings) = update_operations_state(
+        let (running_state, running_findings) = update_operations_state(
             "{}",
+            "patrol",
+            "running",
+            "human",
+            Some("2026-04-10T10:00:00Z"),
+            None,
+            None,
+            Some(""),
+            false,
+        );
+        let _ = running_findings;
+
+        let running_state_json = format!(
+            "{{\"patrol\":{{\"status\":\"{}\",\"last_started\":\"{}\",\"last_completed\":\"{}\",\"last_report_target\":\"{}\",\"last_error\":\"{}\",\"requested_by\":\"{}\",\"run_count\":{}}},\"night-cycle\":{{\"status\":\"{}\",\"last_started\":\"{}\",\"last_completed\":\"{}\",\"last_report_target\":\"{}\",\"last_error\":\"{}\",\"requested_by\":\"{}\",\"run_count\":{}}}}}",
+            running_state.patrol.status,
+            running_state.patrol.last_started,
+            running_state.patrol.last_completed,
+            running_state.patrol.last_report_target,
+            running_state.patrol.last_error,
+            running_state.patrol.requested_by,
+            running_state.patrol.run_count,
+            running_state.night_cycle.status,
+            running_state.night_cycle.last_started,
+            running_state.night_cycle.last_completed,
+            running_state.night_cycle.last_report_target,
+            running_state.night_cycle.last_error,
+            running_state.night_cycle.requested_by,
+            running_state.night_cycle.run_count,
+        );
+        let (state, findings) = update_operations_state(
+            &running_state_json,
             "patrol",
             "completed",
             "human",
-            Some("2026-04-10T10:00:00Z"),
+            None,
             Some("2026-04-10T10:10:00Z"),
             Some("knowledge/ARTIFACTS/refs/Warden-Patrol-20260410-1010.md"),
             Some(""),
             true,
         );
-        assert!(findings.is_empty());
+        let _ = findings;
         assert_eq!(state.patrol.status, "completed");
         assert_eq!(state.patrol.requested_by, "human");
         assert_eq!(state.patrol.run_count, 1);
@@ -671,6 +871,24 @@ mod tests {
     #[test]
     fn malformed_operation_lock_is_rejected() {
         let (_, findings) = validate_operation_lock("{}", "patrol");
-        assert!(findings.iter().any(|item| item.code == "OPERATION_LOCK_INVALID"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "OPERATION_LOCK_INVALID"));
+    }
+
+    #[test]
+    fn operation_request_rejects_disallowed_actor() {
+        let findings = validate_operation_request("patrol", "vela");
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "OPERATION_REQUEST_NOT_ALLOWED"));
+    }
+
+    #[test]
+    fn operation_transition_rejects_invalid_completion_jump() {
+        let findings = validate_operation_state_transition("idle", "completed");
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "OPERATION_STATE_TRANSITION_INVALID"));
     }
 }

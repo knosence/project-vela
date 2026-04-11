@@ -35,4 +35,3 @@ pub fn build_runtime_config(
         onboarding,
     }
 }
-

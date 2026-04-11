@@ -10,7 +10,12 @@ pub struct ReleaseAssessment {
     pub watch_reason: String,
 }
 
-pub fn assess_release(repo: &str, notes: &str, watchlist_text: &str, context_markers: &[String]) -> ReleaseAssessment {
+pub fn assess_release(
+    repo: &str,
+    notes: &str,
+    watchlist_text: &str,
+    context_markers: &[String],
+) -> ReleaseAssessment {
     let watchlist = parse_watchlist_entries(watchlist_text);
     let risk = assess_breaking_change_risk(notes);
     let relevance = assess_local_relevance(repo, notes, &watchlist, &risk.level);
@@ -121,13 +126,33 @@ fn assess_breaking_change_risk(notes: &str) -> LevelSignals {
     }
 }
 
-fn assess_local_relevance(repo: &str, notes: &str, watchlist: &[WatchEntry], risk_level: &str) -> LevelSignals {
+fn assess_local_relevance(
+    repo: &str,
+    notes: &str,
+    watchlist: &[WatchEntry],
+    risk_level: &str,
+) -> LevelSignals {
     let lowered = notes.to_lowercase();
     let watch_reason = watchlist.iter().find(|item| item.repo == repo);
     let keywords = match repo {
-        "openai/openai-python" => vec!["python", "sdk", "client", "responses", "chat", "embedding", "api key"],
+        "openai/openai-python" => vec![
+            "python",
+            "sdk",
+            "client",
+            "responses",
+            "chat",
+            "embedding",
+            "api key",
+        ],
         "openai/openai-agents-python" => vec!["agent", "tool", "handoff", "workflow", "runner"],
-        "n8n-io/n8n" => vec!["workflow", "webhook", "node", "trigger", "credential", "dashboard"],
+        "n8n-io/n8n" => vec![
+            "workflow",
+            "webhook",
+            "node",
+            "trigger",
+            "credential",
+            "dashboard",
+        ],
         "modelcontextprotocol/servers" => vec!["mcp", "server", "tool", "connector", "transport"],
         _ => vec![],
     };
@@ -148,7 +173,10 @@ fn assess_local_relevance(repo: &str, notes: &str, watchlist: &[WatchEntry], ris
     if watch_reason.is_some() {
         return LevelSignals {
             level: "medium".to_string(),
-            signals: vec!["repo is explicitly watched even though release notes did not hit local keywords".to_string()],
+            signals: vec![
+                "repo is explicitly watched even though release notes did not hit local keywords"
+                    .to_string(),
+            ],
         };
     }
     LevelSignals {
@@ -157,7 +185,12 @@ fn assess_local_relevance(repo: &str, notes: &str, watchlist: &[WatchEntry], ris
     }
 }
 
-fn assess_local_impact(repo: &str, context_markers: &[String], risk_level: &str, relevance_level: &str) -> LevelSignals {
+fn assess_local_impact(
+    repo: &str,
+    context_markers: &[String],
+    risk_level: &str,
+    relevance_level: &str,
+) -> LevelSignals {
     let repo_markers: &[&str] = match repo {
         "openai/openai-python" => &["provider:openai", "runtime:python"],
         "openai/openai-agents-python" => &["runtime:python", "capability:agent"],
@@ -187,7 +220,10 @@ fn assess_local_impact(repo: &str, context_markers: &[String], risk_level: &str,
     if relevance_level == "high" {
         return LevelSignals {
             level: "medium".to_string(),
-            signals: vec!["release is relevant by watchlist reasoning but local context markers are weaker".to_string()],
+            signals: vec![
+                "release is relevant by watchlist reasoning but local context markers are weaker"
+                    .to_string(),
+            ],
         };
     }
     LevelSignals {
@@ -228,8 +264,13 @@ mod tests {
         assert_eq!(assessment.risk_level, "high");
         assert_eq!(assessment.relevance_level, "high");
         assert_eq!(assessment.impact_level, "high");
-        assert!(assessment.risk_signals.iter().any(|item| item == "breaking"));
-        assert!(assessment.watch_reason.contains("Python SDK changes are relevant"));
+        assert!(assessment
+            .risk_signals
+            .iter()
+            .any(|item| item == "breaking"));
+        assert!(assessment
+            .watch_reason
+            .contains("Python SDK changes are relevant"));
     }
 
     #[test]

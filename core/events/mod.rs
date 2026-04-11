@@ -51,7 +51,10 @@ impl EventRecord {
     }
 
     pub fn is_meaningful_mutation(&self) -> bool {
-        matches!(self.status.as_str(), "committed" | "blocked" | "accepted" | "rejected")
+        matches!(
+            self.status.as_str(),
+            "committed" | "blocked" | "accepted" | "rejected"
+        )
     }
 }
 
@@ -138,6 +141,8 @@ mod tests {
         let findings = validate_event_record(&event);
 
         assert!(findings.iter().any(|item| item.code == "EVENT_ID_REQUIRED"));
-        assert!(findings.iter().any(|item| item.code == "EVENT_REASON_REQUIRED"));
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "EVENT_REASON_REQUIRED"));
     }
 }

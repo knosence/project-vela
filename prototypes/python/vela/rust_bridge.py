@@ -121,6 +121,14 @@ def validate_operation_lock_payload(lock_json: str, expected_name: str) -> dict[
     return _run(["validate-operation-lock", expected_name], stdin=lock_json)
 
 
+def validate_operation_request_payload(name: str, requested_by: str) -> dict[str, Any]:
+    return _run(["validate-operation-request", name, requested_by])
+
+
+def validate_operation_transition_payload(current_status: str, next_status: str) -> dict[str, Any]:
+    return _run(["validate-operation-transition", current_status, next_status])
+
+
 def route_inbox_payload(content: str) -> dict[str, Any]:
     return _run(["route-inbox"], stdin=content)
 
