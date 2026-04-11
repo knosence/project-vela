@@ -21,6 +21,8 @@ from .models import ValidationFinding
 from .models import new_id
 from .operations_runtime import (
     apply_dreamer_follow_up,
+    list_merge_candidates,
+    list_merge_proposals,
     list_dreamer_follow_ups,
     list_dreamer_queue,
     operations_state,
@@ -325,6 +327,12 @@ class VelaService:
     def dreamer_follow_ups(self) -> dict[str, Any]:
         return envelope(True, "dreamer-follow-ups", "accepted", "Dreamer follow up queue listed", data=list_dreamer_follow_ups())
 
+    def merge_candidates(self) -> dict[str, Any]:
+        return envelope(True, "merge-candidates", "accepted", "Merge candidates listed", data=list_merge_candidates())
+
+    def merge_proposals(self) -> dict[str, Any]:
+        return envelope(True, "merge-proposals", "accepted", "Merge proposals listed", data=list_merge_proposals())
+
     def dreamer_review(self, payload: dict[str, Any]) -> dict[str, Any]:
         result = review_dreamer_proposal(
             target=payload["target"],
@@ -391,6 +399,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/n8n/dreamer/follow-ups":
             self._send(self.service.dreamer_follow_ups())
+            return
+        if parsed.path == "/api/n8n/merge/candidates":
+            self._send(self.service.merge_candidates())
+            return
+        if parsed.path == "/api/n8n/merge/proposals":
+            self._send(self.service.merge_proposals())
             return
         self._send(envelope(False, "unknown", "rejected", "Endpoint not found", errors=[{"code": "NOT_FOUND", "detail": self.path}]), HTTPStatus.NOT_FOUND)
 

@@ -25,6 +25,8 @@ from prototypes.python.vela.matrix import write_matrix_index
 from prototypes.python.vela.matrix import validate_parent_consistency
 from prototypes.python.vela.operations_runtime import (
     apply_dreamer_follow_up,
+    list_merge_candidates,
+    list_merge_proposals,
     list_dreamer_follow_ups,
     list_dreamer_queue,
     operations_state,
@@ -1179,6 +1181,17 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(result["merge_proposals"])
         self.assertTrue((REPO_ROOT / result["merge_proposals"][0]["target"]).exists())
 
+    def test_merge_candidates_and_proposals_are_listable(self) -> None:
+        self.test_merge_candidates_are_detected_after_three_entities_share_a_ref()
+        cycle = run_night_cycle(requested_by="human")
+        self.assertTrue(cycle["merge_proposals"])
+        candidates = list_merge_candidates()
+        self.assertTrue(candidates["ok"])
+        self.assertTrue(any(item["ref_target"] == "310a.WHERE.Shared-Topic-Ref" for item in candidates["items"]))
+        proposals = list_merge_proposals()
+        self.assertTrue(proposals["ok"])
+        self.assertTrue(any(item["ref_target"] == "310a.WHERE.Shared-Topic-Ref" for item in proposals["items"]))
+
     def test_patrol_and_night_cycle_service_endpoints(self) -> None:
         patrol = VelaService().patrol_run({"actor": "n8n"})
         self.assertTrue(patrol["ok"])
@@ -1661,6 +1674,19 @@ class VelaSystemTest(unittest.TestCase):
             "refusal-tightening": "refusal_tightenings",
         }[apply_result["data"]["kind"]]
         self.assertEqual(len(registry[bucket]), 1)
+
+    def test_merge_service_endpoints(self) -> None:
+        self.test_merge_candidates_are_detected_after_three_entities_share_a_ref()
+        cycle = VelaService().night_cycle_run({"actor": "n8n"})
+        self.assertTrue(cycle["ok"])
+        candidates = VelaService().merge_candidates()
+        self.assertTrue(candidates["ok"])
+        self.assertEqual(candidates["endpoint"], "merge-candidates")
+        self.assertTrue(any(item["ref_target"] == "310a.WHERE.Shared-Topic-Ref" for item in candidates["data"]["items"]))
+        proposals = VelaService().merge_proposals()
+        self.assertTrue(proposals["ok"])
+        self.assertEqual(proposals["endpoint"], "merge-proposals")
+        self.assertTrue(any(item["ref_target"] == "310a.WHERE.Shared-Topic-Ref" for item in proposals["data"]["items"]))
 
     def test_inbox_triage_moves_text_file_to_companion_and_links_it(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"

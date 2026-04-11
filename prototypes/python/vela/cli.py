@@ -12,6 +12,8 @@ from .matrix import write_matrix_index
 from .models import EventRecord
 from .operations_runtime import (
     apply_dreamer_follow_up,
+    list_merge_candidates,
+    list_merge_proposals,
     list_dreamer_follow_ups,
     list_dreamer_queue,
     operations_state,
@@ -109,6 +111,16 @@ def cmd_cross_reference(args: argparse.Namespace) -> int:
     )
     print(json.dumps(result, indent=2))
     return 0 if result["ok"] else 1
+
+
+def cmd_merge_candidates(_: argparse.Namespace) -> int:
+    print(json.dumps(list_merge_candidates(), indent=2))
+    return 0
+
+
+def cmd_merge_proposals(_: argparse.Namespace) -> int:
+    print(json.dumps(list_merge_proposals(), indent=2))
+    return 0
 
 
 def cmd_patrol_run(_: argparse.Namespace) -> int:
@@ -316,6 +328,13 @@ def build_parser() -> argparse.ArgumentParser:
     cross_reference_parser.add_argument("--reason", default="create governed pointer entry")
     cross_reference_parser.add_argument("--approval-id")
     cross_reference_parser.set_defaults(func=cmd_cross_reference)
+
+    merge_parser = sub.add_parser("merge")
+    merge_sub = merge_parser.add_subparsers(dest="merge_command", required=True)
+    merge_candidates_parser = merge_sub.add_parser("candidates")
+    merge_candidates_parser.set_defaults(func=cmd_merge_candidates)
+    merge_proposals_parser = merge_sub.add_parser("proposals")
+    merge_proposals_parser.set_defaults(func=cmd_merge_proposals)
 
     patrol_parser = sub.add_parser("patrol")
     patrol_sub = patrol_parser.add_subparsers(dest="patrol_command", required=True)

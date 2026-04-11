@@ -38,6 +38,22 @@ def detect_merge_candidates() -> list[MergeCandidate]:
     ]
 
 
+def list_merge_proposals() -> dict[str, object]:
+    items: list[dict[str, object]] = []
+    for path in sorted(PROPOSALS_DIR.glob("Merge-Proposal.*.md")):
+        relative_target = str(path.relative_to(REPO_ROOT))
+        frontmatter = _parse_frontmatter(path.read_text(encoding="utf-8"))
+        items.append(
+            {
+                "target": relative_target,
+                "ref_target": str(frontmatter.get("ref-target", "")),
+                "count": int(str(frontmatter.get("entity-count", "0")) or 0),
+                "status": str(frontmatter.get("status", "unknown")),
+            }
+        )
+    return {"ok": True, "items": items}
+
+
 def render_merge_proposal(candidate: MergeCandidate) -> str:
     created = datetime.now(timezone.utc).date().isoformat()
     owner_lines = "\n".join(f"- owner: `{owner}`" for owner in candidate.owners)
@@ -73,3 +89,18 @@ def merge_proposal_target(candidate: MergeCandidate) -> str:
     safe = re.sub(r"[^A-Za-z0-9.-]+", "-", Path(stem).stem).strip("-") or "shared-ref"
     PROPOSALS_DIR.mkdir(parents=True, exist_ok=True)
     return str((PROPOSALS_DIR / f"Merge-Proposal.{created}.{safe}.md").relative_to(REPO_ROOT))
+
+
+def _parse_frontmatter(text: str) -> dict[str, str]:
+    if not text.startswith("---\n"):
+        return {}
+    parts = text.split("---\n", 2)
+    if len(parts) != 3:
+        return {}
+    data: dict[str, str] = {}
+    for line in parts[1].splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        data[key.strip()] = value.strip().strip('"')
+    return data

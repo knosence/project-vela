@@ -10,7 +10,7 @@ from .dreamer_actions import load_dreamer_actions
 from .dreamer_actions import register_dreamer_action as register_dreamer_action_runtime
 from .governance import append_event, record_approval, validate_target, write_text
 from .growth import assess_growth
-from .merge import detect_merge_candidates, merge_proposal_target, render_merge_proposal
+from .merge import detect_merge_candidates, list_merge_proposals as list_merge_proposals_runtime, merge_proposal_target, render_merge_proposal
 from .models import EventRecord
 from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
 from .rust_bridge import (
@@ -405,6 +405,15 @@ def list_dreamer_queue() -> dict[str, Any]:
 
 def list_dreamer_follow_ups() -> dict[str, Any]:
     payload = list_dreamer_follow_ups_payload()
+    return {"ok": bool(payload.get("ok")), "items": list(payload.get("items", []))}
+
+
+def list_merge_candidates() -> dict[str, Any]:
+    return {"ok": True, "items": [item.as_dict() for item in detect_merge_candidates()]}
+
+
+def list_merge_proposals() -> dict[str, Any]:
+    payload = list_merge_proposals_runtime()
     return {"ok": bool(payload.get("ok")), "items": list(payload.get("items", []))}
 
 
