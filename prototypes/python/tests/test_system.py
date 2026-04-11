@@ -17,6 +17,7 @@ from prototypes.python.vela.governance import (
     write_text,
 )
 from prototypes.python.vela.inbox import triage_inbox
+from prototypes.python.vela.merge import detect_merge_candidates
 from prototypes.python.vela.growth import assess_growth
 from prototypes.python.vela.matrix import classify_change_zone
 from prototypes.python.vela.matrix import validate_canonical_graph_targets
@@ -153,6 +154,10 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/ARTIFACTS/proposals/Synthetic-Identity.Spawned-Child-SoT.md",
             "knowledge/ARTIFACTS/proposals/direct-root-agent-branch-test.md",
             "knowledge/ARTIFACTS/proposals/direct-root-dimension-branch-test.md",
+            "knowledge/310.WHERE.Merge-Owner-One-SoT.md",
+            "knowledge/320.WHERE.Merge-Owner-Two-SoT.md",
+            "knowledge/330.WHERE.Merge-Owner-Three-SoT.md",
+            "knowledge/310a.WHERE.Shared-Topic-Ref.md",
             "knowledge/ARTIFACTS/proposals/repo-watch-test.md",
             "knowledge/ARTIFACTS/proposals/repo-watch-test.packet.json",
             "knowledge/ARTIFACTS/proposals/repo-watch-test.assessment.json",
@@ -230,6 +235,8 @@ class VelaSystemTest(unittest.TestCase):
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Proposal.*.md"):
             path.unlink()
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Follow-Up.*.md"):
+            path.unlink()
+        for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Merge-Proposal.*.md"):
             path.unlink()
         if PATCH_LOG_PATH.exists():
             PATCH_LOG_PATH.unlink()
@@ -1092,6 +1099,83 @@ class VelaSystemTest(unittest.TestCase):
         self.assertIn("Dreamer-Proposal.", report_text)
         self.assertIn("Dreamer-Proposal.", dreamer_text)
         self.assertIn("# Dreamer Proposal", proposal_text)
+
+    def test_merge_candidates_are_detected_after_three_entities_share_a_ref(self) -> None:
+        shared_ref = REPO_ROOT / "knowledge/310a.WHERE.Shared-Topic-Ref.md"
+        shared_ref.write_text(
+            "---\n"
+            "sot-type: reference\n"
+            "created: 2026-04-11\n"
+            "last-rewritten: 2026-04-11\n"
+            'parent: "[[300.WHERE.Terrain-SoT#300.WHERE.Terrain]]"\n'
+            "domain: testing\n"
+            "status: active\n"
+            'tags: ["testing","merge","reference"]\n'
+            "---\n\n"
+            "# Shared Topic Reference\n\n"
+            "## This Reference Exists To Trigger Merge Detection In The Test Harness\n"
+            "The same referenced subject is being carried by three distinct entities.\n",
+            encoding="utf-8",
+        )
+        for target in [
+            "knowledge/310.WHERE.Merge-Owner-One-SoT.md",
+            "knowledge/320.WHERE.Merge-Owner-Two-SoT.md",
+            "knowledge/330.WHERE.Merge-Owner-Three-SoT.md",
+        ]:
+            (REPO_ROOT / target).write_text(
+                "---\n"
+                "sot-type: system\n"
+                "created: 2026-04-11\n"
+                "last-rewritten: 2026-04-11\n"
+                'parent: "[[300.WHERE.Terrain-SoT#300.WHERE.Terrain]]"\n'
+                "domain: testing\n"
+                "status: active\n"
+                'tags: ["testing","merge","sot"]\n'
+                "---\n\n"
+                "# Merge Owner\n\n"
+                "## 000.Index\n\n"
+                "### Subject Declaration\n\n"
+                "**Subject:** Merge-owner test subject.\n"
+                "**Type:** system\n"
+                "**Created:** 2026-04-11\n"
+                "**Parent:** [[300.WHERE.Terrain-SoT#300.WHERE.Terrain]]\n\n"
+                "### Links\n\n"
+                "- Parent: [[300.WHERE.Terrain-SoT#300.WHERE.Terrain]]\n"
+                "- Shared ref: [[310a.WHERE.Shared-Topic-Ref]]\n\n"
+                "### Inbox\n\nNo pending items.\n\n"
+                "### Status\n\n- Shared ref present. (2026-04-11)\n  - Test content. [AGENT:gpt-5]\n\n"
+                "### Open Questions\n\n(None.)\n\n"
+                "### Next Actions\n\n(None.)\n\n"
+                "### Decisions\n\n- [2026-04-11] Test file created.\n\n"
+                "### Block Map — Single Source\n\n"
+                "| ID | Question | Dimension | This SoT's Name |\n"
+                "|----|----------|-----------|-----------------|\n"
+                "| 000 | — | Index | Index |\n"
+                "| 100 | Who | Circle | Circle |\n"
+                "| 200 | What | Domain | Domain |\n"
+                "| 300 | Where | Terrain | Terrain |\n"
+                "| 400 | When | Chronicle | Chronicle |\n"
+                "| 500 | How | Method | Method |\n"
+                "| 600 | Why/Not | Compass | Compass |\n"
+                "| 700 | — | Archive | Archive |\n\n"
+                "## 100.WHO.Circle\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n"
+                "## 200.WHAT.Domain\n\n### Active\n\n- Shared topic. [[310a.WHERE.Shared-Topic-Ref]] (2026-04-11)\n  - Repeated across entities for merge detection. [AGENT:gpt-5]\n\n### Inactive\n\n(No inactive entries.)\n\n"
+                "## 300.WHERE.Terrain\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n"
+                "## 400.WHEN.Chronicle\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n"
+                "## 500.HOW.Method\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n"
+                "## 600.WHY.Compass\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n"
+                "## 700.Archive\n\n(No archived entries.)\n",
+                encoding="utf-8",
+            )
+        candidates = detect_merge_candidates()
+        self.assertTrue(any(item.ref_target == "310a.WHERE.Shared-Topic-Ref" and item.count == 3 for item in candidates))
+
+    def test_night_cycle_opens_merge_proposals(self) -> None:
+        self.test_merge_candidates_are_detected_after_three_entities_share_a_ref()
+        result = run_night_cycle(requested_by="human")
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["merge_proposals"])
+        self.assertTrue((REPO_ROOT / result["merge_proposals"][0]["target"]).exists())
 
     def test_patrol_and_night_cycle_service_endpoints(self) -> None:
         patrol = VelaService().patrol_run({"actor": "n8n"})

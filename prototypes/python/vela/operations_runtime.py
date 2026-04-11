@@ -10,6 +10,7 @@ from .dreamer_actions import load_dreamer_actions
 from .dreamer_actions import register_dreamer_action as register_dreamer_action_runtime
 from .governance import append_event, record_approval, validate_target, write_text
 from .growth import assess_growth
+from .merge import detect_merge_candidates, merge_proposal_target, render_merge_proposal
 from .models import EventRecord
 from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
 from .rust_bridge import (
@@ -192,6 +193,7 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
             "dreamer_report_target": "",
             "patrol": {"ok": False},
             "growth_candidates": [],
+            "merge_proposals": [],
             "dreamer_patterns": {},
             "blocked_items": [],
             "dreamer_proposals": [],
@@ -219,6 +221,7 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
             "dreamer_report_target": "",
             "patrol": {"ok": False},
             "growth_candidates": [],
+            "merge_proposals": [],
             "dreamer_patterns": {},
             "blocked_items": [],
             "dreamer_proposals": [],
@@ -243,12 +246,14 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
             "dreamer_report_target": "",
             "patrol": patrol,
             "growth_candidates": [],
+            "merge_proposals": [],
             "dreamer_patterns": {},
             "blocked_items": [],
             "dreamer_proposals": [],
             "findings": patrol.get("findings", []),
         }
     growth_candidates = _growth_candidates()
+    merge_proposals = _write_merge_proposals(requested_by)
     blocked_items = _blocked_items()
     stamp = _stamp()
     dreamer_proposals = _write_dreamer_proposals(stamp, requested_by, blocked_items)
@@ -282,6 +287,7 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
             "dreamer_report_target": plan["dreamer_report_target"] if plan else "",
             "patrol": patrol,
             "growth_candidates": growth_candidates,
+            "merge_proposals": merge_proposals,
             "dreamer_patterns": dreamer_patterns,
             "blocked_items": blocked_items,
             "dreamer_proposals": dreamer_proposals,
@@ -323,6 +329,7 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
         validation_summary={
             "requested_by": requested_by,
             "growth_candidates": len(growth_candidates),
+            "merge_proposals": [item["target"] for item in merge_proposals],
             "dreamer_patterns": dreamer_patterns,
             "blocked_items": len(blocked_items),
             "patrol_report": patrol.get("report_target", ""),
@@ -336,6 +343,7 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
         "dreamer_report_target": dreamer_report_target,
         "patrol": patrol,
         "growth_candidates": growth_candidates,
+        "merge_proposals": merge_proposals,
         "dreamer_patterns": dreamer_patterns,
         "blocked_items": blocked_items,
         "dreamer_proposals": dreamer_proposals,
@@ -602,6 +610,24 @@ def _growth_candidates() -> list[dict[str, Any]]:
                 }
             )
     return candidates
+
+
+def _write_merge_proposals(requested_by: str) -> list[dict[str, Any]]:
+    proposals: list[dict[str, Any]] = []
+    for candidate in detect_merge_candidates():
+        target = merge_proposal_target(candidate)
+        content = render_merge_proposal(candidate)
+        result = write_text(target, content, actor="grower", endpoint="merge-proposal", reason="merge before spawn")
+        proposals.append(
+            {
+                "target": target,
+                "ref_target": candidate.ref_target,
+                "count": candidate.count,
+                "ok": result["ok"],
+                "requested_by": requested_by,
+            }
+        )
+    return proposals
 
 
 def _blocked_items() -> list[dict[str, str]]:
