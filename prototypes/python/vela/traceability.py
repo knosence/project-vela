@@ -101,6 +101,11 @@ RULE_MAP: dict[str, list[str]] = {
         "SoT Operations Reference: Dreamer Feedback Loop",
         "SoT Operations Reference: Immutable Rules",
     ],
+    "DREAMER_ACTION_APPROVAL_REQUIRED": [
+        "Pattern 18 Human Gate",
+        "SoT Operations Reference: Immutable Rules",
+        "SoT Operations Reference: Three-Tier Vault Maintenance",
+    ],
 }
 
 

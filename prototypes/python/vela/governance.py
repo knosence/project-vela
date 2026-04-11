@@ -153,6 +153,44 @@ def validate_target(
     return findings
 
 
+def authorize_dreamer_action_mutation(
+    *,
+    actor: str,
+    target: str,
+    endpoint: str,
+    reason: str,
+    approval_id: str | None,
+) -> list[ValidationFinding]:
+    findings: list[ValidationFinding] = []
+    role_failure = enforce_actor_operation(actor, "dreamer-action-mutate", target=target, endpoint=endpoint)
+    if role_failure:
+        findings.append(role_failure)
+    if approval_status(approval_id) != "approved":
+        findings.append(
+            annotate_finding(
+                ValidationFinding(
+                    "DREAMER_ACTION_APPROVAL_REQUIRED",
+                    "Dreamer action registry mutation requires explicit approved authorization.",
+                )
+            )
+        )
+    if findings:
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint=endpoint,
+                actor=actor,
+                target=target,
+                status="blocked",
+                reason=reason,
+                artifacts=[target],
+                approval_required=True,
+                validation_summary={"findings": [item.as_dict() for item in findings]},
+            )
+        )
+    return findings
+
+
 def append_event(record: EventRecord) -> None:
     event_validation = validate_event_payload(record.as_dict())
     if not event_validation["ok"]:

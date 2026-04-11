@@ -14,7 +14,8 @@ from .dreamer_actions import (
     update_dreamer_action_status,
 )
 from .matrix import validate_matrix_rules
-from .governance import apply_growth_proposal, create_cross_reference, record_approval
+from .governance import apply_growth_proposal, append_event, authorize_dreamer_action_mutation, create_cross_reference, record_approval
+from .models import EventRecord
 from .inbox import triage_inbox
 from .models import ValidationFinding
 from .models import new_id
@@ -210,24 +211,87 @@ class VelaService:
         )
 
     def dreamer_register_action(self, payload: dict[str, Any]) -> dict[str, Any]:
+        actor = payload.get("actor", "human")
+        approval_id = payload.get("approval_id")
+        target = "runtime/config/dreamer-actions.json"
+        findings = authorize_dreamer_action_mutation(
+            actor=actor,
+            target=target,
+            endpoint="dreamer-actions-register",
+            reason=payload.get("execution_reason", "register dreamer action"),
+            approval_id=approval_id,
+        )
+        if findings:
+            findings_dicts = [item.as_dict() for item in findings]
+            return envelope(False, "dreamer-actions-register", "rejected", "Dreamer action registration blocked", data={"target": target}, errors=findings_dicts)
         result = register_dreamer_action(
             kind=payload["kind"],
             follow_up_target=payload["follow_up_target"],
             execution_target=payload["execution_target"],
             pattern_reason=payload["pattern_reason"],
-            actor=payload.get("actor", "human"),
+            actor=actor,
             execution_reason=payload.get("execution_reason", ""),
             status=payload.get("status", "active"),
         )
+        if result["ok"]:
+            append_event(
+                EventRecord(
+                    source="vela",
+                    endpoint="dreamer-actions-register",
+                    actor=actor,
+                    target=target,
+                    status="committed",
+                    reason=payload.get("execution_reason", "register dreamer action"),
+                    artifacts=[target],
+                    approval_required=True,
+                    validation_summary={
+                        "approval_id": approval_id,
+                        "kind": payload["kind"],
+                        "follow_up_target": payload["follow_up_target"],
+                        "status": payload.get("status", "active"),
+                    },
+                )
+            )
         if result["ok"]:
             return envelope(True, "dreamer-actions-register", "accepted", "Dreamer action registered", data=result)
         return envelope(False, "dreamer-actions-register", "rejected", "Dreamer action registration blocked", data=result, errors=result.get("findings", []))
 
     def dreamer_update_action_status(self, payload: dict[str, Any]) -> dict[str, Any]:
+        actor = payload.get("actor", "human")
+        approval_id = payload.get("approval_id")
+        target = "runtime/config/dreamer-actions.json"
+        findings = authorize_dreamer_action_mutation(
+            actor=actor,
+            target=target,
+            endpoint="dreamer-actions-status",
+            reason=f"set dreamer action {payload['follow_up_target']} to {payload['status']}",
+            approval_id=approval_id,
+        )
+        if findings:
+            findings_dicts = [item.as_dict() for item in findings]
+            return envelope(False, "dreamer-actions-status", "rejected", "Dreamer action status update blocked", data={"target": target}, errors=findings_dicts)
         result = update_dreamer_action_status(
             follow_up_target=payload["follow_up_target"],
             status=payload["status"],
         )
+        if result["ok"]:
+            append_event(
+                EventRecord(
+                    source="vela",
+                    endpoint="dreamer-actions-status",
+                    actor=actor,
+                    target=target,
+                    status="committed",
+                    reason=f"set dreamer action {payload['follow_up_target']} to {payload['status']}",
+                    artifacts=[target],
+                    approval_required=True,
+                    validation_summary={
+                        "approval_id": approval_id,
+                        "follow_up_target": payload["follow_up_target"],
+                        "status": payload["status"],
+                    },
+                )
+            )
         if result["ok"]:
             return envelope(True, "dreamer-actions-status", "accepted", "Dreamer action status updated", data=result)
         return envelope(False, "dreamer-actions-status", "rejected", "Dreamer action status update blocked", data=result, errors=result.get("findings", []))

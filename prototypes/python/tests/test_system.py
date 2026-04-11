@@ -1107,7 +1107,7 @@ class VelaSystemTest(unittest.TestCase):
         self.assertEqual(result["data"]["validator_changes"], [])
 
     def test_dreamer_actions_register_and_status_service_endpoints(self) -> None:
-        registered = VelaService().dreamer_register_action(
+        denied = VelaService().dreamer_register_action(
             {
                 "kind": "workflow",
                 "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.service.md",
@@ -1118,16 +1118,78 @@ class VelaSystemTest(unittest.TestCase):
                 "status": "active",
             }
         )
+        self.assertFalse(denied["ok"])
+        self.assertTrue(any(item["code"] == "DREAMER_ACTION_APPROVAL_REQUIRED" for item in denied["errors"]))
+
+        record_approval(
+            "approve_dreamer_registry_n8n",
+            "approved",
+            "human",
+            "approval alone should not let n8n mutate dreamer registry directly",
+            "runtime/config/dreamer-actions.json",
+        )
+        denied_actor = VelaService().dreamer_register_action(
+            {
+                "kind": "workflow",
+                "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.service.md",
+                "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.service.md",
+                "pattern_reason": "service workflow queue",
+                "actor": "n8n",
+                "execution_reason": "tighten service workflow",
+                "status": "active",
+                "approval_id": "approve_dreamer_registry_n8n",
+            }
+        )
+        self.assertFalse(denied_actor["ok"])
+        self.assertTrue(any(item["code"] == "ROLE_ACTION_NOT_ALLOWED" for item in denied_actor["errors"]))
+
+        record_approval(
+            "approve_dreamer_registry_register",
+            "approved",
+            "human",
+            "allow dreamer registry registration",
+            "runtime/config/dreamer-actions.json",
+        )
+        registered = VelaService().dreamer_register_action(
+            {
+                "kind": "workflow",
+                "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.service.md",
+                "execution_target": "knowledge/ARTIFACTS/refs/Dreamer-Execution.service.md",
+                "pattern_reason": "service workflow queue",
+                "actor": "human",
+                "execution_reason": "tighten service workflow",
+                "status": "active",
+                "approval_id": "approve_dreamer_registry_register",
+            }
+        )
         self.assertTrue(registered["ok"])
         self.assertEqual(registered["endpoint"], "dreamer-actions-register")
         registry = json.loads(DREAMER_ACTIONS_PATH.read_text(encoding="utf-8"))
         self.assertEqual(len(registry["workflow_changes"]), 1)
         self.assertEqual(registry["workflow_changes"][0]["pattern_reason"], "service workflow queue")
 
+        denied_update = VelaService().dreamer_update_action_status(
+            {
+                "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.service.md",
+                "status": "inactive",
+            }
+        )
+        self.assertFalse(denied_update["ok"])
+        self.assertTrue(any(item["code"] == "DREAMER_ACTION_APPROVAL_REQUIRED" for item in denied_update["errors"]))
+
+        record_approval(
+            "approve_dreamer_registry_status",
+            "approved",
+            "human",
+            "allow dreamer registry status update",
+            "runtime/config/dreamer-actions.json",
+        )
         updated = VelaService().dreamer_update_action_status(
             {
                 "follow_up_target": "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.service.md",
                 "status": "inactive",
+                "actor": "human",
+                "approval_id": "approve_dreamer_registry_status",
             }
         )
         self.assertTrue(updated["ok"])

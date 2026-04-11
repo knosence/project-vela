@@ -6,9 +6,10 @@ import sys
 
 from .config import ensure_bootstrap_files, load_config, missing_required_fields, save_config, setup_complete
 from .dreamer_actions import filtered_dreamer_actions, load_dreamer_actions, register_dreamer_action, update_dreamer_action_status
-from .governance import apply_growth_proposal, create_cross_reference
+from .governance import apply_growth_proposal, append_event, authorize_dreamer_action_mutation, create_cross_reference
 from .inbox import triage_inbox
 from .matrix import write_matrix_index
+from .models import EventRecord
 from .operations_runtime import (
     apply_dreamer_follow_up,
     list_dreamer_follow_ups,
@@ -135,6 +136,17 @@ def cmd_dreamer_actions_filtered(args: argparse.Namespace) -> int:
 
 
 def cmd_dreamer_register_action(args: argparse.Namespace) -> int:
+    target = "runtime/config/dreamer-actions.json"
+    findings = authorize_dreamer_action_mutation(
+        actor="human",
+        target=target,
+        endpoint="dreamer-actions-register",
+        reason=args.execution_reason,
+        approval_id=args.approval_id,
+    )
+    if findings:
+        print(json.dumps({"ok": False, "target": target, "findings": [item.as_dict() for item in findings]}, indent=2))
+        return 1
     result = register_dreamer_action(
         kind=args.kind,
         follow_up_target=args.follow_up_target,
@@ -144,15 +156,63 @@ def cmd_dreamer_register_action(args: argparse.Namespace) -> int:
         execution_reason=args.execution_reason,
         status=args.status,
     )
+    if result["ok"]:
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="dreamer-actions-register",
+                actor="human",
+                target=target,
+                status="committed",
+                reason=args.execution_reason,
+                artifacts=[target],
+                approval_required=True,
+                validation_summary={
+                    "approval_id": args.approval_id,
+                    "kind": args.kind,
+                    "follow_up_target": args.follow_up_target,
+                    "status": args.status,
+                },
+            )
+        )
     print(json.dumps(result, indent=2))
     return 0 if result["ok"] else 1
 
 
 def cmd_dreamer_set_action_status(args: argparse.Namespace) -> int:
+    target = "runtime/config/dreamer-actions.json"
+    findings = authorize_dreamer_action_mutation(
+        actor="human",
+        target=target,
+        endpoint="dreamer-actions-status",
+        reason=f"set dreamer action {args.follow_up_target} to {args.status}",
+        approval_id=args.approval_id,
+    )
+    if findings:
+        print(json.dumps({"ok": False, "target": target, "findings": [item.as_dict() for item in findings]}, indent=2))
+        return 1
     result = update_dreamer_action_status(
         follow_up_target=args.follow_up_target,
         status=args.status,
     )
+    if result["ok"]:
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="dreamer-actions-status",
+                actor="human",
+                target=target,
+                status="committed",
+                reason=f"set dreamer action {args.follow_up_target} to {args.status}",
+                artifacts=[target],
+                approval_required=True,
+                validation_summary={
+                    "approval_id": args.approval_id,
+                    "follow_up_target": args.follow_up_target,
+                    "status": args.status,
+                },
+            )
+        )
     print(json.dumps(result, indent=2))
     return 0 if result["ok"] else 1
 
@@ -264,10 +324,12 @@ def build_parser() -> argparse.ArgumentParser:
     dreamer_register_action_parser.add_argument("pattern_reason")
     dreamer_register_action_parser.add_argument("--execution-reason", default="")
     dreamer_register_action_parser.add_argument("--status", default="active")
+    dreamer_register_action_parser.add_argument("--approval-id")
     dreamer_register_action_parser.set_defaults(func=cmd_dreamer_register_action)
     dreamer_set_action_status_parser = dreamer_sub.add_parser("set-action-status")
     dreamer_set_action_status_parser.add_argument("follow_up_target")
     dreamer_set_action_status_parser.add_argument("status")
+    dreamer_set_action_status_parser.add_argument("--approval-id")
     dreamer_set_action_status_parser.set_defaults(func=cmd_dreamer_set_action_status)
     dreamer_review_parser = dreamer_sub.add_parser("review")
     dreamer_review_parser.add_argument("target")
