@@ -326,10 +326,10 @@ mod tests {
     #[test]
     fn extracts_patch_targets_from_patch_log() {
         let items = extract_patch_targets(
-            "[20260410@1200] ACTION: routed\n  TARGET: knowledge/210.WHAT.Vela-Capabilities-SoT.md\n  DETAIL: Extracted into knowledge/ARTIFACTS/refs/Ref.example.md companion\n",
+            "[20260410@1200] ACTION: routed\n  TARGET: knowledge/111.VELA.Capabilities-SoT.md\n  DETAIL: Extracted into knowledge/ARTIFACTS/refs/Ref.example.md companion\n",
         );
         assert_eq!(items.len(), 2);
-        assert_eq!(items[0].path, "knowledge/210.WHAT.Vela-Capabilities-SoT.md");
+        assert_eq!(items[0].path, "knowledge/111.VELA.Capabilities-SoT.md");
         assert_eq!(items[1].path, "knowledge/ARTIFACTS/refs/Ref.example.md");
     }
 }

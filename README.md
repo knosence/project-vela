@@ -65,9 +65,9 @@ knowledge/
 ├── 500.HOW.Method-SoT.md                  # HOW hub
 ├── 600.WHY.Compass-SoT.md                 # WHY hub
 ├── 110.WHO.Vela-Identity-SoT.md           # Vela branch
-├── 210.WHAT.Vela-Capabilities-SoT.md      # Vela capability branch
+├── 111.VELA.Capabilities-SoT.md      # Vela capability branch
 ├── 220.WHAT.Repo-Watchlist-SoT.md         # repo-watch branch
-├── 610.WHY.Vela-Intent-SoT.md             # Vela rationale branch
+├── 112.VELA.Intent-SoT.md             # Vela rationale branch
 ├── INBOX/                                 # intake queue
 └── ARTIFACTS/
     ├── refs/                              # reference notes and registries

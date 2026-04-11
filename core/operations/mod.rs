@@ -4237,7 +4237,7 @@ mod tests {
         assert!(findings.is_empty());
         let plan = plan.expect("growth plan");
         assert_eq!(plan.kind, "spawned-sot");
-        assert_eq!(plan.target, "knowledge/111.VELA.Vela-Child-SoT.md");
+        assert_eq!(plan.target, "knowledge/113.VELA.Vela-Child-SoT.md");
     }
 
     #[test]
@@ -4255,7 +4255,7 @@ mod tests {
         );
         assert!(findings.is_empty());
         let plan = plan.expect("growth plan");
-        assert_eq!(plan.target, "knowledge/111.VELA.Matrix-Crew-SoT.md");
+        assert_eq!(plan.target, "knowledge/113.VELA.Matrix-Crew-SoT.md");
     }
 
     #[test]
@@ -4357,7 +4357,7 @@ mod tests {
             content,
             "## 100.WHO.Identity",
             "Reference target",
-            "210.WHAT.Vela-Capabilities-SoT",
+            "111.VELA.Capabilities-SoT",
             "## 200.WHAT.Scope",
             "2026-04-11",
         );
@@ -4365,18 +4365,18 @@ mod tests {
         let plan = plan.expect("cross reference plan");
         assert!(plan
             .pointer
-            .contains("[[210.WHAT.Vela-Capabilities-SoT#200.WHAT.Scope]]"));
+            .contains("[[111.VELA.Capabilities-SoT#200.WHAT.Scope]]"));
         assert!(plan.updated_content.contains("Reference target"));
     }
 
     #[test]
     fn plans_inbox_entry_from_heading_target() {
         let root = Path::new("/home/knosence/vela");
-        let text = "# Inbox Item\n\nTarget: [[210.WHAT.Vela-Capabilities-SoT]]\n\nThe framework has three layers.\nIt defines a component clearly.";
+        let text = "# Inbox Item\n\nTarget: [[111.VELA.Capabilities-SoT]]\n\nThe framework has three layers.\nIt defines a component clearly.";
         let (plan, findings) = plan_inbox_entry(root, text, "test-inbox-item.md");
         assert!(findings.is_empty());
         let plan = plan.expect("inbox plan");
-        assert_eq!(plan.target, "knowledge/210.WHAT.Vela-Capabilities-SoT.md");
+        assert_eq!(plan.target, "knowledge/111.VELA.Capabilities-SoT.md");
         assert_eq!(plan.dimension, "200");
         assert_eq!(plan.value, "The framework has three layers.. (2026-04-10)");
         assert_eq!(plan.context, "It defines a component clearly.");
@@ -4464,7 +4464,7 @@ mod tests {
         let matches = match_dreamer_actions(
             registry,
             "validator",
-            "knowledge/210.WHAT.Vela-Capabilities-SoT.md",
+            "knowledge/111.VELA.Capabilities-SoT.md",
             "test",
             "validator structure check",
             "frontmatter structure validation matters here",
