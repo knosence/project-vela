@@ -53,6 +53,7 @@ from prototypes.python.vela.rust_bridge import (
     parse_operations_state_payload,
     plan_event_append_payload,
     plan_growth_execution_payload,
+    plan_growth_source_update_payload,
     plan_night_cycle_payload,
     plan_dreamer_follow_up_apply_payload,
     plan_dreamer_proposals_payload,
@@ -1903,6 +1904,21 @@ class VelaSystemTest(unittest.TestCase):
         self.assertEqual(
             growth_execution["plan"]["target"],
             "knowledge/110.WHO.Vela-Identity.Spawned-Child-SoT.md",
+        )
+        growth_source_update = plan_growth_source_update_payload(
+            "spawn",
+            "knowledge/110.WHO.Vela-Identity-SoT.md",
+            "knowledge/110.WHO.Vela-Identity.Spawned-Child-SoT.md",
+            "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
+        )
+        self.assertTrue(growth_source_update["ok"])
+        self.assertEqual(
+            growth_source_update["plan"]["target_dimension"],
+            "## 200.WHAT.Scope",
+        )
+        self.assertIn(
+            "Spawned Child: [[110.WHO.Vela-Identity.Spawned-Child-SoT]]",
+            growth_source_update["plan"]["link_line"],
         )
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",

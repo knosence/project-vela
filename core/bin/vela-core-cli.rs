@@ -15,8 +15,9 @@ use vela_core::matrix::{
 };
 use vela_core::models::{
     BlockedItemSummary, DreamerProposalCandidate, GrowthAssessment, GrowthExecutionPlan,
-    GrowthTarget, OnboardingConfig, OperationLifecyclePlan, OperationLockRecord,
-    OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan, Severity, ValidationFinding,
+    GrowthSourceUpdatePlan, GrowthTarget, OnboardingConfig, OperationLifecyclePlan,
+    OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan,
+    Severity, ValidationFinding,
 };
 use vela_core::operations::{
     assess_growth_target as assess_growth_target_policy,
@@ -36,6 +37,7 @@ use vela_core::operations::{
     plan_dreamer_proposals as plan_dreamer_proposals_policy,
     plan_dreamer_review as plan_dreamer_review_policy,
     plan_growth_execution as plan_growth_execution_policy,
+    plan_growth_source_update as plan_growth_source_update_policy,
     plan_night_cycle as plan_night_cycle_policy,
     plan_operation_audit_event as plan_operation_audit_event_policy,
     plan_operation_start as plan_operation_start_policy,
@@ -176,6 +178,36 @@ fn run() -> Result<(), String> {
                 println!(
                     "{{\"ok\":true,\"plan\":{}}}",
                     render_growth_execution_plan(&plan)
+                );
+            } else {
+                println!("{{\"ok\":true,\"plan\":null}}");
+            }
+        }
+        "plan-growth-source-update" => {
+            let stage = args.next().ok_or_else(|| "missing stage".to_string())?;
+            let assessed_target = args
+                .next()
+                .ok_or_else(|| "missing assessed target".to_string())?;
+            let execution_target = args
+                .next()
+                .ok_or_else(|| "missing execution target".to_string())?;
+            let proposal_target = args
+                .next()
+                .ok_or_else(|| "missing proposal target".to_string())?;
+            let repo_root = std::env::current_dir().map_err(|err| err.to_string())?;
+            let (plan, findings) = plan_growth_source_update_policy(
+                std::path::Path::new(&repo_root),
+                &stage,
+                &assessed_target,
+                &execution_target,
+                &proposal_target,
+            );
+            if !findings.is_empty() {
+                print_findings(&findings, None);
+            } else if let Some(plan) = plan {
+                println!(
+                    "{{\"ok\":true,\"plan\":{}}}",
+                    render_growth_source_update_plan(&plan)
                 );
             } else {
                 println!("{{\"ok\":true,\"plan\":null}}");
@@ -1768,6 +1800,27 @@ fn render_growth_execution_plan(item: &GrowthExecutionPlan) -> String {
         escape_json(&item.kind),
         escape_json(&item.dimension),
         entries,
+    )
+}
+
+fn render_growth_source_update_plan(item: &GrowthSourceUpdatePlan) -> String {
+    let replacement_entries = format!(
+        "[{}]",
+        item.replacement_entries
+            .iter()
+            .map(|entry| format!("\"{}\"", escape_json(entry)))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    format!(
+        "{{\"link_line\":\"{}\",\"status_line\":\"{}\",\"next_action_line\":\"{}\",\"decision_line\":\"{}\",\"target_dimension\":\"{}\",\"replacement_entries\":{},\"active_pointer_line\":\"{}\"}}",
+        escape_json(&item.link_line),
+        escape_json(&item.status_line),
+        escape_json(&item.next_action_line),
+        escape_json(&item.decision_line),
+        escape_json(&item.target_dimension),
+        replacement_entries,
+        escape_json(&item.active_pointer_line),
     )
 }
 

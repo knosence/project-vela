@@ -3,8 +3,9 @@ use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_pa
 use crate::models::{
     DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
     DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan, GrowthAssessment,
-    GrowthExecutionPlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
-    OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
+    GrowthExecutionPlan, GrowthSourceUpdatePlan, NightCyclePlan, OperationLifecyclePlan,
+    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan,
+    ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -258,6 +259,107 @@ pub fn plan_growth_execution(
             kind: "applied-action".to_string(),
             dimension: String::new(),
             entries: Vec::new(),
+        }),
+        Vec::new(),
+    )
+}
+
+pub fn plan_growth_source_update(
+    root: &Path,
+    stage: &str,
+    assessed_target: &str,
+    execution_target: &str,
+    proposal_target: &str,
+) -> (Option<GrowthSourceUpdatePlan>, Vec<ValidationFinding>) {
+    if !matches!(stage, "reference-note" | "spawn") {
+        return (None, Vec::new());
+    }
+
+    let source_path = root.join(assessed_target);
+    let source_text = match fs::read_to_string(&source_path) {
+        Ok(text) => text,
+        Err(_) => {
+            return (
+                None,
+                vec![ValidationFinding::error(
+                    "GROWTH_SOURCE_MISSING",
+                    format!("Growth target `{assessed_target}` is missing or unreadable"),
+                )],
+            )
+        }
+    };
+
+    let created = today_utc();
+    let execution_name = Path::new(execution_target)
+        .file_stem()
+        .and_then(|item| item.to_str())
+        .unwrap_or("execution");
+    let parent_name = Path::new(assessed_target)
+        .file_stem()
+        .and_then(|item| item.to_str())
+        .unwrap_or("parent");
+    let stage_label = if stage == "reference-note" {
+        "reference note"
+    } else {
+        "spawned child SoT"
+    };
+    let link_line = if stage == "reference-note" {
+        format!("- Reference Note: [[{execution_name}]]")
+    } else {
+        format!("- Spawned Child: [[{execution_name}]]")
+    };
+    let decision_line = format!(
+        "- [{created}] Growth proposal `{proposal_target}` created a {stage_label} `[[{execution_name}]]`."
+    );
+    let next_action_line = format!(
+        "- Route detailed branch material through `[[{execution_name}]]` before adding more weight to `{parent_name}`. ({created})\n  - Growth should redirect future detail toward the lighter-weight structural outcome. [AGENT:gpt-5]"
+    );
+    let status_line = format!(
+        "- A governed growth step created `[[{execution_name}]]` as the next structural home. ({created})\n  - The parent remains canonical for its scope while redirecting deeper material through the new structure. [AGENT:gpt-5]"
+    );
+
+    if stage == "reference-note" {
+        let (dimension, entries) = extract_reference_entries(&source_text);
+        let pointer = format!(
+            "- Detailed entries moved to `[[{execution_name}]]`. ({created})\n  - The parent keeps the summary while the deeper detail now lives in the reference note. [AGENT:gpt-5]"
+        );
+        return (
+            Some(GrowthSourceUpdatePlan {
+                link_line,
+                status_line,
+                next_action_line,
+                decision_line,
+                target_dimension: dimension,
+                replacement_entries: entries,
+                active_pointer_line: pointer,
+            }),
+            Vec::new(),
+        );
+    }
+
+    let counts = dimension_entry_counts_by_id(&source_text);
+    let densest = counts
+        .keys()
+        .max_by_key(|dimension| {
+            (
+                counts.get(*dimension).copied().unwrap_or_default(),
+                dimension_preference(dimension),
+            )
+        })
+        .cloned()
+        .unwrap_or_default();
+    let pointer = format!(
+        "- Branch-specific detail now continues in `[[{execution_name}]]`. ({created})\n  - The parent retains the summary while the new child SoT carries the deeper branch structure. [AGENT:gpt-5]"
+    );
+    (
+        Some(GrowthSourceUpdatePlan {
+            link_line,
+            status_line,
+            next_action_line,
+            decision_line,
+            target_dimension: dimension_heading(&source_text, &densest),
+            replacement_entries: Vec::new(),
+            active_pointer_line: pointer,
         }),
         Vec::new(),
     )
@@ -1849,6 +1951,29 @@ fn sanitize_growth_stem(value: &str) -> String {
     result.trim_matches('-').to_string()
 }
 
+fn today_utc() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(0);
+    civil_from_days(seconds.div_euclid(86_400))
+}
+
+fn civil_from_days(days_since_epoch: i64) -> String {
+    let z = days_since_epoch + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = mp + if mp < 10 { 3 } else { -9 };
+    let year = y + if m <= 2 { 1 } else { 0 };
+    format!("{year:04}-{m:02}-{d:02}")
+}
+
 fn dimension_entry_counts(text: &str) -> Vec<usize> {
     let mut counts = BTreeMap::new();
     let mut current_dimension = String::new();
@@ -2335,6 +2460,27 @@ mod tests {
             plan.target,
             "knowledge/110.WHO.Vela-Identity.Spawned-Child-SoT.md"
         );
+    }
+
+    #[test]
+    fn plans_spawn_growth_source_update_for_identity_branch() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("repo root")
+            .to_path_buf();
+        let (plan, findings) = plan_growth_source_update(
+            &root,
+            "spawn",
+            "knowledge/110.WHO.Vela-Identity-SoT.md",
+            "knowledge/110.WHO.Vela-Identity.Spawned-Child-SoT.md",
+            "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
+        );
+        assert!(findings.is_empty());
+        let plan = plan.expect("source update plan");
+        assert_eq!(plan.target_dimension, "## 200.WHAT.Scope");
+        assert!(plan
+            .active_pointer_line
+            .contains("[[110.WHO.Vela-Identity.Spawned-Child-SoT]]"));
     }
 
     #[test]

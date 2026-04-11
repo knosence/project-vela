@@ -15,6 +15,7 @@ from .paths import APPROVALS_PATH, BACKUP_DIR, EVENT_LOG_PATH, PROPOSALS_DIR, QU
 from .rust_bridge import route_for_target as rust_route_for_target
 from .rust_bridge import plan_event_append_payload
 from .rust_bridge import plan_growth_execution_payload
+from .rust_bridge import plan_growth_source_update_payload
 from .rust_bridge import render_event_payload
 from .rust_bridge import route_inbox_payload
 from .rust_bridge import validate_archive_postconditions_payload
@@ -890,45 +891,38 @@ def _inject_growth_source_updates(
     stage: str,
     execution: dict[str, Any],
 ) -> str:
-    created = datetime.now(timezone.utc).date().isoformat()
+    payload = plan_growth_source_update_payload(
+        stage,
+        assessed_target,
+        execution_target,
+        proposal_target,
+    )
+    plan = payload.get("plan") or {}
     execution_name = Path(execution_target).stem
-    parent_name = Path(assessed_target).stem
-    stage_label = "reference note" if stage == "reference-note" else "spawned child SoT"
-    link_line = (
-        f"- Reference Note: [[{execution_name}]]"
-        if stage == "reference-note"
-        else f"- Spawned Child: [[{execution_name}]]"
-    )
-    decision_line = (
-        f"- [{created}] Growth proposal `{proposal_target}` created a {stage_label} `[[{execution_name}]]`."
-    )
-    next_action_line = (
-        f"- Route detailed branch material through `[[{execution_name}]]` before adding more weight to `{parent_name}`. ({created})\n"
-        "  - Growth should redirect future detail toward the lighter-weight structural outcome. [AGENT:gpt-5]"
-    )
-    status_line = (
-        f"- A governed growth step created `[[{execution_name}]]` as the next structural home. ({created})\n"
-        "  - The parent remains canonical for its scope while redirecting deeper material through the new structure. [AGENT:gpt-5]"
-    )
 
-    updated = _append_line_to_section(source_text, "### Links", link_line)
-    updated = _append_line_to_section(updated, "### Status", status_line)
-    updated = _append_line_to_section(updated, "### Next Actions", next_action_line)
-    updated = _append_line_to_section(updated, "### Decisions", decision_line)
+    updated = _append_line_to_section(source_text, "### Links", str(plan.get("link_line", "")))
+    updated = _append_line_to_section(updated, "### Status", str(plan.get("status_line", "")))
+    updated = _append_line_to_section(updated, "### Next Actions", str(plan.get("next_action_line", "")))
+    updated = _append_line_to_section(updated, "### Decisions", str(plan.get("decision_line", "")))
     if stage == "reference-note":
         updated = _replace_entries_with_reference_pointer(
             updated,
-            execution.get("dimension", ""),
-            execution.get("entries", []),
-            execution_name,
-            created,
+            str(plan.get("target_dimension", "")),
+            list(plan.get("replacement_entries", [])),
+            str(plan.get("active_pointer_line", "")),
         )
     if stage == "spawn":
-        updated = _insert_spawn_branch_pointer(updated, execution_name, created)
+        updated = _insert_spawn_branch_pointer(
+            updated,
+            str(plan.get("target_dimension", "")),
+            str(plan.get("active_pointer_line", "")),
+        )
     return updated
 
 
 def _append_line_to_section(text: str, heading: str, addition: str) -> str:
+    if not addition.strip():
+        return text
     start = text.find(heading)
     if start == -1:
         return text
@@ -1053,8 +1047,7 @@ def _replace_entries_with_reference_pointer(
     source_text: str,
     dimension_heading: str,
     entries: list[str],
-    execution_name: str,
-    created: str,
+    pointer: str,
 ) -> str:
     if not dimension_heading or not entries:
         return source_text
@@ -1065,30 +1058,19 @@ def _replace_entries_with_reference_pointer(
     updated_active = active
     for entry in entries:
         updated_active = updated_active.replace(entry, "").strip()
-    pointer = (
-        f"- Detailed entries moved to `[[{execution_name}]]`. ({created})\n"
-        "  - The parent keeps the summary while the deeper detail now lives in the reference note. [AGENT:gpt-5]"
-    )
     if pointer not in updated_active:
         updated_active = f"{updated_active}\n\n{pointer}".strip()
     section_updated = section.replace(active, updated_active, 1)
     return source_text.replace(section, section_updated, 1)
 
 
-def _insert_spawn_branch_pointer(source_text: str, execution_name: str, created: str) -> str:
-    counts = _dimension_entry_counts(source_text)
-    if not counts:
+def _insert_spawn_branch_pointer(source_text: str, dimension_heading: str, pointer: str) -> str:
+    if not dimension_heading or not pointer.strip():
         return source_text
-    densest = max(counts, key=lambda item: (counts[item], _dimension_preference(item)))
-    dimension_heading = _dimension_heading(source_text, densest)
     section = _section_by_heading(source_text, dimension_heading)
     if not section:
         return source_text
     active = _subsection(section, "### Active")
-    pointer = (
-        f"- Branch-specific detail now continues in `[[{execution_name}]]`. ({created})\n"
-        "  - The parent retains the summary while the new child SoT carries the deeper branch structure. [AGENT:gpt-5]"
-    )
     updated_active = active if pointer in active else f"{active.rstrip()}\n\n{pointer}\n"
     section_updated = section.replace(active, updated_active, 1)
     return source_text.replace(section, section_updated, 1)

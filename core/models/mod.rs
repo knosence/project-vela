@@ -126,6 +126,17 @@ pub struct GrowthExecutionPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GrowthSourceUpdatePlan {
+    pub link_line: String,
+    pub status_line: String,
+    pub next_action_line: String,
+    pub decision_line: String,
+    pub target_dimension: String,
+    pub replacement_entries: Vec<String>,
+    pub active_pointer_line: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PatchTarget {
     pub path: String,
 }
