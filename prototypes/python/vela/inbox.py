@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import re
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,10 @@ def triage_inbox(file_name: str | None = None, actor: str = "vela") -> dict[str,
             results.append(_triage_text_companion_file(path, actor=actor))
         elif path.suffix.lower() == ".csv":
             results.append(_triage_csv_companion_file(path, actor=actor))
+        elif path.suffix.lower() == ".pdf":
+            results.append(_triage_pdf_companion_file(path, actor=actor))
+        elif path.suffix.lower() in {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}:
+            results.append(_triage_image_companion_file(path, actor=actor))
         else:
             results.append(_flag_unsupported_inbox_file(path, actor=actor))
     return {
@@ -139,8 +144,26 @@ def _triage_markdown_file(path: Path, actor: str) -> dict[str, Any]:
 
 
 def _triage_text_companion_file(path: Path, actor: str) -> dict[str, Any]:
-    relative_path = str(path.relative_to(REPO_ROOT))
     text = path.read_text(encoding="utf-8")
+    return _triage_extracted_companion_file(path, actor, text, extraction_kind="text")
+
+
+def _triage_pdf_companion_file(path: Path, actor: str) -> dict[str, Any]:
+    extracted = _extract_pdf_text(path)
+    if not extracted["ok"]:
+        return _flag_for_review(path, actor, "pdf-extraction-failed", extracted["detail"])
+    return _triage_extracted_companion_file(path, actor, extracted["text"], extraction_kind="pdf")
+
+
+def _triage_image_companion_file(path: Path, actor: str) -> dict[str, Any]:
+    extracted = _extract_image_text(path)
+    if not extracted["ok"]:
+        return _flag_for_review(path, actor, "image-ocr-failed", extracted["detail"])
+    return _triage_extracted_companion_file(path, actor, extracted["text"], extraction_kind="image")
+
+
+def _triage_extracted_companion_file(path: Path, actor: str, text: str, *, extraction_kind: str) -> dict[str, Any]:
+    relative_path = str(path.relative_to(REPO_ROOT))
     target = _extract_target(text)
     dimension = route_inbox_entry(text)
     workflow_actions = matching_workflow_actions(text)
@@ -179,7 +202,7 @@ def _triage_text_companion_file(path: Path, actor: str) -> dict[str, Any]:
             actor=actor,
             target=target,
             status="committed",
-            reason=f"inbox text item {relative_path} extracted into {target}",
+            reason=f"inbox {extraction_kind} item {relative_path} extracted into {target}",
             artifacts=[target, str(companion_path.relative_to(REPO_ROOT))],
             validation_summary={"dimension": dimension, "source_file": relative_path, "pointer": pointer},
         )
@@ -277,6 +300,40 @@ def _triage_csv_companion_file(path: Path, actor: str) -> dict[str, Any]:
 
 def _flag_unsupported_inbox_file(path: Path, actor: str) -> dict[str, Any]:
     return _flag_for_review(path, actor, "unsupported-non-markdown", f"Unsupported inbox file type `{path.suffix}` requires richer extraction.")
+
+
+def _extract_pdf_text(path: Path) -> dict[str, Any]:
+    try:
+        result = subprocess.run(
+            ["pdftotext", str(path), "-"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        return {"ok": False, "detail": f"PDF extraction tool unavailable: {exc}"}
+    text = result.stdout.strip()
+    if result.returncode != 0 or not text:
+        detail = result.stderr.strip() or "PDF extraction produced no text."
+        return {"ok": False, "detail": detail}
+    return {"ok": True, "text": text}
+
+
+def _extract_image_text(path: Path) -> dict[str, Any]:
+    try:
+        result = subprocess.run(
+            ["tesseract", str(path), "stdout"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        return {"ok": False, "detail": f"Image OCR tool unavailable: {exc}"}
+    text = result.stdout.strip()
+    if result.returncode != 0 or not text:
+        detail = result.stderr.strip() or "Image OCR produced no text."
+        return {"ok": False, "detail": detail}
+    return {"ok": True, "text": text}
 
 
 def _flag_for_review(path: Path, actor: str, reason: str, detail: str, dimension: str | None = None) -> dict[str, Any]:

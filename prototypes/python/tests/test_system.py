@@ -127,6 +127,8 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/INBOX/test-inbox-item.csv",
             "knowledge/INBOX/test-inbox-ambiguous.csv",
             "knowledge/INBOX/test-inbox-binary.png",
+            "knowledge/INBOX/test-inbox-item.pdf",
+            "knowledge/INBOX/test-inbox-image.png",
         ]:
             path = REPO_ROOT / target
             if path.exists():
@@ -134,6 +136,8 @@ class VelaSystemTest(unittest.TestCase):
         for pattern in [
             "inbox-triage-target*.txt",
             "inbox-triage-target*.csv",
+            "inbox-triage-target*.pdf",
+            "inbox-triage-target*.png",
         ]:
             for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob(pattern):
                 path.unlink()
@@ -1300,8 +1304,67 @@ class VelaSystemTest(unittest.TestCase):
         inbox_path.write_bytes(b"png")
         result = triage_inbox(file_name="test-inbox-binary.png", actor="vela")
         self.assertFalse(result["ok"])
-        self.assertEqual(result["results"][0]["reason"], "unsupported-non-markdown")
+        self.assertEqual(result["results"][0]["reason"], "image-ocr-failed")
         self.assertTrue(inbox_path.exists())
+
+    def test_inbox_triage_moves_pdf_file_to_companion_and_routes_text(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
+        target_path = REPO_ROOT / target
+        target_path.write_text((REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-item.pdf"
+        inbox_path.write_text(
+            "%PDF-1.4\n"
+            "1 0 obj\n"
+            "<< /Type /Catalog /Pages 2 0 R >>\n"
+            "endobj\n"
+            "2 0 obj\n"
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>\n"
+            "endobj\n"
+            "3 0 obj\n"
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\n"
+            "endobj\n"
+            "4 0 obj\n"
+            "<< /Length 104 >>\n"
+            "stream\n"
+            "BT\n"
+            "/F1 12 Tf\n"
+            "72 720 Td\n"
+            "(Target: [[inbox-triage-target.md]]) Tj\n"
+            "0 -18 Td\n"
+            "(PDF capability update) Tj\n"
+            "0 -18 Td\n"
+            "(The PDF intake should be preserved as a companion file.) Tj\n"
+            "ET\n"
+            "endstream\n"
+            "endobj\n"
+            "5 0 obj\n"
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n"
+            "endobj\n"
+            "xref\n"
+            "0 6\n"
+            "0000000000 65535 f \n"
+            "0000000010 00000 n \n"
+            "0000000063 00000 n \n"
+            "0000000122 00000 n \n"
+            "0000000248 00000 n \n"
+            "0000000403 00000 n \n"
+            "trailer\n"
+            "<< /Root 1 0 R /Size 6 >>\n"
+            "startxref\n"
+            "473\n"
+            "%%EOF\n",
+            encoding="utf-8",
+        )
+
+        result = triage_inbox(file_name="test-inbox-item.pdf", actor="vela")
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(inbox_path.exists())
+        companion = REPO_ROOT / result["results"][0]["companion"]
+        self.assertTrue(companion.exists())
+        updated = target_path.read_text(encoding="utf-8")
+        self.assertIn("PDF capability update. (", updated)
+        self.assertIn(f"See: [[{companion.name}]]", updated)
 
     def test_inbox_triage_moves_csv_file_to_companion_and_routes_rows(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
