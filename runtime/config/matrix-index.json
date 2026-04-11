@@ -168,7 +168,7 @@
   ],
   "references": [
     {
-      "path": "knowledge/ARTIFACTS/refs/000b.INDEX.Matrix-Laws-Ref.md",
+      "path": "knowledge/001.INDEX.Matrix-Laws-Ref.md",
       "title": "Matrix Laws",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -177,7 +177,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/000c.INDEX.Vela-Matrix-Constitution-Ref.md",
+      "path": "knowledge/002.INDEX.Vela-Matrix-Constitution-Ref.md",
       "title": "Vela Matrix Constitution",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -186,7 +186,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/000d.INDEX.Vela-First-Governed-Architecture-Ref.md",
+      "path": "knowledge/003.INDEX.Vela-First-Governed-Architecture-Ref.md",
       "title": "ADR 0001 Vela First Governed Architecture",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -195,7 +195,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/230a.DOMAIN.SoT-Framework-Ref.md",
+      "path": "knowledge/230a.DOMAIN.SoT-Framework-Ref.md",
       "title": "SoT Framework Reference",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -204,7 +204,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/230b.DOMAIN.Core-Directives-Ref.md",
+      "path": "knowledge/230b.DOMAIN.Core-Directives-Ref.md",
       "title": "Core Directives",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -213,7 +213,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/230c.DOMAIN.Index-Layer-Ref.md",
+      "path": "knowledge/230c.DOMAIN.Index-Layer-Ref.md",
       "title": "Index Layer",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -222,7 +222,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/240a.DOMAIN.SoT-Operations-Ref.md",
+      "path": "knowledge/240a.DOMAIN.SoT-Operations-Ref.md",
       "title": "SoT Operations Reference",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -231,7 +231,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/240b.DOMAIN.Agent-Contracts-Ref.md",
+      "path": "knowledge/240b.DOMAIN.Agent-Contracts-Ref.md",
       "title": "Agent Contracts",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -240,7 +240,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/240c.DOMAIN.n8n-Integration-Ref.md",
+      "path": "knowledge/240c.DOMAIN.n8n-Integration-Ref.md",
       "title": "n8n Integration",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -249,7 +249,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/240d.DOMAIN.Setup-Mode-Ref.md",
+      "path": "knowledge/240d.DOMAIN.Setup-Mode-Ref.md",
       "title": "Setup Mode",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -258,7 +258,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/240e.DOMAIN.Profile-Replacement-Ref.md",
+      "path": "knowledge/240e.DOMAIN.Profile-Replacement-Ref.md",
       "title": "Profile Replacement",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -267,7 +267,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/240f.DOMAIN.Pi-and-OpenCode-Boundaries-Ref.md",
+      "path": "knowledge/240f.DOMAIN.Pi-and-OpenCode-Boundaries-Ref.md",
       "title": "Adapter and Donor Boundaries",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -276,7 +276,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/240g.DOMAIN.Architecture-Overview-Ref.md",
+      "path": "knowledge/240g.DOMAIN.Architecture-Overview-Ref.md",
       "title": "Architecture Overview",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -285,7 +285,7 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/240h.DOMAIN.CI-Commands-Ref.md",
+      "path": "knowledge/240h.DOMAIN.CI-Commands-Ref.md",
       "title": "CI Commands",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
@@ -294,12 +294,21 @@
       "status": "active"
     },
     {
-      "path": "knowledge/ARTIFACTS/refs/240i.DOMAIN.Verification-Ref.md",
+      "path": "knowledge/240i.DOMAIN.Verification-Ref.md",
       "title": "Verification Strategy",
       "ref_type": "reference",
       "inventory_role": "governed-reference",
       "parent": "[[240.DOMAIN.Matrix-SoT#500.HOW.Operations]]",
       "domain": "testing",
+      "status": "active"
+    },
+    {
+      "path": "knowledge/240j.DOMAIN.Merge-and-Growth-Ref.md",
+      "title": "Merge And Growth Protocol",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[240.DOMAIN.Matrix-SoT#500.HOW.Operations]]",
+      "domain": "matrix",
       "status": "active"
     }
   ],

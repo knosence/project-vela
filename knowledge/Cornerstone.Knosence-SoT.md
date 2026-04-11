@@ -21,7 +21,7 @@ tags: ["cornerstone","human","shared-knowledge","matrix","sot"]
 
 ### Links
 
-- Matrix index: [[000a.INDEX.Knosence-Matrix-Ref]]
+- Matrix index: [[000.INDEX.Knosence-Matrix-Ref]]
 - The Key: [[230.DOMAIN.SoT-Source-of-Truth-SoT]]
 - The System: [[240.DOMAIN.Matrix-SoT]]
 - WHO hub: [[100.WHO.Circle-SoT]]

@@ -1,5 +1,9 @@
 use crate::events::{plan_event_append, EventRecord, ValidationSummary};
-use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_path};
+use crate::inventory::{
+    discover_matrix_inventory, hub_id_for_numeric_id, inferred_inventory_role_for_path,
+    matrix_context_for_name, matrix_numeric_id_for_name, matrix_subject_for_name,
+    next_available_direct_child_id, next_available_ref_id,
+};
 use crate::models::{
     ArchiveTransactionPlan, CompanionPathPlan, CrossReferencePlan, CsvInboxEntry, CsvInboxPlan,
     DimensionAppendPlan, DreamerAction, DreamerActionRegistry, DreamerApplyPlan,
@@ -223,11 +227,14 @@ pub fn plan_growth_execution(
     }
 
     if stage == "reference-note" {
-        let ref_stem = stem.strip_suffix("-SoT").unwrap_or(&stem);
         let (dimension, entries) = extract_reference_entries(&source_text);
+        let target = numbered_reference_target(root, assessed_target).unwrap_or_else(|| {
+            let ref_stem = stem.strip_suffix("-SoT").unwrap_or(&stem);
+            format!("knowledge/ARTIFACTS/refs/Ref.{ref_stem}.md")
+        });
         return (
             Some(GrowthExecutionPlan {
-                target: format!("knowledge/ARTIFACTS/refs/Ref.{ref_stem}.md"),
+                target,
                 kind: "reference-note".to_string(),
                 dimension,
                 entries,
@@ -237,12 +244,14 @@ pub fn plan_growth_execution(
     }
 
     if stage == "spawn" && assessed_target.ends_with("-SoT.md") {
-        let child_stem = stem.strip_suffix("-SoT").unwrap_or(&stem);
-        let child_name = format!("{child_stem}.Spawned-Child-SoT.md");
-        let target = target_path
-            .with_file_name(child_name)
-            .to_string_lossy()
-            .replace('\\', "/");
+        let target = numbered_spawn_target(root, assessed_target).unwrap_or_else(|| {
+            let child_stem = stem.strip_suffix("-SoT").unwrap_or(&stem);
+            let child_name = format!("{child_stem}.Spawned-Child-SoT.md");
+            target_path
+                .with_file_name(child_name)
+                .to_string_lossy()
+                .replace('\\', "/")
+        });
         return (
             Some(GrowthExecutionPlan {
                 target,
@@ -408,23 +417,37 @@ pub fn render_growth_reference_note(
     } else {
         entries.join("\n\n")
     };
+    let execution_name = Path::new(execution_target)
+        .file_name()
+        .and_then(|item| item.to_str())
+        .unwrap_or(execution_target);
+    let parent_name = Path::new(assessed_target)
+        .file_stem()
+        .and_then(|item| item.to_str())
+        .unwrap_or("parent");
     format!(
-        "# Reference Note for {}\n\n\
+        "---\n\
+sot-type: reference\n\
+created: {created}\n\
+last-rewritten: {created}\n\
+parent: \"[[{parent_name}#{dimension}]]\"\n\
+domain: growth\n\
+status: active\n\
+tags: [\"growth\",\"reference\"]\n\
+---\n\n\
+# Reference Note for {}\n\n\
 ## This Reference Note Exists Because the Parent Artifact Has Exceeded a Flat Shape\n\
 The governed growth proposal `{}` recommended extraction into a reference note.\n\n\
 ## This Reference Note Points Back to the Assessed Parent Artifact\n\
-- parent artifact: `{}`\n\
+- parent artifact: `[[{}]]`\n\
 - proposal: `{}`\n\
 - extracted from: `{}`\n\
 - created: `{}`\n\n\
 ## This Reference Note Preserves the Extracted Active Entries\n\
 {}\n",
-        Path::new(execution_target)
-            .file_name()
-            .and_then(|item| item.to_str())
-            .unwrap_or(execution_target),
+        execution_name,
         proposal_target,
-        assessed_target,
+        parent_name,
         proposal_target,
         dimension,
         created,
@@ -438,10 +461,12 @@ pub fn render_spawned_sot(
     proposal_target: &str,
     created: &str,
 ) -> String {
-    let parent_name = Path::new(assessed_target)
+    let source_name = Path::new(assessed_target)
         .file_stem()
         .and_then(|item| item.to_str())
-        .unwrap_or("parent");
+        .unwrap_or("source");
+    let parent_link =
+        spawned_parent_link(execution_target).unwrap_or_else(|| format!("[[{source_name}]]"));
     let child_name = Path::new(execution_target)
         .file_name()
         .and_then(|item| item.to_str())
@@ -451,7 +476,7 @@ pub fn render_spawned_sot(
 sot-type: system\n\
 created: {created}\n\
 last-rewritten: {created}\n\
-parent: \"[[{parent_name}]]\"\n\
+parent: \"{parent_link}\"\n\
 domain: growth\n\
 status: active\n\
 tags: [\"growth\",\"spawned\",\"sot\"]\n\
@@ -462,10 +487,10 @@ tags: [\"growth\",\"spawned\",\"sot\"]\n\
 **Subject:** {child_name} was spawned from a governed growth proposal.\n\
 **Type:** system\n\
 **Created:** {created}\n\
-**Parent:** [[{parent_name}]]\n\n\
+**Parent:** {parent_link}\n\n\
 ### Links\n\n\
-- Parent: [[{parent_name}]]\n\
-- Source Branch: [[{parent_name}]]\n\
+- Parent: {parent_link}\n\
+- Source Branch: [[{source_name}]]\n\
 - Source Target: `{assessed_target}`\n\
 - Cornerstone: [[Cornerstone.Knosence-SoT]]\n\
 - Proposal: `{proposal_target}`\n\n\
@@ -2794,6 +2819,41 @@ fn sanitize_growth_stem(value: &str) -> String {
     result.trim_matches('-').to_string()
 }
 
+fn numbered_reference_target(root: &Path, assessed_target: &str) -> Option<String> {
+    let name = Path::new(assessed_target).file_name()?.to_str()?;
+    let parent_id = matrix_numeric_id_for_name(name)?;
+    let ref_id = next_available_ref_id(root, &parent_id)?;
+    let context = matrix_context_for_name(name)?;
+    let subject = sanitize_growth_stem(&matrix_subject_for_name(name)?);
+    Some(format!("knowledge/{ref_id}.{context}.{subject}-Ref.md"))
+}
+
+fn numbered_spawn_target(root: &Path, assessed_target: &str) -> Option<String> {
+    let name = Path::new(assessed_target).file_name()?.to_str()?;
+    let source_id = matrix_numeric_id_for_name(name)?;
+    let hub_id = hub_id_for_numeric_id(&source_id)?;
+    let child_id = next_available_direct_child_id(root, &hub_id)?;
+    let context = matrix_context_for_name(name)?;
+    let subject = sanitize_growth_stem(&matrix_subject_for_name(name)?);
+    Some(format!(
+        "knowledge/{child_id}.{context}.{subject}-Spawned-Child-SoT.md"
+    ))
+}
+
+fn spawned_parent_link(execution_target: &str) -> Option<String> {
+    let name = Path::new(execution_target).file_name()?.to_str()?;
+    let numeric_id = matrix_numeric_id_for_name(name)?;
+    match hub_id_for_numeric_id(&numeric_id)?.as_str() {
+        "100" => Some("[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]".to_string()),
+        "200" => Some("[[200.WHAT.Domain-SoT#200.WHAT.Domains]]".to_string()),
+        "300" => Some("[[300.WHERE.Terrain-SoT#300.WHERE.Terrain]]".to_string()),
+        "400" => Some("[[400.WHEN.Chronicle-SoT#400.WHEN.Chronicle]]".to_string()),
+        "500" => Some("[[500.HOW.Method-SoT#500.HOW.Method]]".to_string()),
+        "600" => Some("[[600.WHY.Compass-SoT#600.WHY.Compass]]".to_string()),
+        _ => None,
+    }
+}
+
 fn today_utc() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let seconds = SystemTime::now()
@@ -3458,7 +3518,7 @@ mod tests {
         assert_eq!(plan.kind, "spawned-sot");
         assert_eq!(
             plan.target,
-            "knowledge/110.WHO.Vela-Identity.Spawned-Child-SoT.md"
+            "knowledge/140.WHO.Vela-Identity-Spawned-Child-SoT.md"
         );
     }
 
@@ -3472,7 +3532,7 @@ mod tests {
             &root,
             "spawn",
             "knowledge/110.WHO.Vela-Identity-SoT.md",
-            "knowledge/110.WHO.Vela-Identity.Spawned-Child-SoT.md",
+            "knowledge/140.WHO.Vela-Identity-Spawned-Child-SoT.md",
             "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
         );
         assert!(findings.is_empty());
@@ -3480,7 +3540,7 @@ mod tests {
         assert_eq!(plan.target_dimension, "## 200.WHAT.Scope");
         assert!(plan
             .active_pointer_line
-            .contains("[[110.WHO.Vela-Identity.Spawned-Child-SoT]]"));
+            .contains("[[140.WHO.Vela-Identity-Spawned-Child-SoT]]"));
     }
 
     #[test]

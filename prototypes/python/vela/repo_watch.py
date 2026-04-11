@@ -7,7 +7,10 @@ from typing import Any
 from .agents import SequentialPipeline
 from .config import load_config
 from .governance import write_text
+from .paths import REPO_ROOT
 from .rust_bridge import analyze_release_payload
+
+REF_SUFFIX_SLOTS = "abcdefghijklmnopqrstuvwxyz"
 
 
 def local_context_markers() -> list[str]:
@@ -202,7 +205,7 @@ def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> 
         endpoint="repo-release-validation",
         reason="write structured release validation",
     )
-    intelligence_target = str(Path(target).with_name(f"Ref.{Path(target).stem}.Release-Intelligence.md"))
+    intelligence_target = _next_watchlist_intelligence_ref_target(target)
     intelligence_result = write_text(
         intelligence_target,
         build_release_intelligence_ref(
@@ -251,3 +254,18 @@ def ingest_release(packet: dict[str, Any], watchlist_text: str, target: str) -> 
 def _derived_target_for(target: str, suffix: str) -> str:
     path = Path(target)
     return str(path.with_name(f"{path.stem}.{suffix}.json"))
+
+
+def _next_watchlist_intelligence_ref_target(target: str) -> str:
+    used: set[str] = set()
+    for path in (REPO_ROOT / "knowledge").glob("220?.WHAT.*-Ref.md"):
+        token = path.stem.split(".", 1)[0]
+        if len(token) == 4 and token.startswith("220"):
+            used.add(token)
+    ref_id = next(
+        candidate
+        for candidate in (f"220{suffix}" for suffix in REF_SUFFIX_SLOTS)
+        if candidate not in used
+    )
+    subject = f"{Path(target).stem}-Release-Intelligence"
+    return f"knowledge/{ref_id}.WHAT.{subject}-Ref.md"

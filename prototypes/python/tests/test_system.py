@@ -139,10 +139,6 @@ class VelaSystemTest(unittest.TestCase):
         for target in [
             "knowledge/Cornerstone.Knosence-SoT.Spawned-Child-SoT.md",
             "knowledge/Cornerstone.Project-Vela.Spawned-Child-SoT.md",
-            "knowledge/ARTIFACTS/refs/Ref.WHAT.Vela-Capabilities.md",
-            "knowledge/ARTIFACTS/refs/Ref.210.WHAT.Vela-Capabilities-SoT.md",
-            "knowledge/ARTIFACTS/refs/Ref.reference-source.md",
-            "knowledge/ARTIFACTS/refs/Ref.service-source.md",
             "knowledge/ARTIFACTS/proposals/growth-apply-reference-test.md",
             "knowledge/ARTIFACTS/proposals/growth-apply-service-test.md",
             "knowledge/ARTIFACTS/proposals/growth-apply-sovereign-test.md",
@@ -158,13 +154,12 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/ARTIFACTS/proposals/direct-root-agent-branch-test.md",
             "knowledge/ARTIFACTS/proposals/direct-root-dimension-branch-test.md",
             "knowledge/ARTIFACTS/proposals/repo-watch-test.md",
-            "knowledge/ARTIFACTS/proposals/Ref.repo-watch-test.Release-Intelligence.md",
             "knowledge/ARTIFACTS/proposals/repo-watch-test.packet.json",
             "knowledge/ARTIFACTS/proposals/repo-watch-test.assessment.json",
             "knowledge/ARTIFACTS/proposals/repo-watch-test.reflection.json",
             "knowledge/ARTIFACTS/proposals/repo-watch-test.validation.json",
+            "knowledge/220a.WHAT.repo-watch-scenario-test-Release-Intelligence-Ref.md",
             "knowledge/ARTIFACTS/refs/indexed-release-summary.md",
-            "knowledge/ARTIFACTS/refs/Ref.indexed-release-summary.Release-Intelligence.md",
             "knowledge/ARTIFACTS/refs/indexed-release-summary.packet.json",
             "knowledge/ARTIFACTS/refs/indexed-release-summary.assessment.json",
             "knowledge/ARTIFACTS/refs/indexed-release-summary.reflection.json",
@@ -186,6 +181,7 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/INBOX/test-inbox-item.pdf",
             "knowledge/INBOX/test-inbox-image.png",
             "knowledge/INBOX/test-inbox-image-source.pdf",
+            "knowledge/INBOX/test-inbox-item-source.txt",
         ]:
             path = REPO_ROOT / target
             if path.exists():
@@ -196,9 +192,31 @@ class VelaSystemTest(unittest.TestCase):
             "inbox-triage-target*.pdf",
             "inbox-triage-target*.png",
             "IMAGE-TARGET*.png",
+            "2???.*-Ref.md",
         ]:
-            for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob(pattern):
-                path.unlink()
+            for base in [REPO_ROOT / "knowledge/ARTIFACTS/proposals", REPO_ROOT / "knowledge"]:
+                for path in base.glob(pattern):
+                    if path.name in {
+                        "230a.DOMAIN.SoT-Framework-Ref.md",
+                        "230b.DOMAIN.Core-Directives-Ref.md",
+                        "230c.DOMAIN.Index-Layer-Ref.md",
+                        "240a.DOMAIN.SoT-Operations-Ref.md",
+                        "240b.DOMAIN.Agent-Contracts-Ref.md",
+                        "240c.DOMAIN.n8n-Integration-Ref.md",
+                        "240d.DOMAIN.Setup-Mode-Ref.md",
+                        "240e.DOMAIN.Profile-Replacement-Ref.md",
+                        "240f.DOMAIN.Pi-and-OpenCode-Boundaries-Ref.md",
+                        "240g.DOMAIN.Architecture-Overview-Ref.md",
+                        "240h.DOMAIN.CI-Commands-Ref.md",
+                        "240i.DOMAIN.Verification-Ref.md",
+                        "240j.DOMAIN.Merge-and-Growth-Ref.md",
+                        "000.INDEX.Knosence-Matrix-Ref.md",
+                        "001.INDEX.Matrix-Laws-Ref.md",
+                        "002.INDEX.Vela-Matrix-Constitution-Ref.md",
+                        "003.INDEX.Vela-First-Governed-Architecture-Ref.md",
+                    }:
+                        continue
+                    path.unlink()
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("Warden-Patrol-*.md"):
             path.unlink()
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("DC-Night-Report-*.md"):
@@ -206,6 +224,8 @@ class VelaSystemTest(unittest.TestCase):
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("Dreamer-Pattern-Report-*.md"):
             path.unlink()
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("Dreamer-Execution.*.md"):
+            path.unlink()
+        for path in (REPO_ROOT / "knowledge/ARTIFACTS/refs").glob("Ref.*.md"):
             path.unlink()
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Proposal.*.md"):
             path.unlink()
@@ -1918,12 +1938,12 @@ class VelaSystemTest(unittest.TestCase):
         self.assertEqual(growth_execution["plan"]["kind"], "spawned-sot")
         self.assertEqual(
             growth_execution["plan"]["target"],
-            "knowledge/110.WHO.Vela-Identity.Spawned-Child-SoT.md",
+            "knowledge/140.WHO.Vela-Identity-Spawned-Child-SoT.md",
         )
         growth_source_update = plan_growth_source_update_payload(
             "spawn",
             "knowledge/110.WHO.Vela-Identity-SoT.md",
-            "knowledge/110.WHO.Vela-Identity.Spawned-Child-SoT.md",
+            "knowledge/140.WHO.Vela-Identity-Spawned-Child-SoT.md",
             "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
         )
         self.assertTrue(growth_source_update["ok"])
@@ -1932,11 +1952,11 @@ class VelaSystemTest(unittest.TestCase):
             "## 200.WHAT.Scope",
         )
         self.assertIn(
-            "Spawned Child: [[110.WHO.Vela-Identity.Spawned-Child-SoT]]",
+            "Spawned Child: [[140.WHO.Vela-Identity-Spawned-Child-SoT]]",
             growth_source_update["plan"]["link_line"],
         )
         rendered_ref = render_growth_reference_note_payload(
-            "knowledge/ARTIFACTS/refs/Ref.example.md",
+            "knowledge/210a.WHAT.Vela-Capabilities-Ref.md",
             "knowledge/210.WHAT.Vela-Capabilities-SoT.md",
             "knowledge/ARTIFACTS/proposals/example-growth.md",
             "2026-04-11",
@@ -1944,9 +1964,9 @@ class VelaSystemTest(unittest.TestCase):
             ["- Example entry. (2026-04-11)\n  - Example context."],
         )
         self.assertTrue(rendered_ref["ok"])
-        self.assertIn("Ref.example.md", rendered_ref["content"])
+        self.assertIn("210a.WHAT.Vela-Capabilities-Ref.md", rendered_ref["content"])
         rendered_spawn = render_growth_spawned_sot_payload(
-            "knowledge/110.WHO.Vela-Identity.Spawned-Child-SoT.md",
+            "knowledge/140.WHO.Vela-Identity-Spawned-Child-SoT.md",
             "knowledge/110.WHO.Vela-Identity-SoT.md",
             "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
             "2026-04-11",

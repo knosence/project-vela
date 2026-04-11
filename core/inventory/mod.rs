@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use crate::models::{GovernedReference, GrowthTarget, MatrixSoT, ValidationFinding};
 use crate::references::inspect_reference;
 
+const BASE36_CHILD_SLOTS: &str = "123456789abcdefghijklmnopqrstuvwxyz";
+const REF_SUFFIX_SLOTS: &str = "abcdefghijklmnopqrstuvwxyz";
 const HUB_IDS: [&str; 7] = ["100", "200", "300", "400", "500", "600", "700"];
 
 pub fn discover_matrix_inventory(
@@ -34,8 +36,13 @@ pub fn inventory_area_for_path(path: &str) -> Option<&'static str> {
     let normalized = path.replace('\\', "/");
     if normalized == "knowledge/Cornerstone.Knosence-SoT.md" {
         Some("cornerstone")
-    } else if normalized.starts_with("knowledge/ARTIFACTS/refs/") {
+    } else if normalized.starts_with("knowledge/")
+        && normalized.matches('/').count() == 1
+        && normalized.ends_with("-Ref.md")
+    {
         Some("references")
+    } else if normalized.starts_with("knowledge/ARTIFACTS/refs/") {
+        Some("artifacts")
     } else if normalized.starts_with("knowledge/ARTIFACTS/") {
         Some("artifacts")
     } else if normalized.starts_with("knowledge/INBOX/") {
@@ -130,12 +137,15 @@ fn discover_sots(root: &Path) -> Vec<MatrixSoT> {
 
 fn discover_references(root: &Path) -> (Vec<GovernedReference>, Vec<ValidationFinding>) {
     let mut paths = Vec::new();
-    collect_files(&root.join("knowledge/ARTIFACTS/refs"), &mut paths);
+    collect_files(&root.join("knowledge"), &mut paths);
     paths.sort();
 
     let mut references = Vec::new();
     let mut findings = Vec::new();
     for path in paths {
+        if path.parent() != Some(&root.join("knowledge")) {
+            continue;
+        }
         let name = path
             .file_name()
             .and_then(|item| item.to_str())
@@ -163,12 +173,114 @@ fn is_governed_reference_name(name: &str) -> bool {
     }
     if matches!(
         name,
-        "000a.INDEX.Knosence-Matrix-Ref.md" | "Index.Knosence-Matrix-Ref.md"
+        "000.INDEX.Knosence-Matrix-Ref.md" | "Index.Knosence-Matrix-Ref.md"
     ) {
         return false;
     }
-    name.starts_with("Ref.")
-        || (name.ends_with("-Ref.md") && matrix_id_kind_for_name(name) == Some("ref"))
+    name.ends_with("-Ref.md") && matrix_id_kind_for_name(name) == Some("ref")
+}
+
+pub fn next_available_direct_child_id(root: &Path, hub_id: &str) -> Option<String> {
+    if !HUB_IDS.contains(&hub_id) {
+        return None;
+    }
+    let knowledge_dir = root.join("knowledge");
+    let mut used = std::collections::BTreeSet::new();
+    let Ok(entries) = fs::read_dir(&knowledge_dir) else {
+        return None;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|item| item.to_str()) else {
+            continue;
+        };
+        if matrix_id_kind_for_name(name) != Some("direct-child") {
+            continue;
+        }
+        let Some(id) = matrix_numeric_id_for_name(name) else {
+            continue;
+        };
+        if hub_id_for_numeric_id(&id).as_deref() == Some(hub_id) {
+            used.insert(id);
+        }
+    }
+    for slot in BASE36_CHILD_SLOTS.chars() {
+        let candidate = format!("{}{}0", &hub_id[0..1], slot);
+        if !used.contains(&candidate) {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+pub fn next_available_ref_id(root: &Path, parent_numeric_id: &str) -> Option<String> {
+    if parent_numeric_id.len() != 3 || !parent_numeric_id.chars().all(is_base36_lower) {
+        return None;
+    }
+    let mut used = std::collections::BTreeSet::new();
+    let Ok(entries) = fs::read_dir(root.join("knowledge")) else {
+        return None;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|item| item.to_str()) else {
+            continue;
+        };
+        if matrix_id_kind_for_name(name) != Some("ref") {
+            continue;
+        }
+        let Some(token) = matrix_id_token(name) else {
+            continue;
+        };
+        if token.starts_with(parent_numeric_id) {
+            used.insert(token);
+        }
+    }
+    for suffix in REF_SUFFIX_SLOTS.chars() {
+        let candidate = format!("{parent_numeric_id}{suffix}");
+        if !used.contains(&candidate) {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+pub fn hub_id_for_numeric_id(id: &str) -> Option<String> {
+    match id.len() {
+        3 => {
+            let first = id.chars().next()?;
+            Some(format!("{first}00"))
+        }
+        4 => {
+            let numeric: String = id.chars().take(3).collect();
+            hub_id_for_numeric_id(&numeric)
+        }
+        _ => None,
+    }
+}
+
+pub fn matrix_context_for_name(name: &str) -> Option<String> {
+    let stem = name.strip_suffix(".md")?;
+    let mut parts = stem.split('.');
+    let _id = parts.next()?;
+    let context = parts.next()?;
+    if context.is_empty() {
+        return None;
+    }
+    Some(context.to_string())
+}
+
+pub fn matrix_subject_for_name(name: &str) -> Option<String> {
+    let stem = name.strip_suffix(".md")?;
+    let mut parts = stem.splitn(3, '.');
+    let _id = parts.next()?;
+    let _context = parts.next()?;
+    let subject_and_type = parts.next()?;
+    let subject = subject_and_type
+        .strip_suffix("-SoT")
+        .or_else(|| subject_and_type.strip_suffix("-Ref"))
+        .unwrap_or(subject_and_type);
+    Some(subject.to_string())
 }
 
 fn classify_sot_role(path: &str, area: &str) -> &'static str {
@@ -204,6 +316,9 @@ pub fn matrix_id_kind_for_path(path: &str) -> Option<&'static str> {
 }
 
 pub fn matrix_id_kind_for_name(name: &str) -> Option<&'static str> {
+    if is_index_reference_name(name) {
+        return Some("ref");
+    }
     let token = matrix_id_token(name)?;
     match token.len() {
         3 if HUB_IDS.contains(&token.as_str()) => Some("hub"),
@@ -238,6 +353,27 @@ fn matrix_id_token(name: &str) -> Option<String> {
         }
     }
     None
+}
+
+fn is_index_reference_name(name: &str) -> bool {
+    if !name.ends_with("-Ref.md") {
+        return false;
+    }
+    let stem = match name.strip_suffix(".md") {
+        Some(value) => value,
+        None => return false,
+    };
+    let mut parts = stem.splitn(3, '.');
+    let Some(token) = parts.next() else {
+        return false;
+    };
+    let Some(context) = parts.next() else {
+        return false;
+    };
+    token.len() == 3
+        && token.starts_with("00")
+        && token.chars().all(is_base36_lower)
+        && context == "INDEX"
 }
 
 fn is_base36_lower(value: char) -> bool {

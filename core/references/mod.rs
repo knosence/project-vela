@@ -219,10 +219,8 @@ The laws keep the matrix coherent.\n\n\
 ## This Reference States the Active Root Constraints\n\
 - One cornerstone.\n";
 
-        let (reference, findings) = inspect_reference(
-            "knowledge/ARTIFACTS/refs/000b.INDEX.Matrix-Laws-Ref.md",
-            text,
-        );
+        let (reference, findings) =
+            inspect_reference("knowledge/001.INDEX.Matrix-Laws-Ref.md", text);
 
         assert!(findings.is_empty());
         assert!(reference.is_some());

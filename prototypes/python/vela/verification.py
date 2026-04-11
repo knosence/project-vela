@@ -16,6 +16,13 @@ from .repo_watch import ingest_release
 TEST_SOVEREIGN_TARGET = "knowledge/ARTIFACTS/proposals/TEST.Sovereign-Guardrail-Fixture.md"
 
 
+def _cleanup_verification_targets(paths: list[str]) -> None:
+    for target in paths:
+        path = REPO_ROOT / target
+        if path.exists():
+            path.unlink()
+
+
 def _result(name: str, passed: bool, detail: str) -> dict[str, Any]:
     return {"name": name, "passed": passed, "detail": detail}
 
@@ -114,7 +121,7 @@ def scenario_repo_watch() -> list[dict[str, Any]]:
         (REPO_ROOT / "knowledge/220.WHAT.Repo-Watchlist-SoT.md").read_text(encoding="utf-8"),
         target,
     )
-    return [
+    results = [
         _result("release-summary-committed", result["committed"], "Release summary should be written"),
         _result("release-summary-target-exists", (REPO_ROOT / target).exists(), "Release target artifact should exist"),
         _result("release-packet-target-exists", (REPO_ROOT / result["packet_target"]).exists(), "Structured packet artifact should exist"),
@@ -124,6 +131,17 @@ def scenario_repo_watch() -> list[dict[str, Any]]:
         _result("release-intelligence-target-exists", (REPO_ROOT / result["intelligence_target"]).exists(), "Release intelligence reference should exist"),
         _result("release-summary-criticized", bool(result["critique"]), "Reflector should produce critique notes"),
     ]
+    _cleanup_verification_targets(
+        [
+            target,
+            result["packet_target"],
+            result["assessment_target"],
+            result["reflection_target"],
+            result["validation_target"],
+            result["intelligence_target"],
+        ]
+    )
+    return results
 
 
 def scenario_dry_boot() -> list[dict[str, Any]]:

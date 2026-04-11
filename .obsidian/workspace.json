@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "knowledge/120.WHO.Custom-Vela-Identity-SoT.md",
+                "file": "knowledge/230a.DOMAIN.SoT-Framework-Ref.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "120.WHO.Custom-Vela-Identity-SoT"
+              "title": "230a.DOMAIN.SoT-Framework-Ref"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "knowledge/120.WHO.Custom-Vela-Identity-SoT.md",
+                "file": "knowledge/230a.DOMAIN.SoT-Framework-Ref.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for 120.WHO.Custom-Vela-Identity-SoT"
+              "title": "Backlinks for 230a.DOMAIN.SoT-Framework-Ref"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "knowledge/120.WHO.Custom-Vela-Identity-SoT.md",
+                "file": "knowledge/230a.DOMAIN.SoT-Framework-Ref.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from 120.WHO.Custom-Vela-Identity-SoT"
+              "title": "Outgoing links from 230a.DOMAIN.SoT-Framework-Ref"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "knowledge/120.WHO.Custom-Vela-Identity-SoT.md",
+                "file": "knowledge/230a.DOMAIN.SoT-Framework-Ref.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of 120.WHO.Custom-Vela-Identity-SoT"
+              "title": "Outline of 230a.DOMAIN.SoT-Framework-Ref"
             }
           }
         ]
@@ -185,35 +185,36 @@
   },
   "active": "3e08b19d68062871",
   "lastOpenFiles": [
-    "knowledge/ARTIFACTS/archive/backups/202604112118(TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
-    "runtime/queues/ccff0fc4998eae81fc573fc4b8f74fcc8fddde94.lock",
-    "runtime/queues/42505ed3e3689515da236dbe57b7d6e608cd44c2.lock",
-    "knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-2118.md",
+    "knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-2145.md",
     "runtime/queues/operation-patrol.lock",
     "runtime/config/operations-state.json",
     "knowledge/ARTIFACTS/logs/Vela-Patch-Log.md",
-    "knowledge/ARTIFACTS/archive/backups/202604112118(inbox-triage-target.md)Backup.md",
     "runtime/queues/b7afeb1f5f88cd6e30e0de38351d4086c9b3ef7a.lock",
     "knowledge/INBOX/test-inbox-item.md",
     "knowledge/ARTIFACTS/proposals/inbox-triage-target.md",
-    "knowledge/ARTIFACTS/archive/backups/202604112118(subject-declaration-test.md)Backup.md",
-    "knowledge/ARTIFACTS/proposals/Ref.repo-watch-test.Release-Intelligence.md",
-    "runtime/queues/cb1d3d8381e9d2272a5091549d85b88524aad5ea.lock",
+    "knowledge/ARTIFACTS/archive/backups/202604112145(subject-declaration-test.md)Backup.md",
+    "runtime/queues/2db7eb1811217146b90a52317b02820a1a25ab0e.lock",
+    "knowledge/ARTIFACTS/archive/backups/202604112145(TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
+    "knowledge/220a.WHAT.TEST.Sovereign-Guardrail-Fixture-Release-Intelligence-Ref.md",
+    "runtime/queues/42505ed3e3689515da236dbe57b7d6e608cd44c2.lock",
+    "knowledge/ARTIFACTS/archive/backups/202604112145(Growth-Proposal.2026-04-11.sovereign-change.TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
+    "knowledge/220a.WHAT.repo-watch-test-Release-Intelligence-Ref.md",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.validation.json",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.reflection.json",
-    "runtime/queues/e048d39b92d83aa71f482aac082c9b9483f7f8bf.lock",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.md",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.assessment.json",
-    "knowledge/ARTIFACTS/archive/backups/202604112118(protected-zone-test.md)Backup.md",
-    "knowledge/ARTIFACTS/refs/DC-Night-Report-20260411-2118.md",
-    "knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-20260411-2118.md",
-    "knowledge/ARTIFACTS/archive/backups/202604112118(Warden-Patrol-20260411-2118.md)Backup.md",
-    "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.20260411-2118.force-blocked-pattern-for-night-report.md",
+    "knowledge/ARTIFACTS/proposals/repo-watch-test.packet.json",
+    "knowledge/ARTIFACTS/archive/backups/202604112145(protected-zone-test.md)Backup.md",
+    "knowledge/ARTIFACTS/refs/DC-Night-Report-20260411-2145.md",
+    "knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-20260411-2145.md",
+    "runtime/queues/operation-night-cycle.lock",
+    "knowledge/ARTIFACTS/archive/backups/202604112145(Warden-Patrol-20260411-2145.md)Backup.md",
+    "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.20260411-2145.force-blocked-pattern-for-night-report.md",
     "knowledge/ARTIFACTS/proposals/direct-root-dimension-branch-test.md",
     "knowledge/ARTIFACTS/proposals/direct-root-agent-branch-test.md",
-    "knowledge/ARTIFACTS/refs/Ref.indexed-release-summary.Release-Intelligence.md",
+    "knowledge/220a.WHAT.indexed-release-summary-Release-Intelligence-Ref.md",
     "knowledge/ARTIFACTS/refs/indexed-release-summary.md",
-    "knowledge/ARTIFACTS/archive/backups/202604112117(IMAGE-TARGET.MD)Backup.md",
+    "knowledge/ARTIFACTS/archive/backups/202604112145(IMAGE-TARGET.MD)Backup.md",
     "knowledge/ARTIFACTS/proposals/IMAGE-TARGET.png",
     "knowledge/INBOX/test-inbox-image.png",
     "knowledge/INBOX/test-inbox-image-1.png",
@@ -221,9 +222,7 @@
     "knowledge/INBOX/test-inbox-binary.png",
     "knowledge/INBOX/test-inbox-missing-target.md",
     "knowledge/ARTIFACTS/proposals/Synthetic-Identity-SoT.md",
-    "knowledge/ARTIFACTS/archive/backups/202604112117(growth-apply-service-test.md)Backup.md",
-    "knowledge/ARTIFACTS/refs/Ref.service-source.md",
-    "knowledge/ARTIFACTS/proposals/growth-apply-service-test.md",
-    "knowledge/ARTIFACTS/proposals/service-source-SoT.md"
+    "knowledge/ARTIFACTS/archive/backups/202604112145(growth-apply-service-test.md)Backup.md",
+    "knowledge/ARTIFACTS/refs/Ref.service-source.md"
   ]
 }
