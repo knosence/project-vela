@@ -1,4 +1,4 @@
-use crate::models::{EventAppendPlan, ValidationFinding};
+use crate::models::{BlockedItemSummary, EventAppendPlan, ValidationFinding};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationSummary {
@@ -164,6 +164,33 @@ pub fn plan_event_append(
     )
 }
 
+pub fn extract_blocked_items(log_text: &str) -> Vec<BlockedItemSummary> {
+    log_text
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || !trimmed.contains("\"status\":\"blocked\"") {
+                return None;
+            }
+            Some(BlockedItemSummary {
+                target: extract_json_string(trimmed, "target").unwrap_or_default(),
+                reason: extract_json_string(trimmed, "reason")
+                    .unwrap_or_else(|| "blocked".to_string()),
+                actor: extract_json_string(trimmed, "actor").unwrap_or_default(),
+                endpoint: extract_json_string(trimmed, "endpoint").unwrap_or_default(),
+            })
+        })
+        .collect()
+}
+
+fn extract_json_string(text: &str, field: &str) -> Option<String> {
+    let pattern = format!("\"{field}\":\"");
+    let start = text.find(&pattern)? + pattern.len();
+    let tail = &text[start..];
+    let end = tail.find('"')?;
+    Some(tail[..end].replace("\\\"", "\"").replace("\\\\", "\\"))
+}
+
 fn escape_json(value: &str) -> String {
     let mut escaped = String::new();
     for ch in value.chars() {
@@ -256,5 +283,16 @@ mod tests {
         let plan = plan.expect("plan should exist");
         assert!(plan.line.contains("\"event_id\":\"evt_123\""));
         assert_eq!(plan.event_id, "evt_123");
+    }
+
+    #[test]
+    fn extracts_blocked_items_from_jsonl() {
+        let items = extract_blocked_items(
+            "{\"event_id\":\"evt_1\",\"timestamp\":\"2026-04-11T01:00:00Z\",\"source\":\"vela\",\"endpoint\":\"patrol\",\"actor\":\"warden\",\"target\":\"knowledge/a.md\",\"status\":\"blocked\",\"reason\":\"lock conflict\",\"artifacts\":[],\"approval_required\":false,\"validation_summary\":{\"finding_codes\":[],\"blocking\":false}}\n{\"event_id\":\"evt_2\",\"timestamp\":\"2026-04-11T01:01:00Z\",\"source\":\"vela\",\"endpoint\":\"patrol\",\"actor\":\"warden\",\"target\":\"knowledge/b.md\",\"status\":\"committed\",\"reason\":\"ok\",\"artifacts\":[],\"approval_required\":false,\"validation_summary\":{\"finding_codes\":[],\"blocking\":false}}",
+        );
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].target, "knowledge/a.md");
+        assert_eq!(items[0].reason, "lock conflict");
+        assert_eq!(items[0].endpoint, "patrol");
     }
 }

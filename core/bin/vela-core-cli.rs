@@ -2,8 +2,8 @@ use std::env;
 use std::io::{self, Read};
 
 use vela_core::events::{
-    plan_event_append, render_event_record_json, validate_event_record, EventRecord,
-    ValidationSummary,
+    extract_blocked_items as extract_blocked_items_policy, plan_event_append,
+    render_event_record_json, validate_event_record, EventRecord, ValidationSummary,
 };
 use vela_core::inventory::discover_matrix_inventory;
 use vela_core::matrix::{
@@ -11,8 +11,9 @@ use vela_core::matrix::{
     validate_sot_structure as validate_matrix_sot_structure,
 };
 use vela_core::models::{
-    DreamerProposalCandidate, OnboardingConfig, OperationLifecyclePlan, OperationLockRecord,
-    OperationStateEntry, OperationsState, SchedulerPlan, Severity, ValidationFinding,
+    BlockedItemSummary, DreamerProposalCandidate, OnboardingConfig, OperationLifecyclePlan,
+    OperationLockRecord, OperationStateEntry, OperationsState, SchedulerPlan, Severity,
+    ValidationFinding,
 };
 use vela_core::operations::{
     classify_dreamer_follow_up as classify_dreamer_follow_up_policy,
@@ -1109,6 +1110,21 @@ fn run() -> Result<(), String> {
                     .join(",")
             );
         }
+        "extract-blocked-items" => {
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let items = extract_blocked_items_policy(&content);
+            println!(
+                "{{\"ok\":true,\"items\":[{}]}}",
+                items
+                    .iter()
+                    .map(render_blocked_item_summary)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "validate-config" => {
             let owner_name = args
                 .next()
@@ -1627,6 +1643,16 @@ fn render_dreamer_proposal_candidate(item: &DreamerProposalCandidate) -> String 
         escape_json(&item.target),
         escape_json(&item.reason),
         item.count,
+    )
+}
+
+fn render_blocked_item_summary(item: &BlockedItemSummary) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"reason\":\"{}\",\"actor\":\"{}\",\"endpoint\":\"{}\"}}",
+        escape_json(&item.target),
+        escape_json(&item.reason),
+        escape_json(&item.actor),
+        escape_json(&item.endpoint),
     )
 }
 

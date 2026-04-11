@@ -46,6 +46,7 @@ from prototypes.python.vela.rust_bridge import (
     list_dreamer_queue_payload,
     matrix_inventory_payload,
     parse_dreamer_actions_payload,
+    extract_blocked_items_payload,
     parse_operations_state_payload,
     plan_event_append_payload,
     plan_night_cycle_payload,
@@ -1868,6 +1869,12 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(patrol_event_plan["ok"])
         self.assertIn("\"endpoint\":\"patrol\"", patrol_event_plan["plan"]["line"])
         self.assertIn("\"actor\":\"warden\"", patrol_event_plan["plan"]["line"])
+        blocked_items = extract_blocked_items_payload(
+            "{\"event_id\":\"evt_1\",\"timestamp\":\"2026-04-11T01:00:00Z\",\"source\":\"vela\",\"endpoint\":\"patrol\",\"actor\":\"warden\",\"target\":\"knowledge/a.md\",\"status\":\"blocked\",\"reason\":\"lock conflict\",\"artifacts\":[],\"approval_required\":false,\"validation_summary\":{\"finding_codes\":[],\"blocking\":false}}\n"
+        )
+        self.assertTrue(blocked_items["ok"])
+        self.assertEqual(blocked_items["items"][0]["target"], "knowledge/a.md")
+        self.assertEqual(blocked_items["items"][0]["endpoint"], "patrol")
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",
             [

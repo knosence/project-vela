@@ -16,6 +16,7 @@ from .rust_bridge import (
     inspect_dreamer_follow_up_payload,
     inspect_dreamer_follow_up_kind_payload,
     inspect_dreamer_proposal_payload,
+    extract_blocked_items_payload,
     list_dreamer_follow_ups_payload,
     list_dreamer_queue_payload,
     matrix_inventory_payload,
@@ -616,21 +617,8 @@ def _growth_candidates() -> list[dict[str, Any]]:
 def _blocked_items() -> list[dict[str, str]]:
     if not EVENT_LOG_PATH.exists():
         return []
-    items: list[dict[str, str]] = []
-    for line in EVENT_LOG_PATH.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        record = json.loads(line)
-        if record.get("status") == "blocked":
-            items.append(
-                {
-                    "target": str(record.get("target", "")),
-                    "reason": str(record.get("reason", "blocked")),
-                    "actor": str(record.get("actor", "")),
-                    "endpoint": str(record.get("endpoint", "")),
-                }
-            )
-    return items
+    payload = extract_blocked_items_payload(EVENT_LOG_PATH.read_text(encoding="utf-8"))
+    return list(payload.get("items", []))
 
 
 def _dreamer_patterns(dreamer_proposals: list[dict[str, Any]]) -> dict[str, int]:

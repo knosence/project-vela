@@ -92,6 +92,14 @@ pub struct DreamerProposalCandidate {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockedItemSummary {
+    pub target: String,
+    pub reason: String,
+    pub actor: String,
+    pub endpoint: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DreamerFollowUpSummary {
     pub target: String,
     pub status: String,

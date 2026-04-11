@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "knowledge/610.WHY.Vela-Intent-SoT.md",
+                "file": "knowledge/200.WHAT.Domain-SoT.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "610.WHY.Vela-Intent-SoT"
+              "title": "200.WHAT.Domain-SoT"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "knowledge/610.WHY.Vela-Intent-SoT.md",
+                "file": "knowledge/200.WHAT.Domain-SoT.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for 610.WHY.Vela-Intent-SoT"
+              "title": "Backlinks for 200.WHAT.Domain-SoT"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "knowledge/610.WHY.Vela-Intent-SoT.md",
+                "file": "knowledge/200.WHAT.Domain-SoT.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from 610.WHY.Vela-Intent-SoT"
+              "title": "Outgoing links from 200.WHAT.Domain-SoT"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "knowledge/610.WHY.Vela-Intent-SoT.md",
+                "file": "knowledge/200.WHAT.Domain-SoT.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of 610.WHY.Vela-Intent-SoT"
+              "title": "Outline of 200.WHAT.Domain-SoT"
             }
           }
         ]
@@ -185,35 +185,37 @@
   },
   "active": "3e08b19d68062871",
   "lastOpenFiles": [
-    "knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-0201.md",
+    "knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-0205.md",
     "runtime/queues/operation-patrol.lock",
     "runtime/config/operations-state.json",
     "knowledge/ARTIFACTS/logs/Vela-Patch-Log.md",
+    "knowledge/ARTIFACTS/archive/backups/202604110205(inbox-triage-target.md)Backup.md",
     "runtime/queues/b7afeb1f5f88cd6e30e0de38351d4086c9b3ef7a.lock",
     "knowledge/INBOX/test-inbox-item.md",
     "knowledge/ARTIFACTS/proposals/inbox-triage-target.md",
-    "knowledge/ARTIFACTS/archive/backups/202604110201(subject-declaration-test.md)Backup.md",
+    "knowledge/ARTIFACTS/archive/backups/202604110205(subject-declaration-test.md)Backup.md",
     "runtime/queues/2db7eb1811217146b90a52317b02820a1a25ab0e.lock",
-    "knowledge/ARTIFACTS/archive/backups/202604110201(TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
-    "runtime/queues/bf325035abde9f80a903e8f42df877337bae90b6.lock",
-    "knowledge/ARTIFACTS/archive/backups/202604110201(Growth-Proposal.2026-04-11.sovereign-change.TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
+    "knowledge/ARTIFACTS/archive/backups/202604110205(TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
+    "runtime/queues/ccff0fc4998eae81fc573fc4b8f74fcc8fddde94.lock",
+    "knowledge/ARTIFACTS/archive/backups/202604110205(Growth-Proposal.2026-04-11.sovereign-change.TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
     "knowledge/ARTIFACTS/proposals/Ref.repo-watch-test.Release-Intelligence.md",
+    "runtime/queues/cb1d3d8381e9d2272a5091549d85b88524aad5ea.lock",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.validation.json",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.reflection.json",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.md",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.assessment.json",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.packet.json",
-    "knowledge/ARTIFACTS/archive/backups/202604110201(protected-zone-test.md)Backup.md",
-    "runtime/queues/8e92fbe753c72ec04c3bb48cbb3c34964e23bea6.lock",
-    "knowledge/ARTIFACTS/refs/DC-Night-Report-20260411-0201.md",
-    "knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-20260411-0201.md",
-    "knowledge/ARTIFACTS/archive/backups/202604110201(Warden-Patrol-20260411-0201.md)Backup.md",
-    "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.20260411-0201.force-blocked-pattern-for-night-report.md",
+    "knowledge/ARTIFACTS/archive/backups/202604110205(protected-zone-test.md)Backup.md",
+    "knowledge/ARTIFACTS/refs/DC-Night-Report-20260411-0205.md",
+    "knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-20260411-0205.md",
+    "knowledge/610.WHY.Vela-Intent-SoT.md",
+    "knowledge/ARTIFACTS/archive/backups/202604110205(Warden-Patrol-20260411-0205.md)Backup.md",
+    "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.20260411-0205.force-blocked-pattern-for-night-report.md",
     "knowledge/ARTIFACTS/proposals/direct-root-dimension-branch-test.md",
     "knowledge/ARTIFACTS/proposals/direct-root-agent-branch-test.md",
     "knowledge/ARTIFACTS/refs/Ref.indexed-release-summary.Release-Intelligence.md",
     "knowledge/ARTIFACTS/refs/indexed-release-summary.md",
-    "knowledge/ARTIFACTS/archive/backups/202604110201(IMAGE-TARGET.MD)Backup.md",
+    "knowledge/ARTIFACTS/archive/backups/202604110204(IMAGE-TARGET.MD)Backup.md",
     "knowledge/ARTIFACTS/proposals/IMAGE-TARGET.png",
     "knowledge/INBOX/test-inbox-image.png",
     "knowledge/INBOX/test-inbox-image-1.png",
@@ -221,8 +223,6 @@
     "knowledge/INBOX/test-inbox-binary.png",
     "knowledge/INBOX/test-inbox-missing-target.md",
     "knowledge/ARTIFACTS/proposals/Synthetic-Identity-SoT.md",
-    "knowledge/ARTIFACTS/archive/backups/202604110201(growth-apply-service-test.md)Backup.md",
-    "knowledge/ARTIFACTS/refs/Ref.service-source.md",
-    "knowledge/ARTIFACTS/proposals/growth-apply-service-test.md"
+    "knowledge/ARTIFACTS/archive/backups/202604110204(growth-apply-service-test.md)Backup.md"
   ]
 }

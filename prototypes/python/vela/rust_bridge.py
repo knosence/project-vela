@@ -345,6 +345,10 @@ def plan_dreamer_proposals_payload(
     return _run(["plan-dreamer-proposals", stamp], stdin=json.dumps(blocked_items))
 
 
+def extract_blocked_items_payload(log_text: str) -> dict[str, Any]:
+    return _run(["extract-blocked-items"], stdin=log_text)
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 
