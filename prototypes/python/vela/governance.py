@@ -24,6 +24,7 @@ from .rust_bridge import render_applied_growth_proposal_payload
 from .rust_bridge import render_growth_fractalized_source_payload
 from .rust_bridge import route_inbox_payload
 from .rust_bridge import plan_archive_transaction_payload
+from .rust_bridge import plan_cross_reference_update_payload
 from .rust_bridge import validate_archive_postconditions_payload
 from .rust_bridge import validate_event_payload
 from .rust_bridge import validate_growth_stage_payload
@@ -598,7 +599,10 @@ def route_inbox_entry(text: str) -> str | None:
 
 
 def build_pointer_entry(description: str, primary_target: str, dimension_heading: str, date: str) -> str:
-    return f"- {description}. See: [[{primary_target}#{dimension_heading}]] ({date})"
+    normalized_dimension = dimension_heading.strip()
+    if normalized_dimension.startswith("##"):
+        normalized_dimension = normalized_dimension[2:].strip()
+    return f"- {description}. See: [[{primary_target}#{normalized_dimension}]] ({date})"
 
 
 def _today() -> str:
@@ -642,17 +646,21 @@ def create_cross_reference(
         )
         return {"ok": False, "findings": [finding.as_dict()]}
 
-    pointer = build_pointer_entry(description, Path(primary_target).stem, primary_dimension_heading, _today())
-    if pointer not in active:
-        if "(No active entries.)" in active:
-            updated_active = active.replace("(No active entries.)", pointer)
-        else:
-            updated_active = active.rstrip() + f"\n\n{pointer}\n"
-    else:
-        updated_active = active
-
-    updated_section = section.replace(active, updated_active, 1)
-    updated_content = content.replace(section, updated_section, 1)
+    cross_ref_plan = plan_cross_reference_update_payload(
+        content,
+        claimant_dimension_heading,
+        description,
+        Path(primary_target).stem,
+        primary_dimension_heading,
+        _today(),
+    )
+    if not cross_ref_plan.get("ok") or not cross_ref_plan.get("plan"):
+        findings = annotate_findings(
+            [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in cross_ref_plan.get("findings", [])]
+        )
+        return {"ok": False, "findings": [item.as_dict() for item in findings]}
+    pointer = str(cross_ref_plan["plan"]["pointer"])
+    updated_content = str(cross_ref_plan["plan"]["updated_content"])
     result = write_text(
         claimant_target,
         updated_content,

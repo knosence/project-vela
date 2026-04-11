@@ -14,8 +14,8 @@ use vela_core::matrix::{
     validate_sot_structure as validate_matrix_sot_structure,
 };
 use vela_core::models::{
-    ArchiveTransactionPlan, BlockedItemSummary, DreamerProposalCandidate, GrowthAssessment,
-    GrowthExecutionPlan, GrowthSourceUpdatePlan, GrowthTarget, OnboardingConfig,
+    ArchiveTransactionPlan, BlockedItemSummary, CrossReferencePlan, DreamerProposalCandidate,
+    GrowthAssessment, GrowthExecutionPlan, GrowthSourceUpdatePlan, GrowthTarget, OnboardingConfig,
     OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget,
     SchedulerPlan, Severity, ValidationFinding,
 };
@@ -34,6 +34,7 @@ use vela_core::operations::{
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
     plan_archive_transaction as plan_archive_transaction_policy,
+    plan_cross_reference_update as plan_cross_reference_update_policy,
     plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
     plan_dreamer_proposals as plan_dreamer_proposals_policy,
     plan_dreamer_review as plan_dreamer_review_policy,
@@ -345,6 +346,43 @@ fn run() -> Result<(), String> {
                 println!(
                     "{{\"ok\":true,\"plan\":{}}}",
                     render_archive_transaction_plan(&plan)
+                );
+            } else {
+                println!("{{\"ok\":true,\"plan\":null}}");
+            }
+        }
+        "plan-cross-reference-update" => {
+            let claimant_dimension_heading = args
+                .next()
+                .ok_or_else(|| "missing claimant dimension heading".to_string())?;
+            let description = args
+                .next()
+                .ok_or_else(|| "missing description".to_string())?;
+            let primary_target_stem = args
+                .next()
+                .ok_or_else(|| "missing primary target stem".to_string())?;
+            let primary_dimension_heading = args
+                .next()
+                .ok_or_else(|| "missing primary dimension heading".to_string())?;
+            let date = args.next().ok_or_else(|| "missing date".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (plan, findings) = plan_cross_reference_update_policy(
+                &content,
+                &claimant_dimension_heading,
+                &description,
+                &primary_target_stem,
+                &primary_dimension_heading,
+                &date,
+            );
+            if !findings.is_empty() {
+                print_findings(&findings, None);
+            } else if let Some(plan) = plan {
+                println!(
+                    "{{\"ok\":true,\"plan\":{}}}",
+                    render_cross_reference_plan(&plan)
                 );
             } else {
                 println!("{{\"ok\":true,\"plan\":null}}");
@@ -1967,6 +2005,14 @@ fn render_archive_transaction_plan(item: &ArchiveTransactionPlan) -> String {
         escape_json(&item.updated_content),
         escape_json(&item.archived_entry),
         escape_json(&item.archive_entry),
+    )
+}
+
+fn render_cross_reference_plan(item: &CrossReferencePlan) -> String {
+    format!(
+        "{{\"pointer\":\"{}\",\"updated_content\":\"{}\"}}",
+        escape_json(&item.pointer),
+        escape_json(&item.updated_content),
     )
 }
 

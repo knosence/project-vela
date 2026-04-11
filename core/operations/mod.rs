@@ -1,11 +1,11 @@
 use crate::events::{plan_event_append, EventRecord, ValidationSummary};
 use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_path};
 use crate::models::{
-    ArchiveTransactionPlan, DreamerAction, DreamerActionRegistry, DreamerApplyPlan,
-    DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan,
-    GrowthAssessment, GrowthExecutionPlan, GrowthSourceUpdatePlan, NightCyclePlan,
-    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan,
-    SchedulerPlan, ValidationFinding,
+    ArchiveTransactionPlan, CrossReferencePlan, DreamerAction, DreamerActionRegistry,
+    DreamerApplyPlan, DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary,
+    DreamerReviewPlan, GrowthAssessment, GrowthExecutionPlan, GrowthSourceUpdatePlan,
+    NightCyclePlan, OperationLifecyclePlan, OperationLockRecord, OperationStateEntry,
+    OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -656,6 +656,80 @@ pub fn plan_archive_transaction(
             updated_content,
             archived_entry,
             archive_entry,
+        }),
+        Vec::new(),
+    )
+}
+
+pub fn plan_cross_reference_update(
+    content: &str,
+    claimant_dimension_heading: &str,
+    description: &str,
+    primary_target_stem: &str,
+    primary_dimension_heading: &str,
+    date: &str,
+) -> (Option<CrossReferencePlan>, Vec<ValidationFinding>) {
+    let Some((section_start, section_end, section)) =
+        locate_dimension_section(content, claimant_dimension_heading)
+    else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "CROSS_REFERENCE_DIMENSION_MISSING",
+                format!("Claimant dimension not found: {claimant_dimension_heading}"),
+            )],
+        );
+    };
+    let Some((active_start, _inactive_start)) = locate_active_inactive_bounds(&section) else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "CROSS_REFERENCE_ACTIVE_SECTION_MISSING",
+                format!("Claimant Active section not found: {claimant_dimension_heading}"),
+            )],
+        );
+    };
+    let active = subsection(&section, "### Active");
+    if active.is_empty() {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "CROSS_REFERENCE_ACTIVE_SECTION_MISSING",
+                format!("Claimant Active section not found: {claimant_dimension_heading}"),
+            )],
+        );
+    }
+    let normalized_primary_dimension_heading = primary_dimension_heading
+        .trim()
+        .trim_start_matches('#')
+        .trim();
+    let pointer = format!(
+        "- {}. See: [[{}#{}]] ({})",
+        description, primary_target_stem, normalized_primary_dimension_heading, date
+    );
+    let updated_active = if active.contains(&pointer) {
+        active.clone()
+    } else if active.contains("(No active entries.)") {
+        active.replacen("(No active entries.)", &pointer, 1)
+    } else {
+        format!("{}\n\n{}\n", active.trim_end(), pointer)
+    };
+    let updated_section = format!(
+        "{}{}{}",
+        &section[..active_start],
+        updated_active,
+        &section[active_start + active.len()..]
+    );
+    let updated_content = format!(
+        "{}{}{}",
+        &content[..section_start],
+        updated_section,
+        &content[section_end..]
+    );
+    (
+        Some(CrossReferencePlan {
+            pointer,
+            updated_content,
         }),
         Vec::new(),
     )
@@ -2893,6 +2967,25 @@ mod tests {
         assert!(plan
             .updated_content
             .contains("[202604110300] FROM: ## 100.WHO.Identity"));
+    }
+
+    #[test]
+    fn plans_cross_reference_update() {
+        let content = "## 100.WHO.Identity\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n";
+        let (plan, findings) = plan_cross_reference_update(
+            content,
+            "## 100.WHO.Identity",
+            "Reference target",
+            "210.WHAT.Vela-Capabilities-SoT",
+            "## 200.WHAT.Scope",
+            "2026-04-11",
+        );
+        assert!(findings.is_empty());
+        let plan = plan.expect("cross reference plan");
+        assert!(plan
+            .pointer
+            .contains("[[210.WHAT.Vela-Capabilities-SoT#200.WHAT.Scope]]"));
+        assert!(plan.updated_content.contains("Reference target"));
     }
 
     #[test]

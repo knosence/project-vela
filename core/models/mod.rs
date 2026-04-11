@@ -144,6 +144,12 @@ pub struct ArchiveTransactionPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CrossReferencePlan {
+    pub pointer: String,
+    pub updated_content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PatchTarget {
     pub path: String,
 }

@@ -81,6 +81,7 @@ from prototypes.python.vela.rust_bridge import (
     route_for_target,
     route_inbox_payload,
     plan_archive_transaction_payload,
+    plan_cross_reference_update_payload,
     validate_dreamer_follow_up_apply_payload,
     validate_dreamer_execution_artifact_payload,
     validate_dc_night_report_payload,
@@ -1975,6 +1976,19 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(archive_plan["ok"])
         self.assertIn("Archived Reason: Replaced for test coverage", archive_plan["plan"]["updated_content"])
+        cross_reference_plan = plan_cross_reference_update_payload(
+            (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md").read_text(encoding="utf-8"),
+            "## 100.WHO.Identity",
+            "Reference target",
+            "210.WHAT.Vela-Capabilities-SoT",
+            "## 200.WHAT.Scope",
+            "2026-04-11",
+        )
+        self.assertTrue(cross_reference_plan["ok"])
+        self.assertIn(
+            "- Reference target. See: [[210.WHAT.Vela-Capabilities-SoT#200.WHAT.Scope]] (2026-04-11)",
+            cross_reference_plan["plan"]["pointer"],
+        )
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",
             [

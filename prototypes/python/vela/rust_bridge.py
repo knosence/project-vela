@@ -467,6 +467,27 @@ def plan_archive_transaction_payload(
     )
 
 
+def plan_cross_reference_update_payload(
+    content: str,
+    claimant_dimension_heading: str,
+    description: str,
+    primary_target_stem: str,
+    primary_dimension_heading: str,
+    date: str,
+) -> dict[str, Any]:
+    return _run(
+        [
+            "plan-cross-reference-update",
+            claimant_dimension_heading,
+            description,
+            primary_target_stem,
+            primary_dimension_heading,
+            date,
+        ],
+        stdin=content,
+    )
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 
