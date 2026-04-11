@@ -1737,9 +1737,10 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(apply_result["ok"])
         execution_path = REPO_ROOT / apply_result["execution_target"]
         self.assertTrue(execution_path.exists())
+        execution_stem = execution_path.stem
         for owner in apply_result["owners"]:
             owner_text = (REPO_ROOT / owner).read_text(encoding="utf-8")
-            self.assertIn(f"[[{execution_path.name}]]", owner_text)
+            self.assertIn(f"[[{execution_stem}]]", owner_text)
             self.assertNotIn("[[310a.WHERE.Shared-Topic-Ref]]", owner_text)
 
     def test_merge_follow_up_apply_service_endpoint(self) -> None:

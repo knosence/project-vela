@@ -11,7 +11,7 @@ use crate::models::{
     DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan,
     GrowthAssessment, GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan,
     InboxTriagePlan, MergeApplyPlan, MergeCandidateSummary, MergeFollowUpSummary,
-    MergeReviewPlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
+    MergeOwnerUpdate, MergeProposalSummary, MergeReviewPlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
     OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
 };
 use std::collections::BTreeMap;
@@ -1642,6 +1642,21 @@ pub fn list_merge_follow_ups(repo_root: &str) -> Vec<MergeFollowUpSummary> {
         .collect()
 }
 
+pub fn list_merge_proposals(repo_root: &str) -> Vec<MergeProposalSummary> {
+    discover_dreamer_files(repo_root, "Merge-Proposal.")
+        .into_iter()
+        .map(|(target, text)| MergeProposalSummary {
+            target,
+            status: extract_frontmatter_value(&text, "status")
+                .unwrap_or_else(|| "unknown".to_string()),
+            ref_target: extract_frontmatter_value(&text, "ref-target").unwrap_or_default(),
+            count: extract_frontmatter_value(&text, "entity-count")
+                .and_then(|item| item.parse::<usize>().ok())
+                .unwrap_or(0),
+        })
+        .collect()
+}
+
 pub fn render_reviewed_merge_proposal(
     text: &str,
     decision: &str,
@@ -1957,6 +1972,7 @@ pub fn plan_merge_follow_up_apply(
                 execution_target: execution_target.clone(),
                 ref_target: merge_follow_up_ref_target(current_text),
                 owners: Vec::new(),
+                owner_updates: Vec::new(),
                 execution_content: String::new(),
                 updated_follow_up_content: current_text.to_string(),
                 already_applied: true,
@@ -1983,6 +1999,17 @@ pub fn plan_merge_follow_up_apply(
         .find(|item| item.ref_target == ref_target)
         .map(|item| item.owners)
         .unwrap_or_default();
+    let owner_updates = owners
+        .iter()
+        .filter_map(|owner| {
+            let owner_path = root.join(owner);
+            let text = fs::read_to_string(&owner_path).ok()?;
+            Some(MergeOwnerUpdate {
+                target: owner.clone(),
+                updated_content: replace_ref_with_sot_pointer(&text, &ref_target, &execution_target),
+            })
+        })
+        .collect::<Vec<MergeOwnerUpdate>>();
     let execution_content = render_merge_spawned_sot(&execution_target, &ref_target, &owners);
     let updated_follow_up_content = render_applied_merge_follow_up(current_text, &execution_target, &owners);
     (
@@ -1991,6 +2018,7 @@ pub fn plan_merge_follow_up_apply(
             execution_target,
             ref_target,
             owners,
+            owner_updates,
             execution_content,
             updated_follow_up_content,
             already_applied: false,
@@ -3375,6 +3403,13 @@ fn extract_reference_targets(text: &str) -> Vec<String> {
     targets.sort();
     targets.dedup();
     targets
+}
+
+fn replace_ref_with_sot_pointer(text: &str, ref_target: &str, sot_target: &str) -> String {
+    text.replace(
+        &format!("[[{}]]", stem_or_empty(ref_target)),
+        &format!("[[{}]]", stem_or_empty(sot_target)),
+    )
 }
 
 fn civil_from_days(days_since_epoch: i64) -> String {

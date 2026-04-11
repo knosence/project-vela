@@ -99,6 +99,14 @@ pub struct MergeCandidateSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MergeProposalSummary {
+    pub target: String,
+    pub status: String,
+    pub ref_target: String,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MergeFollowUpSummary {
     pub target: String,
     pub status: String,
@@ -251,9 +259,16 @@ pub struct MergeApplyPlan {
     pub execution_target: String,
     pub ref_target: String,
     pub owners: Vec<String>,
+    pub owner_updates: Vec<MergeOwnerUpdate>,
     pub execution_content: String,
     pub updated_follow_up_content: String,
     pub already_applied: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MergeOwnerUpdate {
+    pub target: String,
+    pub updated_content: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

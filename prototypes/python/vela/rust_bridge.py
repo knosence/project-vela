@@ -400,6 +400,10 @@ def list_merge_follow_ups_payload() -> dict[str, Any]:
     return _run(["list-merge-follow-ups"])
 
 
+def list_merge_proposals_payload() -> dict[str, Any]:
+    return _run(["list-merge-proposals"])
+
+
 def assess_growth_payload(target: str) -> dict[str, Any]:
     return _run(["assess-growth-target", target])
 

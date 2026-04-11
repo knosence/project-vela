@@ -12,9 +12,7 @@ from .governance import append_event, record_approval, validate_target, write_te
 from .growth import assess_growth
 from .merge import (
     detect_merge_candidates,
-    list_merge_proposals as list_merge_proposals_runtime,
     merge_proposal_target,
-    replace_ref_with_sot_pointer,
     render_merge_proposal,
 )
 from .models import EventRecord
@@ -29,6 +27,7 @@ from .rust_bridge import (
     list_dreamer_queue_payload,
     list_growth_targets_payload,
     list_merge_follow_ups_payload,
+    list_merge_proposals_payload,
     matrix_inventory_payload,
     plan_night_cycle_payload,
     plan_dreamer_follow_up_apply_payload,
@@ -422,7 +421,7 @@ def list_merge_candidates() -> dict[str, Any]:
 
 
 def list_merge_proposals() -> dict[str, Any]:
-    payload = list_merge_proposals_runtime()
+    payload = list_merge_proposals_payload()
     return {"ok": bool(payload.get("ok")), "items": list(payload.get("items", []))}
 
 
@@ -511,11 +510,11 @@ def apply_merge_follow_up(target: str, actor: str, reason: str) -> dict[str, Any
         reason=f"execute merge follow up {target}",
     )
     owner_results: list[dict[str, Any]] = []
-    for owner in owners:
-        owner_path = REPO_ROOT / owner
-        if not owner_path.exists():
+    for owner_update in plan.get("owner_updates", []):
+        owner = str(owner_update.get("target", ""))
+        updated_owner = str(owner_update.get("updated_content", ""))
+        if not owner:
             continue
-        updated_owner = replace_ref_with_sot_pointer(owner_path.read_text(encoding="utf-8"), ref_target, execution_target)
         owner_results.append(
             write_text(
                 owner,

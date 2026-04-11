@@ -18,9 +18,9 @@ use vela_core::models::{
     CsvInboxPlan, DimensionAppendPlan, DreamerProposalCandidate, GrowthAssessment,
     GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan, GrowthTarget,
     InboxTriagePlan, MergeApplyPlan, MergeCandidateSummary, MergeFollowUpSummary,
-    MergeReviewPlan, OnboardingConfig, OperationLifecyclePlan, OperationLockRecord,
-    OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan, Severity,
-    ValidationFinding,
+    MergeOwnerUpdate, MergeProposalSummary, MergeReviewPlan, OnboardingConfig,
+    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState,
+    PatchTarget, SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
     apply_growth_source_update as apply_growth_source_update_policy,
@@ -36,6 +36,7 @@ use vela_core::operations::{
     list_dreamer_proposals as list_dreamer_proposals_policy,
     list_merge_candidates as list_merge_candidates_policy,
     list_merge_follow_ups as list_merge_follow_ups_policy,
+    list_merge_proposals as list_merge_proposals_policy,
     match_dreamer_actions as match_dreamer_actions_policy,
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
@@ -1131,6 +1132,21 @@ fn run() -> Result<(), String> {
                 items
                     .iter()
                     .map(render_merge_follow_up_summary)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
+        "list-merge-proposals" => {
+            let repo_root = env::current_dir()
+                .map_err(|err| format!("failed reading current dir: {err}"))?
+                .to_string_lossy()
+                .to_string();
+            let items = list_merge_proposals_policy(&repo_root);
+            println!(
+                "{{\"ok\":true,\"items\":[{}]}}",
+                items
+                    .iter()
+                    .map(render_merge_proposal_summary)
                     .collect::<Vec<String>>()
                     .join(",")
             );
@@ -2344,6 +2360,16 @@ fn render_merge_follow_up_summary(item: &MergeFollowUpSummary) -> String {
     )
 }
 
+fn render_merge_proposal_summary(item: &MergeProposalSummary) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"status\":\"{}\",\"ref_target\":\"{}\",\"count\":{}}}",
+        escape_json(&item.target),
+        escape_json(&item.status),
+        escape_json(&item.ref_target),
+        item.count,
+    )
+}
+
 fn render_merge_review_plan(item: &MergeReviewPlan) -> String {
     format!(
         "{{\"target\":\"{}\",\"decision\":\"{}\",\"follow_up_target\":\"{}\",\"suggested_target\":\"{}\",\"updated_content\":\"{}\",\"follow_up_content\":\"{}\"}}",
@@ -2358,14 +2384,23 @@ fn render_merge_review_plan(item: &MergeReviewPlan) -> String {
 
 fn render_merge_apply_plan(item: &MergeApplyPlan) -> String {
     format!(
-        "{{\"target\":\"{}\",\"execution_target\":\"{}\",\"ref_target\":\"{}\",\"owners\":[{}],\"execution_content\":\"{}\",\"updated_follow_up_content\":\"{}\",\"already_applied\":{}}}",
+        "{{\"target\":\"{}\",\"execution_target\":\"{}\",\"ref_target\":\"{}\",\"owners\":[{}],\"owner_updates\":[{}],\"execution_content\":\"{}\",\"updated_follow_up_content\":\"{}\",\"already_applied\":{}}}",
         escape_json(&item.target),
         escape_json(&item.execution_target),
         escape_json(&item.ref_target),
         item.owners.iter().map(|owner| format!("\"{}\"", escape_json(owner))).collect::<Vec<String>>().join(","),
+        item.owner_updates.iter().map(render_merge_owner_update).collect::<Vec<String>>().join(","),
         escape_json(&item.execution_content),
         escape_json(&item.updated_follow_up_content),
         if item.already_applied { "true" } else { "false" },
+    )
+}
+
+fn render_merge_owner_update(item: &MergeOwnerUpdate) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"updated_content\":\"{}\"}}",
+        escape_json(&item.target),
+        escape_json(&item.updated_content),
     )
 }
 
