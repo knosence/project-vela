@@ -43,7 +43,13 @@ from prototypes.python.vela.rust_bridge import (
     matrix_inventory_payload,
     parse_dreamer_actions_payload,
     parse_operations_state_payload,
+    render_dc_night_report_payload,
+    render_dreamer_execution_artifact_payload,
+    render_dreamer_follow_up_payload,
+    render_dreamer_pattern_report_payload,
+    render_dreamer_proposal_payload,
     render_event_payload,
+    render_warden_patrol_report_payload,
     register_dreamer_action_payload,
     route_for_target,
     route_inbox_payload,
@@ -1751,6 +1757,112 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(updated["ok"])
         self.assertEqual(updated["registry"]["workflow_changes"][0]["status"], "inactive")
+
+        patrol_rendered = render_warden_patrol_report_payload(
+            "20260411-0200",
+            "system",
+            ["knowledge/110.WHO.Vela-Identity-SoT.md"],
+            ["knowledge/ARTIFACTS/proposals/example.md"],
+        )
+        self.assertTrue(patrol_rendered["ok"])
+        self.assertIn("# Warden Patrol Report", patrol_rendered["content"])
+
+        proposal_rendered = render_dreamer_proposal_payload(
+            "2026-04-11",
+            "20260411-0200",
+            "system",
+            "validator rule drift",
+            3,
+            [
+                {
+                    "target": "knowledge/ARTIFACTS/proposals/example.md",
+                    "endpoint": "validate",
+                    "actor": "dreamer",
+                    "reason": "validator rule drift",
+                }
+            ],
+        )
+        self.assertTrue(proposal_rendered["ok"])
+        self.assertIn("# Dreamer Proposal", proposal_rendered["content"])
+
+        follow_up_rendered = render_dreamer_follow_up_payload(
+            "2026-04-11",
+            "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.example.md",
+            "validator rule drift",
+            "validator-change",
+            "human",
+        )
+        self.assertTrue(follow_up_rendered["ok"])
+        self.assertIn("# Dreamer Follow Up", follow_up_rendered["content"])
+
+        execution_rendered = render_dreamer_execution_artifact_payload(
+            "2026-04-11",
+            "knowledge/ARTIFACTS/proposals/Dreamer-Follow-Up.example.md",
+            "human",
+            "validator-change",
+            "validator rule drift",
+            "Validator-Change-Queue",
+            "tighten validator",
+        )
+        self.assertTrue(execution_rendered["ok"])
+        self.assertIn("# Dreamer Execution", execution_rendered["content"])
+
+        dreamer_report_rendered = render_dreamer_pattern_report_payload(
+            "20260411-0200",
+            "system",
+            {"validator rule drift": 3},
+            [
+                {
+                    "target": "knowledge/ARTIFACTS/proposals/example.md",
+                    "endpoint": "validate",
+                    "actor": "dreamer",
+                    "reason": "validator rule drift",
+                }
+            ],
+            [
+                {
+                    "target": "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.example.md",
+                    "reason": "validator rule drift",
+                    "count": 3,
+                }
+            ],
+        )
+        self.assertTrue(dreamer_report_rendered["ok"])
+        self.assertIn("# Dreamer Pattern Report", dreamer_report_rendered["content"])
+
+        dc_report_rendered = render_dc_night_report_payload(
+            "20260411-0200",
+            "system",
+            "knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-0200.md",
+            1,
+            1,
+            [
+                {
+                    "target": "knowledge/220.WHAT.Repo-Watchlist-SoT.md",
+                    "stage": "reference-note",
+                    "inventory_role": "branch-sot",
+                }
+            ],
+            {"validator rule drift": 3},
+            [
+                {
+                    "target": "knowledge/ARTIFACTS/proposals/example.md",
+                    "endpoint": "validate",
+                    "actor": "dreamer",
+                    "reason": "validator rule drift",
+                }
+            ],
+            "knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-20260411-0200.md",
+            [
+                {
+                    "target": "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.example.md",
+                    "reason": "validator rule drift",
+                    "count": 3,
+                }
+            ],
+        )
+        self.assertTrue(dc_report_rendered["ok"])
+        self.assertIn("# DC Night Report", dc_report_rendered["content"])
 
     def test_matrix_parent_rule_rejects_direct_root_attachment_for_agent_branch(self) -> None:
         target = REPO_ROOT / "knowledge/ARTIFACTS/proposals/direct-root-agent-branch-test.md"

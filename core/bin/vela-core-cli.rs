@@ -21,6 +21,12 @@ use vela_core::operations::{
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
     register_dreamer_action as register_dreamer_action_policy,
+    render_dc_night_report as render_dc_night_report_policy,
+    render_dreamer_execution_artifact as render_dreamer_execution_artifact_policy,
+    render_dreamer_follow_up as render_dreamer_follow_up_policy,
+    render_dreamer_pattern_report as render_dreamer_pattern_report_policy,
+    render_dreamer_proposal as render_dreamer_proposal_policy,
+    render_warden_patrol_report as render_warden_patrol_report_policy,
     route_inbox_entry as route_inbox_dimension,
     update_dreamer_action_status as update_dreamer_action_status_policy,
     update_operations_state as update_operations_state_policy,
@@ -434,6 +440,221 @@ fn run() -> Result<(), String> {
             let findings = validate_dreamer_pattern_report_policy(&content);
             print_findings(&findings, None);
         }
+        "render-warden-patrol-report" => {
+            let stamp = args.next().ok_or_else(|| "missing stamp".to_string())?;
+            let requested_by = args
+                .next()
+                .ok_or_else(|| "missing requested_by".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (checked_json, structural_json) = content
+                .split_once("\n===INPUT===\n")
+                .ok_or_else(|| "missing patrol render split marker".to_string())?;
+            let checked_targets = extract_json_string_list(checked_json);
+            let structural_targets = extract_json_string_list(structural_json);
+            let rendered = render_warden_patrol_report_policy(
+                &stamp,
+                &requested_by,
+                &checked_targets,
+                &structural_targets,
+            );
+            let findings = validate_warden_patrol_report_policy(&rendered);
+            println!(
+                "{{\"ok\":{},\"content\":\"{}\",\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                escape_json(&rendered),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
+        "render-dreamer-pattern-report" => {
+            let stamp = args.next().ok_or_else(|| "missing stamp".to_string())?;
+            let requested_by = args
+                .next()
+                .ok_or_else(|| "missing requested_by".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let parts: Vec<&str> = content.split("\n===INPUT===\n").collect();
+            if parts.len() != 3 {
+                return Err("missing dreamer pattern render split markers".to_string());
+            }
+            let rendered = render_dreamer_pattern_report_policy(
+                &stamp,
+                &requested_by,
+                parts[0],
+                parts[1],
+                parts[2],
+            );
+            let findings = validate_dreamer_pattern_report_policy(&rendered);
+            println!(
+                "{{\"ok\":{},\"content\":\"{}\",\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                escape_json(&rendered),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
+        "render-dc-night-report" => {
+            let stamp = args.next().ok_or_else(|| "missing stamp".to_string())?;
+            let requested_by = args
+                .next()
+                .ok_or_else(|| "missing requested_by".to_string())?;
+            let patrol_report_target = args
+                .next()
+                .ok_or_else(|| "missing patrol report target".to_string())?;
+            let files_checked = args
+                .next()
+                .ok_or_else(|| "missing files checked".to_string())?
+                .parse::<usize>()
+                .map_err(|err| format!("invalid files checked: {err}"))?;
+            let structural_flags_count = args
+                .next()
+                .ok_or_else(|| "missing structural flags count".to_string())?
+                .parse::<usize>()
+                .map_err(|err| format!("invalid structural flags count: {err}"))?;
+            let dreamer_report_target = args
+                .next()
+                .ok_or_else(|| "missing dreamer report target".to_string())?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let parts: Vec<&str> = content.split("\n===INPUT===\n").collect();
+            if parts.len() != 4 {
+                return Err("missing dc night render split markers".to_string());
+            }
+            let rendered = render_dc_night_report_policy(
+                &stamp,
+                &requested_by,
+                &patrol_report_target,
+                files_checked,
+                structural_flags_count,
+                parts[0],
+                parts[1],
+                parts[2],
+                &dreamer_report_target,
+                parts[3],
+            );
+            let findings = validate_dc_night_report_policy(&rendered);
+            println!(
+                "{{\"ok\":{},\"content\":\"{}\",\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                escape_json(&rendered),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
+        "render-dreamer-proposal" => {
+            let created = args.next().ok_or_else(|| "missing created".to_string())?;
+            let stamp = args.next().ok_or_else(|| "missing stamp".to_string())?;
+            let requested_by = args
+                .next()
+                .ok_or_else(|| "missing requested_by".to_string())?;
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let count = args
+                .next()
+                .ok_or_else(|| "missing count".to_string())?
+                .parse::<usize>()
+                .map_err(|err| format!("invalid count: {err}"))?;
+            let mut blocked_items_json = String::new();
+            io::stdin()
+                .read_to_string(&mut blocked_items_json)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let rendered = render_dreamer_proposal_policy(
+                &created,
+                &stamp,
+                &requested_by,
+                &reason,
+                count,
+                &blocked_items_json,
+            );
+            println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&rendered));
+        }
+        "render-dreamer-follow-up" => {
+            let created = args.next().ok_or_else(|| "missing created".to_string())?;
+            let proposal_target = args
+                .next()
+                .ok_or_else(|| "missing proposal target".to_string())?;
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let classification = args
+                .next()
+                .ok_or_else(|| "missing classification".to_string())?;
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let rendered = render_dreamer_follow_up_policy(
+                &created,
+                &proposal_target,
+                &reason,
+                &classification,
+                &actor,
+            );
+            println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&rendered));
+        }
+        "render-dreamer-execution-artifact" => {
+            let created = args.next().ok_or_else(|| "missing created".to_string())?;
+            let follow_up_target = args
+                .next()
+                .ok_or_else(|| "missing follow up target".to_string())?;
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let kind = args.next().ok_or_else(|| "missing kind".to_string())?;
+            let follow_up_reason = args
+                .next()
+                .ok_or_else(|| "missing follow up reason".to_string())?;
+            let queue_name = args
+                .next()
+                .ok_or_else(|| "missing queue name".to_string())?;
+            let execution_reason = args
+                .next()
+                .ok_or_else(|| "missing execution reason".to_string())?;
+            let rendered = render_dreamer_execution_artifact_policy(
+                &created,
+                &follow_up_target,
+                &actor,
+                &kind,
+                &follow_up_reason,
+                &queue_name,
+                &execution_reason,
+            );
+            let findings = validate_dreamer_execution_artifact_policy(&rendered);
+            println!(
+                "{{\"ok\":{},\"content\":\"{}\",\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                escape_json(&rendered),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "validate-config" => {
             let owner_name = args
                 .next()
@@ -800,6 +1021,28 @@ fn run() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn extract_json_string_list(text: &str) -> Vec<String> {
+    let trimmed = text.trim();
+    if trimmed.len() < 2 || !trimmed.starts_with('[') || !trimmed.ends_with(']') {
+        return Vec::new();
+    }
+    let inner = &trimmed[1..trimmed.len() - 1];
+    if inner.trim().is_empty() {
+        return Vec::new();
+    }
+    inner
+        .split(',')
+        .filter_map(|part| {
+            let item = part.trim().trim_matches('"');
+            if item.is_empty() {
+                None
+            } else {
+                Some(item.to_string())
+            }
+        })
+        .collect()
 }
 
 fn parse_bool(value: &str) -> Result<bool, String> {

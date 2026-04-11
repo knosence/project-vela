@@ -324,6 +324,202 @@ pub fn validate_dreamer_pattern_report(content: &str) -> Vec<ValidationFinding> 
     missing_shape_findings(content, &required, "DREAMER_PATTERN_REPORT_INVALID")
 }
 
+pub fn render_warden_patrol_report(
+    stamp: &str,
+    requested_by: &str,
+    checked_targets: &[String],
+    structural_flag_targets: &[String],
+) -> String {
+    let checked_lines = if checked_targets.is_empty() {
+        "- No patched targets were available.".to_string()
+    } else {
+        checked_targets
+            .iter()
+            .map(|target| format!("- `{target}`"))
+            .collect::<Vec<String>>()
+            .join("\n")
+    };
+    let flag_lines = if structural_flag_targets.is_empty() {
+        "- No structural flags.".to_string()
+    } else {
+        structural_flag_targets
+            .iter()
+            .map(|target| format!("- `{target}`"))
+            .collect::<Vec<String>>()
+            .join("\n")
+    };
+    format!(
+        "# Warden Patrol Report\n\n\
+## This Report Records the Latest Patrol Validation Pass Over Recent Day Shift Activity\n\
+Patrol `{stamp}` was requested by `{requested_by}` and validated the latest patched targets.\n\n\
+## Checked Targets\n\n\
+{checked_lines}\n\n\
+## Structural Flags\n\n\
+{flag_lines}\n\n\
+## Cosmetic Fixes\n\n\
+- No cosmetic fixes were applied in this skeleton patrol.\n"
+    )
+}
+
+pub fn render_dc_night_report(
+    stamp: &str,
+    requested_by: &str,
+    patrol_report_target: &str,
+    files_checked: usize,
+    structural_flags_count: usize,
+    growth_candidates_json: &str,
+    dreamer_patterns_json: &str,
+    blocked_items_json: &str,
+    dreamer_report_target: &str,
+    dreamer_proposals_json: &str,
+) -> String {
+    let growth_lines = render_growth_candidates(growth_candidates_json);
+    let pattern_lines = render_pattern_counts(dreamer_patterns_json);
+    let blocked_lines = render_blocked_items(blocked_items_json);
+    let proposal_lines = render_dreamer_proposals(dreamer_proposals_json, true);
+    format!(
+        "# DC Night Report\n\n\
+## This Report Records the Coordinated Night Cycle Across Patrol, Growth Review, and Pattern Review\n\
+Night cycle `{stamp}` was requested by `{requested_by}` and packaged the current operational state.\n\n\
+## Warden Patrol Summary\n\n\
+- Patrol report: `[[{}]]`\n\
+- Files checked: {files_checked}\n\
+- Structural flags: {structural_flags_count}\n\n\
+## Grower Activity\n\n\
+{growth_lines}\n\n\
+## Dreamer Activity\n\n\
+- Pattern report: `[[{}]]`\n\
+{pattern_lines}\n\n\
+## Dreamer Proposals\n\n\
+{proposal_lines}\n\n\
+## Blocked (Needs Dario)\n\n\
+{blocked_lines}\n",
+        stem_or_empty(patrol_report_target),
+        stem_or_empty(dreamer_report_target),
+    )
+}
+
+pub fn render_dreamer_pattern_report(
+    stamp: &str,
+    requested_by: &str,
+    dreamer_patterns_json: &str,
+    blocked_items_json: &str,
+    dreamer_proposals_json: &str,
+) -> String {
+    let strike_lines = render_three_strike_patterns(dreamer_patterns_json);
+    let recent_lines = render_recent_blocked_items(blocked_items_json);
+    let proposal_lines = render_dreamer_proposals(dreamer_proposals_json, false);
+    format!(
+        "# Dreamer Pattern Report\n\n\
+## This Report Records Repeated Blocked Patterns Worth Further Review\n\
+Dreamer review `{stamp}` was requested by `{requested_by}` and scanned recent blocked events.\n\n\
+## Three Strike Patterns\n\n\
+{strike_lines}\n\n\
+## Proposed Responses\n\n\
+{proposal_lines}\n\n\
+## Recent Blocked Items\n\n\
+{recent_lines}\n"
+    )
+}
+
+pub fn render_dreamer_proposal(
+    created: &str,
+    stamp: &str,
+    requested_by: &str,
+    reason: &str,
+    count: usize,
+    blocked_items_json: &str,
+) -> String {
+    let evidence_lines = render_matching_blocked_item_evidence(blocked_items_json, reason);
+    format!(
+        "---\n\
+sot-type: proposal\n\
+created: {created}\n\
+last-rewritten: {created}\n\
+parent: \"[[100.WHO.Circle-SoT]]\"\n\
+domain: operations\n\
+status: proposed\n\
+tags: [\"dreamer\",\"proposal\",\"night-cycle\"]\n\
+---\n\n\
+# Dreamer Proposal\n\n\
+## This Proposal Records a Repeated Night Cycle Failure Pattern That Merits Follow Up\n\
+Dreamer opened this proposal during `{stamp}` for `{requested_by}` after observing `{count}` repeated blocks.\n\n\
+## Pattern\n\n\
+- reason: `{reason}`\n\
+- strikes: `{count}`\n\n\
+## Evidence\n\n\
+{evidence_lines}\n\n\
+## Proposed Response\n\n\
+- Review the validator or workflow path that is producing `{reason}`.\n\
+- Decide whether the correct next step is a rule change, a workflow change, or a stricter refusal.\n"
+    )
+}
+
+pub fn render_dreamer_follow_up(
+    created: &str,
+    proposal_target: &str,
+    reason: &str,
+    classification: &str,
+    actor: &str,
+) -> String {
+    format!(
+        "---\n\
+sot-type: proposal\n\
+created: {created}\n\
+last-rewritten: {created}\n\
+parent: \"[[{}]]\"\n\
+domain: operations\n\
+status: proposed\n\
+tags: [\"dreamer\",\"follow-up\",\"proposal\"]\n\
+---\n\n\
+# Dreamer Follow Up\n\n\
+## This Proposal Records the Concrete Follow Up Opened After an Approved Dreamer Review\n\
+Approved Dreamer proposal `[[{}]]` opened this `{classification}` follow up.\n\n\
+## Classification\n\n\
+- kind: `{classification}`\n\
+- reason: `{reason}`\n\
+- reviewed by: `{actor}`\n\n\
+## Suggested Next Step\n\n\
+- Apply a targeted {classification} change and verify it against the repeated failure signal.\n",
+        stem_or_empty(proposal_target),
+        stem_or_empty(proposal_target),
+    )
+}
+
+pub fn render_dreamer_execution_artifact(
+    created: &str,
+    follow_up_target: &str,
+    actor: &str,
+    kind: &str,
+    follow_up_reason: &str,
+    queue_name: &str,
+    execution_reason: &str,
+) -> String {
+    format!(
+        "---\n\
+sot-type: reference\n\
+created: {created}\n\
+last-rewritten: {created}\n\
+parent: \"[[{}]]\"\n\
+domain: operations\n\
+status: active\n\
+tags: [\"dreamer\",\"execution\",\"operations\"]\n\
+---\n\n\
+# Dreamer Execution\n\n\
+## This Reference Records the Concrete Queue Item Opened from an Approved Dreamer Follow Up\n\
+Follow up `[[{}]]` was executed by `{actor}` and opened a concrete `{kind}` queue item.\n\n\
+## Classification\n\n\
+- kind: `{kind}`\n\
+- pattern: `{follow_up_reason}`\n\
+- queue: `[[{queue_name}]]`\n\n\
+## Execution\n\n\
+- reason: {execution_reason}\n\
+- next step: implement the queued change through the governed validation or workflow path.\n",
+        stem_or_empty(follow_up_target),
+        stem_or_empty(follow_up_target),
+    )
+}
+
 pub fn parse_dreamer_action_registry(
     registry_json: &str,
 ) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
@@ -580,6 +776,143 @@ fn bucket_entries<'a>(registry: &'a DreamerActionRegistry, mode: &str) -> &'a [D
     }
 }
 
+fn stem_or_empty(path: &str) -> String {
+    path.rsplit('/')
+        .next()
+        .unwrap_or(path)
+        .trim_end_matches(".md")
+        .to_string()
+}
+
+fn render_growth_candidates(growth_candidates_json: &str) -> String {
+    let entries = extract_object_blocks(growth_candidates_json);
+    if entries.is_empty() {
+        return "- No active growth candidates.".to_string();
+    }
+    entries
+        .iter()
+        .map(|entry| {
+            let target = extract_json_string(entry, "target").unwrap_or_default();
+            let stage = extract_json_string(entry, "stage").unwrap_or_default();
+            let inventory_role = extract_json_string(entry, "inventory_role").unwrap_or_default();
+            format!("- `{target}` -> `{stage}` ({inventory_role})")
+        })
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+fn render_pattern_counts(patterns_json: &str) -> String {
+    let entries = extract_json_map_entries(patterns_json);
+    if entries.is_empty() {
+        return "- No blocked-pattern signals recorded.".to_string();
+    }
+    entries
+        .iter()
+        .map(|(reason, count)| format!("- `{reason}` -> {count}"))
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+fn render_three_strike_patterns(patterns_json: &str) -> String {
+    let lines = extract_json_map_entries(patterns_json)
+        .into_iter()
+        .filter(|(_, count)| *count >= 3)
+        .map(|(reason, count)| format!("- `{reason}` -> {count} strikes"))
+        .collect::<Vec<String>>();
+    if lines.is_empty() {
+        "- No 3-strike patterns detected.".to_string()
+    } else {
+        lines.join("\n")
+    }
+}
+
+fn render_blocked_items(blocked_items_json: &str) -> String {
+    let entries = extract_object_blocks(blocked_items_json);
+    if entries.is_empty() {
+        return "- Spawn recommendations and constitutional rule changes remain human-gated."
+            .to_string();
+    }
+    entries
+        .iter()
+        .take(5)
+        .map(|entry| {
+            let target = extract_json_string(entry, "target").unwrap_or_default();
+            let endpoint = extract_json_string(entry, "endpoint").unwrap_or_default();
+            let actor = extract_json_string(entry, "actor").unwrap_or_default();
+            let reason = extract_json_string(entry, "reason").unwrap_or_default();
+            format!(
+                "- `{target}`\n  Attempted: `{endpoint}` by `{actor}`\n  Blocked because: {reason}"
+            )
+        })
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+fn render_recent_blocked_items(blocked_items_json: &str) -> String {
+    let entries = extract_object_blocks(blocked_items_json);
+    if entries.is_empty() {
+        return "- No blocked items recorded.".to_string();
+    }
+    entries
+        .iter()
+        .take(5)
+        .map(|entry| {
+            let target = extract_json_string(entry, "target").unwrap_or_default();
+            let endpoint = extract_json_string(entry, "endpoint").unwrap_or_default();
+            let reason = extract_json_string(entry, "reason").unwrap_or_default();
+            format!("- `{reason}` on `{target}` via `{endpoint}`")
+        })
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+fn render_dreamer_proposals(dreamer_proposals_json: &str, include_strike_count: bool) -> String {
+    let entries = extract_object_blocks(dreamer_proposals_json);
+    if entries.is_empty() {
+        return if include_strike_count {
+            "- No Dreamer proposals opened this cycle.".to_string()
+        } else {
+            "- No Dreamer proposals were created.".to_string()
+        };
+    }
+    entries
+        .iter()
+        .map(|entry| {
+            let target = extract_json_string(entry, "target").unwrap_or_default();
+            let reason = extract_json_string(entry, "reason").unwrap_or_default();
+            if include_strike_count {
+                let count = extract_json_number(entry, "count").unwrap_or(0);
+                format!(
+                    "- `[[{}]]` for `{reason}` ({count} strikes)",
+                    stem_or_empty(&target)
+                )
+            } else {
+                format!("- `[[{}]]` for `{reason}`", stem_or_empty(&target))
+            }
+        })
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+fn render_matching_blocked_item_evidence(blocked_items_json: &str, reason: &str) -> String {
+    let matches = extract_object_blocks(blocked_items_json)
+        .into_iter()
+        .filter(|entry| extract_json_string(entry, "reason").unwrap_or_default() == reason)
+        .take(5)
+        .map(|entry| {
+            let target = extract_json_string(&entry, "target").unwrap_or_default();
+            let endpoint = extract_json_string(&entry, "endpoint").unwrap_or_default();
+            let actor = extract_json_string(&entry, "actor").unwrap_or_default();
+            format!("- `{target}` via `{endpoint}` by `{actor}`")
+        })
+        .collect::<Vec<String>>();
+    if matches.is_empty() {
+        "- No matching blocked items remained available.".to_string()
+    } else {
+        matches.join("\n")
+    }
+}
+
 fn bucket_entries_mut<'a>(
     registry: &'a mut DreamerActionRegistry,
     mode: &str,
@@ -697,6 +1030,83 @@ fn extract_json_u32(text: &str, key: &str) -> Option<u32> {
         .find(|c: char| !c.is_ascii_digit())
         .unwrap_or(remainder.len());
     remainder[..end].parse::<u32>().ok()
+}
+
+fn extract_json_number(text: &str, key: &str) -> Option<usize> {
+    let marker = format!("\"{key}\":");
+    let start = text.find(&marker)? + marker.len();
+    let remainder = text[start..].trim_start();
+    let end = remainder
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(remainder.len());
+    remainder[..end].parse::<usize>().ok()
+}
+
+fn extract_object_blocks(text: &str) -> Vec<String> {
+    let mut blocks = Vec::new();
+    let mut depth = 0usize;
+    let mut start: Option<usize> = None;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, ch) in text.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            '{' => {
+                if depth == 0 {
+                    start = Some(index);
+                }
+                depth += 1;
+            }
+            '}' => {
+                if depth == 0 {
+                    continue;
+                }
+                depth -= 1;
+                if depth == 0 {
+                    if let Some(begin) = start.take() {
+                        blocks.push(text[begin..=index].to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    blocks
+}
+
+fn extract_json_map_entries(text: &str) -> Vec<(String, usize)> {
+    let trimmed = text.trim();
+    if trimmed.len() < 2 || !trimmed.starts_with('{') || !trimmed.ends_with('}') {
+        return Vec::new();
+    }
+    let inner = &trimmed[1..trimmed.len() - 1];
+    let mut entries = Vec::new();
+    for pair in inner.split(',') {
+        let piece = pair.trim();
+        if piece.is_empty() {
+            continue;
+        }
+        let Some((key, value)) = piece.split_once(':') else {
+            continue;
+        };
+        let key = key.trim().trim_matches('"').to_string();
+        let value = value.trim().parse::<usize>().ok();
+        if let Some(number) = value {
+            entries.push((key, number));
+        }
+    }
+    entries.sort_by(|left, right| left.0.cmp(&right.0));
+    entries
 }
 
 fn missing_shape_findings(content: &str, required: &[&str], code: &str) -> Vec<ValidationFinding> {

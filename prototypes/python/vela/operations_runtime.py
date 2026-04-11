@@ -18,6 +18,12 @@ from .rust_bridge import (
     classify_dreamer_follow_up_payload,
     inspect_dreamer_follow_up_kind_payload,
     matrix_inventory_payload,
+    render_dc_night_report_payload,
+    render_dreamer_execution_artifact_payload,
+    render_dreamer_follow_up_payload,
+    render_dreamer_pattern_report_payload,
+    render_dreamer_proposal_payload,
+    render_warden_patrol_report_payload,
     validate_dc_night_report_payload,
     validate_dreamer_follow_up_apply_payload,
     validate_dreamer_pattern_report_payload,
@@ -625,19 +631,15 @@ def _render_patrol_report(
     checked: list[dict[str, Any]],
     structural_flags: list[dict[str, Any]],
 ) -> str:
-    checked_lines = "\n".join(f"- `{item['target']}`" for item in checked) or "- No patched targets were available."
-    flag_lines = "\n".join(f"- `{item['target']}`" for item in structural_flags) or "- No structural flags."
-    return (
-        "# Warden Patrol Report\n\n"
-        "## This Report Records the Latest Patrol Validation Pass Over Recent Day Shift Activity\n"
-        f"Patrol `{stamp}` was requested by `{requested_by}` and validated the latest patched targets.\n\n"
-        "## Checked Targets\n\n"
-        f"{checked_lines}\n\n"
-        "## Structural Flags\n\n"
-        f"{flag_lines}\n\n"
-        "## Cosmetic Fixes\n\n"
-        "- No cosmetic fixes were applied in this skeleton patrol.\n"
+    rendered = render_warden_patrol_report_payload(
+        stamp,
+        requested_by,
+        [item["target"] for item in checked],
+        [item["target"] for item in structural_flags],
     )
+    if not rendered.get("ok"):
+        raise ValueError(f"Failed to render patrol report: {rendered.get('findings', [])}")
+    return str(rendered["content"])
 
 
 def _render_night_report(
@@ -650,40 +652,21 @@ def _render_night_report(
     dreamer_report_target: str,
     dreamer_proposals: list[dict[str, Any]],
 ) -> str:
-    growth_lines = "\n".join(
-        f"- `{item['target']}` -> `{item['stage']}` ({item['inventory_role']})"
-        for item in growth_candidates
-    ) or "- No active growth candidates."
-    pattern_lines = "\n".join(
-        f"- `{reason}` -> {count}"
-        for reason, count in sorted(dreamer_patterns.items())
-    ) or "- No blocked-pattern signals recorded."
-    blocked_lines = "\n".join(
-        f"- `{item['target']}`\n  Attempted: `{item['endpoint']}` by `{item['actor']}`\n  Blocked because: {item['reason']}"
-        for item in blocked_items[:5]
-    ) or "- Spawn recommendations and constitutional rule changes remain human-gated."
-    proposal_lines = "\n".join(
-        f"- `[[{Path(item['target']).stem}]]` for `{item['reason']}` ({item['count']} strikes)"
-        for item in dreamer_proposals
-    ) or "- No Dreamer proposals opened this cycle."
-    return (
-        "# DC Night Report\n\n"
-        "## This Report Records the Coordinated Night Cycle Across Patrol, Growth Review, and Pattern Review\n"
-        f"Night cycle `{stamp}` was requested by `{requested_by}` and packaged the current operational state.\n\n"
-        "## Warden Patrol Summary\n\n"
-        f"- Patrol report: `[[{Path(patrol.get('report_target', '')).stem}]]`\n"
-        f"- Files checked: {patrol.get('files_checked', 0)}\n"
-        f"- Structural flags: {len(patrol.get('structural_flags', []))}\n\n"
-        "## Grower Activity\n\n"
-        f"{growth_lines}\n\n"
-        "## Dreamer Activity\n\n"
-        f"- Pattern report: `[[{Path(dreamer_report_target).stem}]]`\n"
-        f"{pattern_lines}\n\n"
-        "## Dreamer Proposals\n\n"
-        f"{proposal_lines}\n\n"
-        "## Blocked (Needs Dario)\n\n"
-        f"{blocked_lines}\n"
+    rendered = render_dc_night_report_payload(
+        stamp,
+        requested_by,
+        str(patrol.get("report_target", "")),
+        int(patrol.get("files_checked", 0)),
+        len(patrol.get("structural_flags", [])),
+        growth_candidates,
+        dreamer_patterns,
+        blocked_items,
+        dreamer_report_target,
+        dreamer_proposals,
     )
+    if not rendered.get("ok"):
+        raise ValueError(f"Failed to render DC night report: {rendered.get('findings', [])}")
+    return str(rendered["content"])
 
 
 def _render_dreamer_report(
@@ -693,30 +676,16 @@ def _render_dreamer_report(
     blocked_items: list[dict[str, str]],
     dreamer_proposals: list[dict[str, Any]],
 ) -> str:
-    strike_lines = "\n".join(
-        f"- `{reason}` -> {count} strikes"
-        for reason, count in sorted(dreamer_patterns.items())
-        if count >= 3
-    ) or "- No 3-strike patterns detected."
-    recent_lines = "\n".join(
-        f"- `{item['reason']}` on `{item['target']}` via `{item['endpoint']}`"
-        for item in blocked_items[:5]
-    ) or "- No blocked items recorded."
-    proposal_lines = "\n".join(
-        f"- `[[{Path(item['target']).stem}]]` for `{item['reason']}`"
-        for item in dreamer_proposals
-    ) or "- No Dreamer proposals were created."
-    return (
-        "# Dreamer Pattern Report\n\n"
-        "## This Report Records Repeated Blocked Patterns Worth Further Review\n"
-        f"Dreamer review `{stamp}` was requested by `{requested_by}` and scanned recent blocked events.\n\n"
-        "## Three Strike Patterns\n\n"
-        f"{strike_lines}\n\n"
-        "## Proposed Responses\n\n"
-        f"{proposal_lines}\n\n"
-        "## Recent Blocked Items\n\n"
-        f"{recent_lines}\n"
+    rendered = render_dreamer_pattern_report_payload(
+        stamp,
+        requested_by,
+        dreamer_patterns,
+        blocked_items,
+        dreamer_proposals,
     )
+    if not rendered.get("ok"):
+        raise ValueError(f"Failed to render Dreamer pattern report: {rendered.get('findings', [])}")
+    return str(rendered["content"])
 
 
 def _render_dreamer_proposal(
@@ -726,33 +695,16 @@ def _render_dreamer_proposal(
     count: int,
     blocked_items: list[dict[str, str]],
 ) -> str:
-    matching = [item for item in blocked_items if item["reason"] == reason][:5]
-    evidence_lines = "\n".join(
-        f"- `{item['target']}` via `{item['endpoint']}` by `{item['actor']}`"
-        for item in matching
-    ) or "- No matching blocked items remained available."
-    return (
-        "---\n"
-        "sot-type: proposal\n"
-        f"created: {datetime.now(timezone.utc).date().isoformat()}\n"
-        f"last-rewritten: {datetime.now(timezone.utc).date().isoformat()}\n"
-        'parent: "[[100.WHO.Circle-SoT]]"\n'
-        "domain: operations\n"
-        "status: proposed\n"
-        'tags: ["dreamer","proposal","night-cycle"]\n'
-        "---\n\n"
-        "# Dreamer Proposal\n\n"
-        "## This Proposal Records a Repeated Night Cycle Failure Pattern That Merits Follow Up\n"
-        f"Dreamer opened this proposal during `{stamp}` for `{requested_by}` after observing `{count}` repeated blocks.\n\n"
-        "## Pattern\n\n"
-        f"- reason: `{reason}`\n"
-        f"- strikes: `{count}`\n\n"
-        "## Evidence\n\n"
-        f"{evidence_lines}\n\n"
-        "## Proposed Response\n\n"
-        f"- Review the validator or workflow path that is producing `{reason}`.\n"
-        "- Decide whether the correct next step is a rule change, a workflow change, or a stricter refusal.\n"
+    created = datetime.now(timezone.utc).date().isoformat()
+    rendered = render_dreamer_proposal_payload(
+        created,
+        stamp,
+        requested_by,
+        reason,
+        count,
+        blocked_items,
     )
+    return str(rendered["content"])
 
 
 def _slug(value: str) -> str:
@@ -840,26 +792,14 @@ def _render_dreamer_follow_up(
     actor: str,
 ) -> str:
     created = datetime.now(timezone.utc).date().isoformat()
-    return (
-        "---\n"
-        "sot-type: proposal\n"
-        f"created: {created}\n"
-        f"last-rewritten: {created}\n"
-        f'parent: "[[{Path(proposal_target).stem}]]"\n'
-        "domain: operations\n"
-        "status: proposed\n"
-        'tags: ["dreamer","follow-up","proposal"]\n'
-        "---\n\n"
-        "# Dreamer Follow Up\n\n"
-        "## This Proposal Records the Concrete Follow Up Opened After an Approved Dreamer Review\n"
-        f"Approved Dreamer proposal `[[{Path(proposal_target).stem}]]` opened this `{classification}` follow up.\n\n"
-        "## Classification\n\n"
-        f"- kind: `{classification}`\n"
-        f"- reason: `{reason}`\n"
-        f"- reviewed by: `{actor}`\n\n"
-        "## Suggested Next Step\n\n"
-        f"- Apply a targeted {classification} change and verify it against the repeated failure signal.\n"
+    rendered = render_dreamer_follow_up_payload(
+        created,
+        proposal_target,
+        reason,
+        classification,
+        actor,
     )
+    return str(rendered["content"])
 
 
 def _build_follow_up_execution(
@@ -874,28 +814,17 @@ def _build_follow_up_execution(
     created = datetime.now(timezone.utc).date().isoformat()
     kind_payload = inspect_dreamer_follow_up_kind_payload(kind)
     queue_name = str(kind_payload.get("queue_name", "Dreamer-Action-Queue"))
-    content = (
-        "---\n"
-        "sot-type: reference\n"
-        f"created: {created}\n"
-        f"last-rewritten: {created}\n"
-        f'parent: "[[{Path(target).stem}]]"\n'
-        "domain: operations\n"
-        "status: active\n"
-        'tags: ["dreamer","execution","operations"]\n'
-        "---\n\n"
-        "# Dreamer Execution\n\n"
-        "## This Reference Records the Concrete Queue Item Opened from an Approved Dreamer Follow Up\n"
-        f"Follow up `[[{Path(target).stem}]]` was executed by `{actor}` and opened a concrete `{kind}` queue item.\n\n"
-        "## Classification\n\n"
-        f"- kind: `{kind}`\n"
-        f"- pattern: `{follow_up_reason}`\n"
-        f"- queue: `[[{queue_name}]]`\n\n"
-        "## Execution\n\n"
-        f"- reason: {execution_reason}\n"
-        "- next step: implement the queued change through the governed validation or workflow path.\n"
+    rendered = render_dreamer_execution_artifact_payload(
+        created,
+        target,
+        actor,
+        kind,
+        follow_up_reason,
+        queue_name,
+        execution_reason,
     )
-    findings = validate_dreamer_execution_artifact_payload(content).get("findings", [])
+    content = str(rendered["content"])
+    findings = rendered.get("findings", [])
     if findings:
         return {"target": execution_target, "content": content, "findings": findings}
     return {"target": execution_target, "content": content}
