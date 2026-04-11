@@ -11,12 +11,13 @@ from .config import load_config
 from .dreamer_actions import matching_refusal_actions, matching_validator_actions
 from .matrix import classify_change_zone
 from .models import EventRecord, ValidationFinding
-from .paths import APPROVALS_PATH, BACKUP_DIR, EVENT_LOG_PATH, PROPOSALS_DIR, QUEUE_DIR, REPO_ROOT
+from .paths import APPROVALS_PATH, BACKUP_DIR, EVENT_LOG_PATH, QUEUE_DIR, REPO_ROOT
 from .rust_bridge import route_for_target as rust_route_for_target
 from .rust_bridge import plan_event_append_payload
 from .rust_bridge import plan_growth_execution_payload
 from .rust_bridge import plan_growth_source_update_payload
 from .rust_bridge import apply_growth_source_update_payload
+from .rust_bridge import inspect_growth_proposal_payload
 from .rust_bridge import render_event_payload
 from .rust_bridge import render_growth_reference_note_payload
 from .rust_bridge import render_growth_spawned_sot_payload
@@ -31,7 +32,6 @@ from .rust_bridge import validate_event_payload
 from .rust_bridge import validate_growth_stage_payload
 from .rust_bridge import validate_subject_declaration_payload
 from .rust_bridge import validate_target as rust_validate_target
-from .simple_yaml import loads
 from .traceability import annotate_finding, annotate_findings
 
 
@@ -388,7 +388,14 @@ def governance_snapshot() -> dict[str, Any]:
     }
 
 
-def propose_growth(route: str, target: str, body: str, critique: list[str], findings: list[dict[str, Any]]) -> dict[str, Any]:
+def propose_growth(
+    route: str,
+    target: str,
+    proposal_target: str,
+    body: str,
+    critique: list[str],
+    findings: list[dict[str, Any]],
+) -> dict[str, Any]:
     role_failure = enforce_actor_operation("grower", "growth-proposal", target=target, endpoint="growth-proposal")
     if role_failure:
         return {
@@ -399,9 +406,6 @@ def propose_growth(route: str, target: str, body: str, critique: list[str], find
             "approval_required": is_sovereign_target(target),
             "artifacts": [],
         }
-    PROPOSALS_DIR.mkdir(parents=True, exist_ok=True)
-    proposal = PROPOSALS_DIR / _proposal_name(route, target)
-    proposal_target = str(proposal.relative_to(REPO_ROOT))
     rationale = "growth proposal recorded after governed assessment"
     result = write_text(proposal_target, body, actor="grower", endpoint="growth-proposal", reason=rationale)
     if result["ok"]:
@@ -432,14 +436,6 @@ def propose_growth(route: str, target: str, body: str, critique: list[str], find
         "approval_required": is_sovereign_target(target),
         "artifacts": result.get("artifacts", [proposal_target]),
     }
-
-
-def _proposal_name(route: str, target: str) -> str:
-    created = datetime.now(timezone.utc).date().isoformat()
-    stem = re.sub(r"[^A-Za-z0-9.-]+", "-", Path(target).stem).strip("-") or "target"
-    return f"Growth-Proposal.{created}.{route}.{stem}.md"
-
-
 def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | None = None) -> dict[str, Any]:
     proposal_path = REPO_ROOT / proposal_target
     if not proposal_path.exists():
@@ -447,11 +443,12 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
         return {"ok": False, "findings": [finding.as_dict()]}
 
     proposal_text = proposal_path.read_text(encoding="utf-8")
-    frontmatter = _parse_frontmatter(proposal_text)
-    assessed_target = str(frontmatter.get("target", "")).strip().strip('"')
-    stage = str(frontmatter.get("recommended-stage", "")).strip().strip('"')
-    route = str(frontmatter.get("route", "")).strip().strip('"')
-    subject_hint = str(frontmatter.get("subject-hint", "")).strip().strip('"')
+    proposal_payload = inspect_growth_proposal_payload(proposal_text)
+    proposal_meta = proposal_payload.get("proposal") or {}
+    assessed_target = str(proposal_meta.get("target", "")).strip()
+    stage = str(proposal_meta.get("recommended_stage", "")).strip()
+    route = str(proposal_meta.get("route", "")).strip()
+    subject_hint = str(proposal_meta.get("subject_hint", "")).strip()
 
     if not assessed_target or not stage:
         finding = annotate_finding(ValidationFinding(
@@ -811,13 +808,3 @@ def _mark_proposal_applied(proposal_text: str, execution_target: str, stage: str
     return render_applied_growth_proposal_payload(
         proposal_text, execution_target, stage
     )["content"]
-
-
-def _parse_frontmatter(text: str) -> dict[str, Any]:
-    if not text.startswith("---\n"):
-        return {}
-    try:
-        _, frontmatter, _ = text.split("---\n", 2)
-    except ValueError:
-        return {}
-    return loads(frontmatter)

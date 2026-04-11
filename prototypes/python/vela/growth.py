@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
-from .rust_bridge import assess_growth_payload
+from .rust_bridge import assess_growth_payload, plan_growth_proposal_payload
 
 
 @dataclass
@@ -35,40 +34,17 @@ def assess_growth(target: str) -> GrowthAssessment:
     )
 
 
-def render_growth_proposal(route: str, target: str, assessment: GrowthAssessment) -> str:
-    created = datetime.now(timezone.utc).date().isoformat()
-    target_name = Path(target).stem
-    parent_link = f"[[{target_name}]]"
-    subject_hint = "-".join(
-        part
-        for part in target_name.replace("_", "-").split("-")
-        if part and part.lower() not in {"sot", "ref", "identity", "capabilities", "intent"}
-    ) or target_name
-    return (
-        "---\n"
-        "sot-type: proposal\n"
-        f"created: {created}\n"
-        f"last-rewritten: {created}\n"
-        f'parent: "{parent_link}"\n'
-        "domain: governance\n"
-        "status: proposed\n"
-        f'target: "{target}"\n'
-        f'route: "{route}"\n'
-        f'recommended-stage: "{assessment.stage}"\n'
-        f'subject-hint: "{subject_hint}"\n'
-        'tags: ["growth","proposal","matrix","governance"]\n'
-        "---\n\n"
-        "# Growth Proposal\n\n"
-        "## This Proposal Records the Matrix Growth Assessment After the Main Task\n"
-        f"Route `{route}` touched `{target}` and triggered a structural review.\n\n"
-        "## This Proposal States the Recommended Growth Path and the Reason for It\n"
-        f"Recommended stage: `{assessment.stage}`.\n\n"
-        f"Reason: {assessment.reason}\n\n"
-        "## This Proposal Records the Signals That Triggered the Recommendation\n"
-        f"- signals: `{assessment.signals}`\n\n"
-        "## This Proposal Records the Matrix Role of the Target Under Review\n"
-        f"- inventory role: `{assessment.inventory_role}`\n\n"
-        "## This Proposal Identifies the Artifact That Would Be Affected If Approved\n"
-        f"- target: `{target}`\n"
-        f"- parent: `{parent_link}`\n"
+def plan_growth_proposal(route: str, target: str, assessment: GrowthAssessment) -> dict[str, Any]:
+    payload = plan_growth_proposal_payload(
+        route,
+        target,
+        assessment.stage,
+        assessment.inventory_role,
+        assessment.reason,
+        json.dumps(assessment.signals, sort_keys=True),
     )
+    return dict(payload.get("plan") or {})
+
+
+def render_growth_proposal(route: str, target: str, assessment: GrowthAssessment) -> str:
+    return str(plan_growth_proposal(route, target, assessment).get("content", ""))

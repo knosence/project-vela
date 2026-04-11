@@ -16,11 +16,11 @@ use vela_core::matrix::{
 use vela_core::models::{
     ArchiveTransactionPlan, BlockedItemSummary, CompanionPathPlan, CrossReferencePlan,
     CsvInboxPlan, DimensionAppendPlan, DreamerProposalCandidate, GrowthAssessment,
-    GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan, GrowthTarget,
-    InboxTriagePlan, MergeApplyPlan, MergeCandidateSummary, MergeFollowUpSummary,
-    MergeOwnerUpdate, MergeProposalPlan, MergeProposalSummary, MergeReviewPlan, OnboardingConfig,
-    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState,
-    PatchTarget, SchedulerPlan, Severity, ValidationFinding,
+    GrowthExecutionPlan, GrowthProposalPlan, GrowthProposalSummary, GrowthSourceApplyPlan,
+    GrowthSourceUpdatePlan, GrowthTarget, InboxTriagePlan, MergeApplyPlan, MergeCandidateSummary,
+    MergeFollowUpSummary, MergeOwnerUpdate, MergeProposalPlan, MergeProposalSummary,
+    MergeReviewPlan, OnboardingConfig, OperationLifecyclePlan, OperationLockRecord,
+    OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
     apply_growth_source_update as apply_growth_source_update_policy,
@@ -32,6 +32,7 @@ use vela_core::operations::{
     dreamer_follow_up_reason as dreamer_follow_up_reason_policy,
     dreamer_follow_up_registry_mode as dreamer_follow_up_registry_mode_policy,
     dreamer_proposal_reason as dreamer_proposal_reason_policy,
+    inspect_growth_proposal as inspect_growth_proposal_policy,
     list_dreamer_follow_ups as list_dreamer_follow_ups_policy,
     list_dreamer_proposals as list_dreamer_proposals_policy,
     list_merge_candidates as list_merge_candidates_policy,
@@ -47,12 +48,13 @@ use vela_core::operations::{
     plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
     plan_dreamer_proposals as plan_dreamer_proposals_policy,
     plan_dreamer_review as plan_dreamer_review_policy,
+    plan_growth_execution as plan_growth_execution_policy,
+    plan_growth_proposal as plan_growth_proposal_policy,
+    plan_growth_source_update as plan_growth_source_update_policy,
+    plan_inbox_entry as plan_inbox_entry_policy,
     plan_merge_follow_up_apply as plan_merge_follow_up_apply_policy,
     plan_merge_proposal as plan_merge_proposal_policy,
-    plan_merge_review as plan_merge_review_policy,
-    plan_growth_execution as plan_growth_execution_policy,
-    plan_growth_source_update as plan_growth_source_update_policy,
-    plan_inbox_entry as plan_inbox_entry_policy, plan_night_cycle as plan_night_cycle_policy,
+    plan_merge_review as plan_merge_review_policy, plan_night_cycle as plan_night_cycle_policy,
     plan_operation_audit_event as plan_operation_audit_event_policy,
     plan_operation_start as plan_operation_start_policy,
     plan_operation_state_update as plan_operation_state_update_policy,
@@ -307,6 +309,51 @@ fn run() -> Result<(), String> {
                 "{{\"ok\":true,\"assessment\":{}}}",
                 render_growth_assessment(&assessment)
             );
+        }
+        "plan-growth-proposal" => {
+            let route = args.next().ok_or_else(|| "missing route".to_string())?;
+            let target = args.next().ok_or_else(|| "missing target".to_string())?;
+            let stage = args.next().ok_or_else(|| "missing stage".to_string())?;
+            let inventory_role = args
+                .next()
+                .ok_or_else(|| "missing inventory role".to_string())?;
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let mut signals_json = String::new();
+            io::stdin()
+                .read_to_string(&mut signals_json)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (plan, findings) = plan_growth_proposal_policy(
+                &route,
+                &target,
+                &stage,
+                &reason,
+                &inventory_role,
+                &signals_json,
+            );
+            if !findings.is_empty() {
+                print_findings(&findings, None);
+            } else if let Some(plan) = plan {
+                println!(
+                    "{{\"ok\":true,\"plan\":{}}}",
+                    render_growth_proposal_plan(&plan)
+                );
+            } else {
+                println!("{{\"ok\":true,\"plan\":null}}");
+            }
+        }
+        "inspect-growth-proposal" => {
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            if let Some(item) = inspect_growth_proposal_policy(&content) {
+                println!(
+                    "{{\"ok\":true,\"proposal\":{}}}",
+                    render_growth_proposal_summary(&item)
+                );
+            } else {
+                println!("{{\"ok\":true,\"proposal\":null}}");
+            }
         }
         "plan-growth-execution" => {
             let stage = args.next().ok_or_else(|| "missing stage".to_string())?;
@@ -1153,7 +1200,9 @@ fn run() -> Result<(), String> {
             );
         }
         "plan-merge-proposal" => {
-            let ref_target = args.next().ok_or_else(|| "missing ref_target".to_string())?;
+            let ref_target = args
+                .next()
+                .ok_or_else(|| "missing ref_target".to_string())?;
             let count = args
                 .next()
                 .ok_or_else(|| "missing count".to_string())?
@@ -1165,7 +1214,10 @@ fn run() -> Result<(), String> {
                 .map_err(|err| format!("failed reading stdin: {err}"))?;
             let owners = extract_json_string_list(&content);
             let plan = plan_merge_proposal_policy(&ref_target, &owners, count);
-            println!("{{\"ok\":true,\"plan\":{}}}", render_merge_proposal_plan(&plan));
+            println!(
+                "{{\"ok\":true,\"plan\":{}}}",
+                render_merge_proposal_plan(&plan)
+            );
         }
         "inspect-dreamer-follow-up" => {
             let mut content = String::new();
@@ -1289,22 +1341,26 @@ fn run() -> Result<(), String> {
             io::stdin()
                 .read_to_string(&mut content)
                 .map_err(|err| format!("failed reading stdin: {err}"))?;
-            let repo_root = env::current_dir()
-                .map_err(|err| format!("failed reading current dir: {err}"))?;
+            let repo_root =
+                env::current_dir().map_err(|err| format!("failed reading current dir: {err}"))?;
             let (plan, findings) = plan_merge_review_policy(
-                &repo_root,
-                &target,
-                &content,
-                &decision,
-                &actor,
-                &reason,
-                &created,
+                &repo_root, &target, &content, &decision, &actor, &reason, &created,
             );
             println!(
                 "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
-                if !has_blocking_findings(&findings) { "true" } else { "false" },
-                plan.as_ref().map(render_merge_review_plan).unwrap_or_else(|| "null".to_string()),
-                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                plan.as_ref()
+                    .map(render_merge_review_plan)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
             );
         }
         "plan-merge-follow-up-apply" => {
@@ -1314,15 +1370,25 @@ fn run() -> Result<(), String> {
             io::stdin()
                 .read_to_string(&mut content)
                 .map_err(|err| format!("failed reading stdin: {err}"))?;
-            let repo_root = env::current_dir()
-                .map_err(|err| format!("failed reading current dir: {err}"))?;
+            let repo_root =
+                env::current_dir().map_err(|err| format!("failed reading current dir: {err}"))?;
             let (plan, findings) =
                 plan_merge_follow_up_apply_policy(&repo_root, &target, &content, &actor);
             println!(
                 "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
-                if !has_blocking_findings(&findings) { "true" } else { "false" },
-                plan.as_ref().map(render_merge_apply_plan).unwrap_or_else(|| "null".to_string()),
-                findings.iter().map(render_finding).collect::<Vec<String>>().join(",")
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                plan.as_ref()
+                    .map(render_merge_apply_plan)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
             );
         }
         "plan-warden-patrol" => {
@@ -2240,6 +2306,24 @@ fn render_growth_execution_plan(item: &GrowthExecutionPlan) -> String {
         escape_json(&item.kind),
         escape_json(&item.dimension),
         entries,
+    )
+}
+
+fn render_growth_proposal_plan(item: &GrowthProposalPlan) -> String {
+    format!(
+        "{{\"target\":\"{}\",\"content\":\"{}\"}}",
+        escape_json(&item.target),
+        escape_json(&item.content),
+    )
+}
+
+fn render_growth_proposal_summary(item: &GrowthProposalSummary) -> String {
+    format!(
+        "{{\"route\":\"{}\",\"target\":\"{}\",\"recommended_stage\":\"{}\",\"subject_hint\":\"{}\"}}",
+        escape_json(&item.route),
+        escape_json(&item.target),
+        escape_json(&item.recommended_stage),
+        escape_json(&item.subject_hint),
     )
 }
 

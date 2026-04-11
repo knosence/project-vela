@@ -9,10 +9,12 @@ use crate::models::{
     ArchiveTransactionPlan, CompanionPathPlan, CrossReferencePlan, CsvInboxEntry, CsvInboxPlan,
     DimensionAppendPlan, DreamerAction, DreamerActionRegistry, DreamerApplyPlan,
     DreamerFollowUpSummary, DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan,
-    GrowthAssessment, GrowthExecutionPlan, GrowthSourceApplyPlan, GrowthSourceUpdatePlan,
-    InboxTriagePlan, MergeApplyPlan, MergeCandidateSummary, MergeFollowUpSummary,
-    MergeOwnerUpdate, MergeProposalPlan, MergeProposalSummary, MergeReviewPlan, NightCyclePlan, OperationLifecyclePlan, OperationLockRecord,
-    OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan, ValidationFinding,
+    GrowthAssessment, GrowthExecutionPlan, GrowthProposalPlan, GrowthProposalSummary,
+    GrowthSourceApplyPlan, GrowthSourceUpdatePlan, InboxTriagePlan, MergeApplyPlan,
+    MergeCandidateSummary, MergeFollowUpSummary, MergeOwnerUpdate, MergeProposalPlan,
+    MergeProposalSummary, MergeReviewPlan, NightCyclePlan, OperationLifecyclePlan,
+    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan,
+    ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -277,6 +279,75 @@ pub fn plan_growth_execution(
         }),
         Vec::new(),
     )
+}
+
+pub fn plan_growth_proposal(
+    route: &str,
+    target: &str,
+    stage: &str,
+    reason: &str,
+    inventory_role: &str,
+    signals_json: &str,
+) -> (Option<GrowthProposalPlan>, Vec<ValidationFinding>) {
+    let created = today_utc();
+    let target_name = Path::new(target)
+        .file_stem()
+        .and_then(|item| item.to_str())
+        .unwrap_or("target");
+    let parent_link = format!("[[{target_name}]]");
+    let subject_hint = growth_subject_from_hint_or_source(target_name, "")
+        .unwrap_or_else(|| target_name.to_string());
+    let stem = sanitize_growth_stem(target_name);
+    let proposal_target =
+        format!("knowledge/ARTIFACTS/proposals/Growth-Proposal.{created}.{route}.{stem}.md");
+    let content = format!(
+        "---\n\
+sot-type: proposal\n\
+created: {created}\n\
+last-rewritten: {created}\n\
+parent: \"{parent_link}\"\n\
+domain: governance\n\
+status: proposed\n\
+target: \"{target}\"\n\
+route: \"{route}\"\n\
+recommended-stage: \"{stage}\"\n\
+subject-hint: \"{subject_hint}\"\n\
+tags: [\"growth\",\"proposal\",\"matrix\",\"governance\"]\n\
+---\n\n\
+# Growth Proposal\n\n\
+## This Proposal Records the Matrix Growth Assessment After the Main Task\n\
+Route `{route}` touched `{target}` and triggered a structural review.\n\n\
+## This Proposal States the Recommended Growth Path and the Reason for It\n\
+Recommended stage: `{stage}`.\n\n\
+Reason: {reason}\n\n\
+## This Proposal Records the Signals That Triggered the Recommendation\n\
+- signals: `{signals_json}`\n\n\
+## This Proposal Records the Matrix Role of the Target Under Review\n\
+- inventory role: `{inventory_role}`\n\n\
+## This Proposal Identifies the Artifact That Would Be Affected If Approved\n\
+- target: `{target}`\n\
+- parent: `{parent_link}`\n"
+    );
+    (
+        Some(GrowthProposalPlan {
+            target: proposal_target,
+            content,
+        }),
+        Vec::new(),
+    )
+}
+
+pub fn inspect_growth_proposal(content: &str) -> Option<GrowthProposalSummary> {
+    let route = extract_frontmatter_value(content, "route")?;
+    let target = extract_frontmatter_value(content, "target")?;
+    let recommended_stage = extract_frontmatter_value(content, "recommended-stage")?;
+    let subject_hint = extract_frontmatter_value(content, "subject-hint").unwrap_or_default();
+    Some(GrowthProposalSummary {
+        route,
+        target,
+        recommended_stage,
+        subject_hint,
+    })
 }
 
 pub fn plan_growth_source_update(
@@ -1260,11 +1331,7 @@ pub fn list_merge_candidates(root: &str) -> Vec<MergeCandidateSummary> {
         .collect()
 }
 
-pub fn plan_merge_proposal(
-    ref_target: &str,
-    owners: &[String],
-    count: usize,
-) -> MergeProposalPlan {
+pub fn plan_merge_proposal(ref_target: &str, owners: &[String], count: usize) -> MergeProposalPlan {
     let created = today_utc();
     let stem = sanitize_growth_stem(
         Path::new(ref_target)
@@ -1687,7 +1754,8 @@ pub fn list_merge_follow_ups(repo_root: &str) -> Vec<MergeFollowUpSummary> {
             status: extract_frontmatter_value(&text, "status")
                 .unwrap_or_else(|| "unknown".to_string()),
             ref_target: extract_frontmatter_value(&text, "ref-target").unwrap_or_default(),
-            suggested_target: extract_frontmatter_value(&text, "suggested-target").unwrap_or_default(),
+            suggested_target: extract_frontmatter_value(&text, "suggested-target")
+                .unwrap_or_default(),
         })
         .collect()
 }
@@ -1948,7 +2016,8 @@ pub fn plan_merge_review(
             )],
         );
     }
-    let proposal_update = render_reviewed_merge_proposal(current_text, decision, actor, reason, None);
+    let proposal_update =
+        render_reviewed_merge_proposal(current_text, decision, actor, reason, None);
     if decision != "approved" {
         return (
             Some(MergeReviewPlan {
@@ -2056,12 +2125,17 @@ pub fn plan_merge_follow_up_apply(
             let text = fs::read_to_string(&owner_path).ok()?;
             Some(MergeOwnerUpdate {
                 target: owner.clone(),
-                updated_content: replace_ref_with_sot_pointer(&text, &ref_target, &execution_target),
+                updated_content: replace_ref_with_sot_pointer(
+                    &text,
+                    &ref_target,
+                    &execution_target,
+                ),
             })
         })
         .collect::<Vec<MergeOwnerUpdate>>();
     let execution_content = render_merge_spawned_sot(&execution_target, &ref_target, &owners);
-    let updated_follow_up_content = render_applied_merge_follow_up(current_text, &execution_target, &owners);
+    let updated_follow_up_content =
+        render_applied_merge_follow_up(current_text, &execution_target, &owners);
     (
         Some(MergeApplyPlan {
             target: target.to_string(),

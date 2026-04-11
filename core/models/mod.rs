@@ -157,6 +157,20 @@ pub struct GrowthExecutionPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GrowthProposalPlan {
+    pub target: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GrowthProposalSummary {
+    pub route: String,
+    pub target: String,
+    pub recommended_stage: String,
+    pub subject_hint: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GrowthSourceUpdatePlan {
     pub link_line: String,
     pub status_line: String,

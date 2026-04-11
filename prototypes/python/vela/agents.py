@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .growth import assess_growth, render_growth_proposal
+from .growth import assess_growth, plan_growth_proposal
 from .governance import propose_growth, write_text
 from .models import ValidationFinding
 from .rust_bridge import route_for_target
@@ -87,11 +87,12 @@ class Grower:
 
     def propose(self, route: str, target: str) -> dict[str, Any]:
         assessment = assess_growth(target)
-        body = render_growth_proposal(route, target, assessment)
+        proposal_plan = plan_growth_proposal(route, target, assessment)
+        body = str(proposal_plan.get("content", ""))
+        proposal_target = str(proposal_plan.get("target", "knowledge/ARTIFACTS/proposals/pending-growth-proposal.md"))
         critique = Reflector().critique(body, "growth-proposal")
-        proposal_target = f"knowledge/ARTIFACTS/proposals/pending-{route}.md"
         findings = [item.as_dict() for item in Warden().validate(body, proposal_target)]
-        return propose_growth(route, target, body, critique, findings)
+        return propose_growth(route, target, proposal_target, body, critique, findings)
 
 
 class SequentialPipeline:

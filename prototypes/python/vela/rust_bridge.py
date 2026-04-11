@@ -45,6 +45,24 @@ def plan_dimension_append_payload(content: str, dimension: str, value: str, cont
     return _run(["plan-dimension-append", dimension, value, context], stdin=content)
 
 
+def plan_growth_proposal_payload(
+    route: str,
+    target: str,
+    stage: str,
+    inventory_role: str,
+    reason: str,
+    signals_json: str,
+) -> dict[str, Any]:
+    return _run(
+        ["plan-growth-proposal", route, target, stage, inventory_role, reason],
+        stdin=signals_json,
+    )
+
+
+def inspect_growth_proposal_payload(content: str) -> dict[str, Any]:
+    return _run(["inspect-growth-proposal"], stdin=content)
+
+
 def apply_growth_source_update_payload(source_text: str, stage: str, plan: dict[str, Any]) -> dict[str, Any]:
     replacement_entries = [str(item) for item in plan.get("replacement_entries", [])]
     replacement_blob = "\n===ENTRY===\n".join(replacement_entries)
