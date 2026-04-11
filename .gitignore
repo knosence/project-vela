@@ -40,3 +40,4 @@ runtime/queues/*.lock
 
 # Ignore Smart Environment folder
 .smart-env
+.trash/
