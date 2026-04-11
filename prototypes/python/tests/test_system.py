@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -116,6 +117,7 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/ARTIFACTS/refs/indexed-release-summary.validation.json",
             "knowledge/ARTIFACTS/proposals/inbox-triage-target.md",
             "knowledge/ARTIFACTS/proposals/cross-reference-target.md",
+            "knowledge/ARTIFACTS/proposals/IMAGE-TARGET.MD",
         ]:
             path = REPO_ROOT / target
             if path.exists():
@@ -129,6 +131,7 @@ class VelaSystemTest(unittest.TestCase):
             "knowledge/INBOX/test-inbox-binary.png",
             "knowledge/INBOX/test-inbox-item.pdf",
             "knowledge/INBOX/test-inbox-image.png",
+            "knowledge/INBOX/test-inbox-image-source.pdf",
         ]:
             path = REPO_ROOT / target
             if path.exists():
@@ -138,6 +141,7 @@ class VelaSystemTest(unittest.TestCase):
             "inbox-triage-target*.csv",
             "inbox-triage-target*.pdf",
             "inbox-triage-target*.png",
+            "IMAGE-TARGET*.png",
         ]:
             for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob(pattern):
                 path.unlink()
@@ -1364,6 +1368,75 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(companion.exists())
         updated = target_path.read_text(encoding="utf-8")
         self.assertIn("PDF capability update. (", updated)
+        self.assertIn(f"See: [[{companion.name}]]", updated)
+
+    def test_inbox_triage_moves_image_file_to_companion_and_routes_ocr_text(self) -> None:
+        target = "knowledge/ARTIFACTS/proposals/IMAGE-TARGET.MD"
+        target_path = REPO_ROOT / target
+        target_path.write_text((REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md").read_text(encoding="utf-8"), encoding="utf-8")
+        source_pdf = REPO_ROOT / "knowledge/INBOX/test-inbox-image-source.pdf"
+        source_pdf.write_text(
+            "%PDF-1.4\n"
+            "1 0 obj\n"
+            "<< /Type /Catalog /Pages 2 0 R >>\n"
+            "endobj\n"
+            "2 0 obj\n"
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>\n"
+            "endobj\n"
+            "3 0 obj\n"
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\n"
+            "endobj\n"
+            "4 0 obj\n"
+            "<< /Length 110 >>\n"
+            "stream\n"
+            "BT\n"
+            "/F1 18 Tf\n"
+            "72 720 Td\n"
+            "(TARGET: IMAGE-TARGET.MD) Tj\n"
+            "0 -28 Td\n"
+            "(IMAGE CAPABILITY UPDATE) Tj\n"
+            "0 -28 Td\n"
+            "(IMAGE OCR SHOULD BE EXTRACTED) Tj\n"
+            "ET\n"
+            "endstream\n"
+            "endobj\n"
+            "5 0 obj\n"
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\n"
+            "endobj\n"
+            "xref\n"
+            "0 6\n"
+            "0000000000 65535 f \n"
+            "0000000010 00000 n \n"
+            "0000000063 00000 n \n"
+            "0000000122 00000 n \n"
+            "0000000248 00000 n \n"
+            "0000000410 00000 n \n"
+            "trailer\n"
+            "<< /Root 1 0 R /Size 6 >>\n"
+            "startxref\n"
+            "480\n"
+            "%%EOF\n",
+            encoding="utf-8",
+        )
+        inbox_path = REPO_ROOT / "knowledge/INBOX/test-inbox-image.png"
+        subprocess.run(
+            ["pdftocairo", "-png", str(source_pdf), str(REPO_ROOT / "knowledge/INBOX/test-inbox-image")],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        source_pdf.unlink()
+        generated_image = REPO_ROOT / "knowledge/INBOX/test-inbox-image-1.png"
+        generated_image.rename(inbox_path)
+
+        result = triage_inbox(file_name="test-inbox-image.png", actor="vela")
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(inbox_path.exists())
+        companion = REPO_ROOT / result["results"][0]["companion"]
+        self.assertTrue(companion.exists())
+        updated = target_path.read_text(encoding="utf-8")
+        self.assertIn("IMAGE CAPABILITY UPDATE. (", updated)
         self.assertIn(f"See: [[{companion.name}]]", updated)
 
     def test_inbox_triage_moves_csv_file_to_companion_and_routes_rows(self) -> None:

@@ -418,13 +418,13 @@ def _normalize_target(value: str) -> str | None:
     existing_match = _resolve_existing_target(value)
     if existing_match:
         return existing_match
-    if value.endswith(".md"):
+    if value.lower().endswith(".md"):
         return f"knowledge/{value}" if not value.startswith("knowledge/") else value
     return f"knowledge/{value}.md"
 
 
 def _resolve_existing_target(value: str) -> str | None:
-    normalized = value if value.endswith(".md") else f"{value}.md"
+    normalized = value if value.lower().endswith(".md") else f"{value}.md"
     direct = REPO_ROOT / normalized
     if direct.exists():
         return str(direct.relative_to(REPO_ROOT))
