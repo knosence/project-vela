@@ -349,6 +349,10 @@ def extract_blocked_items_payload(log_text: str) -> dict[str, Any]:
     return _run(["extract-blocked-items"], stdin=log_text)
 
 
+def list_growth_targets_payload() -> dict[str, Any]:
+    return _run(["list-growth-targets"])
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 

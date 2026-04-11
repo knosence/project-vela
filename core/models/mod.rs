@@ -100,6 +100,12 @@ pub struct BlockedItemSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GrowthTarget {
+    pub path: String,
+    pub inventory_role: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DreamerFollowUpSummary {
     pub target: String,
     pub status: String,

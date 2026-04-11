@@ -5,15 +5,17 @@ use vela_core::events::{
     extract_blocked_items as extract_blocked_items_policy, plan_event_append,
     render_event_record_json, validate_event_record, EventRecord, ValidationSummary,
 };
-use vela_core::inventory::discover_matrix_inventory;
+use vela_core::inventory::{
+    discover_matrix_inventory, list_growth_targets as list_growth_targets_policy,
+};
 use vela_core::matrix::{
     build_matrix_index, validate_parent_consistency as validate_matrix_parent_consistency,
     validate_sot_structure as validate_matrix_sot_structure,
 };
 use vela_core::models::{
-    BlockedItemSummary, DreamerProposalCandidate, OnboardingConfig, OperationLifecyclePlan,
-    OperationLockRecord, OperationStateEntry, OperationsState, SchedulerPlan, Severity,
-    ValidationFinding,
+    BlockedItemSummary, DreamerProposalCandidate, GrowthTarget, OnboardingConfig,
+    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState,
+    SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
     classify_dreamer_follow_up as classify_dreamer_follow_up_policy,
@@ -1125,6 +1127,21 @@ fn run() -> Result<(), String> {
                     .join(",")
             );
         }
+        "list-growth-targets" => {
+            let repo_root = env::current_dir()
+                .map_err(|err| format!("failed to determine repo root: {err}"))?
+                .to_string_lossy()
+                .to_string();
+            let items = list_growth_targets_policy(std::path::Path::new(&repo_root));
+            println!(
+                "{{\"ok\":true,\"items\":[{}]}}",
+                items
+                    .iter()
+                    .map(render_growth_target)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "validate-config" => {
             let owner_name = args
                 .next()
@@ -1653,6 +1670,14 @@ fn render_blocked_item_summary(item: &BlockedItemSummary) -> String {
         escape_json(&item.reason),
         escape_json(&item.actor),
         escape_json(&item.endpoint),
+    )
+}
+
+fn render_growth_target(item: &GrowthTarget) -> String {
+    format!(
+        "{{\"path\":\"{}\",\"inventory_role\":\"{}\"}}",
+        escape_json(&item.path),
+        escape_json(&item.inventory_role),
     )
 }
 

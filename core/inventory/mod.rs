@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::models::{GovernedReference, MatrixSoT, ValidationFinding};
+use crate::models::{GovernedReference, GrowthTarget, MatrixSoT, ValidationFinding};
 use crate::references::inspect_reference;
 
 pub fn discover_matrix_inventory(
@@ -14,6 +14,18 @@ pub fn discover_matrix_inventory(
     let entries = discover_sots(root);
     let (references, findings) = discover_references(root);
     (entries, references, findings)
+}
+
+pub fn list_growth_targets(root: &Path) -> Vec<GrowthTarget> {
+    discover_sots(root)
+        .into_iter()
+        .filter(|item| item.inventory_role != "governed-reference")
+        .filter(|item| !item.path.starts_with("knowledge/ARTIFACTS/"))
+        .map(|item| GrowthTarget {
+            path: item.path,
+            inventory_role: item.inventory_role,
+        })
+        .collect()
 }
 
 pub fn inventory_area_for_path(path: &str) -> Option<&'static str> {

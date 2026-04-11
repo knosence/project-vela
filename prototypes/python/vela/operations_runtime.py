@@ -19,6 +19,7 @@ from .rust_bridge import (
     extract_blocked_items_payload,
     list_dreamer_follow_ups_payload,
     list_dreamer_queue_payload,
+    list_growth_targets_payload,
     matrix_inventory_payload,
     plan_night_cycle_payload,
     plan_dreamer_follow_up_apply_payload,
@@ -594,13 +595,10 @@ def _patched_targets() -> list[str]:
 
 
 def _growth_candidates() -> list[dict[str, Any]]:
-    inventory = matrix_inventory_payload()
+    payload = list_growth_targets_payload()
     candidates: list[dict[str, Any]] = []
-    for item in inventory.get("items", []):
+    for item in payload.get("items", []):
         path = str(item.get("path", ""))
-        role = str(item.get("inventory_role", ""))
-        if role == "governed-reference" or path.startswith("knowledge/ARTIFACTS/"):
-            continue
         assessment = assess_growth(path)
         if assessment.stage != "flat":
             candidates.append(

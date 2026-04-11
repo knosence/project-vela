@@ -44,6 +44,7 @@ from prototypes.python.vela.rust_bridge import (
     inspect_reference_payload,
     list_dreamer_follow_ups_payload,
     list_dreamer_queue_payload,
+    list_growth_targets_payload,
     matrix_inventory_payload,
     parse_dreamer_actions_payload,
     extract_blocked_items_payload,
@@ -1875,6 +1876,10 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(blocked_items["ok"])
         self.assertEqual(blocked_items["items"][0]["target"], "knowledge/a.md")
         self.assertEqual(blocked_items["items"][0]["endpoint"], "patrol")
+        growth_targets = list_growth_targets_payload()
+        self.assertTrue(growth_targets["ok"])
+        self.assertTrue(any(item["inventory_role"] == "cornerstone" for item in growth_targets["items"]))
+        self.assertTrue(all(not item["path"].startswith("knowledge/ARTIFACTS/") for item in growth_targets["items"]))
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",
             [
