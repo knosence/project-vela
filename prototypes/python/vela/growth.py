@@ -39,6 +39,11 @@ def render_growth_proposal(route: str, target: str, assessment: GrowthAssessment
     created = datetime.now(timezone.utc).date().isoformat()
     target_name = Path(target).stem
     parent_link = f"[[{target_name}]]"
+    subject_hint = "-".join(
+        part
+        for part in target_name.replace("_", "-").split("-")
+        if part and part.lower() not in {"sot", "ref", "identity", "capabilities", "intent"}
+    ) or target_name
     return (
         "---\n"
         "sot-type: proposal\n"
@@ -50,6 +55,7 @@ def render_growth_proposal(route: str, target: str, assessment: GrowthAssessment
         f'target: "{target}"\n'
         f'route: "{route}"\n'
         f'recommended-stage: "{assessment.stage}"\n'
+        f'subject-hint: "{subject_hint}"\n'
         'tags: ["growth","proposal","matrix","governance"]\n'
         "---\n\n"
         "# Growth Proposal\n\n"

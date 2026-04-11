@@ -2024,6 +2024,17 @@ class VelaSystemTest(unittest.TestCase):
             growth_execution["plan"]["target"],
             "knowledge/111.VELA.Vela-Child-SoT.md",
         )
+        growth_execution_with_hint = plan_growth_execution_payload(
+            "spawn",
+            "knowledge/110.WHO.Vela-Identity-SoT.md",
+            "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
+            "Matrix-Crew",
+        )
+        self.assertTrue(growth_execution_with_hint["ok"])
+        self.assertEqual(
+            growth_execution_with_hint["plan"]["target"],
+            "knowledge/111.VELA.Matrix-Crew-SoT.md",
+        )
         growth_source_update = plan_growth_source_update_payload(
             "spawn",
             "knowledge/110.WHO.Vela-Identity-SoT.md",

@@ -308,12 +308,14 @@ fn run() -> Result<(), String> {
             let proposal_target = args
                 .next()
                 .ok_or_else(|| "missing proposal target".to_string())?;
+            let subject_hint = args.next().unwrap_or_default();
             let repo_root = std::env::current_dir().map_err(|err| err.to_string())?;
             let (plan, findings) = plan_growth_execution_policy(
                 std::path::Path::new(&repo_root),
                 &stage,
                 &assessed_target,
                 &proposal_target,
+                &subject_hint,
             );
             if !findings.is_empty() {
                 print_findings(&findings, None);

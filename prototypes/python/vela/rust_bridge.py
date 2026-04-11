@@ -396,8 +396,13 @@ def assess_growth_payload(target: str) -> dict[str, Any]:
     return _run(["assess-growth-target", target])
 
 
-def plan_growth_execution_payload(stage: str, assessed_target: str, proposal_target: str) -> dict[str, Any]:
-    return _run(["plan-growth-execution", stage, assessed_target, proposal_target])
+def plan_growth_execution_payload(
+    stage: str,
+    assessed_target: str,
+    proposal_target: str,
+    subject_hint: str = "",
+) -> dict[str, Any]:
+    return _run(["plan-growth-execution", stage, assessed_target, proposal_target, subject_hint])
 
 
 def plan_growth_source_update_payload(

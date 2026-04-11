@@ -451,6 +451,7 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
     assessed_target = str(frontmatter.get("target", "")).strip().strip('"')
     stage = str(frontmatter.get("recommended-stage", "")).strip().strip('"')
     route = str(frontmatter.get("route", "")).strip().strip('"')
+    subject_hint = str(frontmatter.get("subject-hint", "")).strip().strip('"')
 
     if not assessed_target or not stage:
         finding = annotate_finding(ValidationFinding(
@@ -517,7 +518,12 @@ def apply_growth_proposal(proposal_target: str, actor: str, approval_id: str | N
         )
         return {"ok": False, "findings": [finding.as_dict()], "approval_required": True}
 
-    execution = _build_growth_execution(stage=stage, assessed_target=assessed_target, proposal_target=proposal_target)
+    execution = _build_growth_execution(
+        stage=stage,
+        assessed_target=assessed_target,
+        proposal_target=proposal_target,
+        subject_hint=subject_hint,
+    )
     if not execution["ok"]:
         return {"ok": False, "findings": execution["findings"]}
     result = write_text(
@@ -684,10 +690,15 @@ def create_cross_reference(
     }
 
 
-def _build_growth_execution(stage: str, assessed_target: str, proposal_target: str) -> dict[str, str]:
+def _build_growth_execution(
+    stage: str,
+    assessed_target: str,
+    proposal_target: str,
+    subject_hint: str = "",
+) -> dict[str, str]:
     created = datetime.now(timezone.utc).date().isoformat()
     source_text = (REPO_ROOT / assessed_target).read_text(encoding="utf-8")
-    payload = plan_growth_execution_payload(stage, assessed_target, proposal_target)
+    payload = plan_growth_execution_payload(stage, assessed_target, proposal_target, subject_hint)
     plan = payload.get("plan")
     if not payload.get("ok") or not plan:
         findings = annotate_findings(

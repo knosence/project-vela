@@ -190,6 +190,7 @@ pub fn plan_growth_execution(
     stage: &str,
     assessed_target: &str,
     proposal_target: &str,
+    subject_hint: &str,
 ) -> (Option<GrowthExecutionPlan>, Vec<ValidationFinding>) {
     let target_path = Path::new(assessed_target);
     let stem = sanitize_growth_stem(
@@ -229,10 +230,11 @@ pub fn plan_growth_execution(
 
     if stage == "reference-note" {
         let (dimension, entries) = extract_reference_entries(&source_text);
-        let target = numbered_reference_target(root, assessed_target).unwrap_or_else(|| {
-            let ref_stem = stem.strip_suffix("-SoT").unwrap_or(&stem);
-            format!("knowledge/ARTIFACTS/refs/Ref.{ref_stem}.md")
-        });
+        let target =
+            numbered_reference_target(root, assessed_target, subject_hint).unwrap_or_else(|| {
+                let ref_stem = stem.strip_suffix("-SoT").unwrap_or(&stem);
+                format!("knowledge/ARTIFACTS/refs/Ref.{ref_stem}.md")
+            });
         return (
             Some(GrowthExecutionPlan {
                 target,
@@ -245,14 +247,15 @@ pub fn plan_growth_execution(
     }
 
     if stage == "spawn" && assessed_target.ends_with("-SoT.md") {
-        let target = numbered_spawn_target(root, assessed_target).unwrap_or_else(|| {
-            let child_stem = stem.strip_suffix("-SoT").unwrap_or(&stem);
-            let child_name = format!("{child_stem}.Spawned-Child-SoT.md");
-            target_path
-                .with_file_name(child_name)
-                .to_string_lossy()
-                .replace('\\', "/")
-        });
+        let target =
+            numbered_spawn_target(root, assessed_target, subject_hint).unwrap_or_else(|| {
+                let child_stem = stem.strip_suffix("-SoT").unwrap_or(&stem);
+                let child_name = format!("{child_stem}.Spawned-Child-SoT.md");
+                target_path
+                    .with_file_name(child_name)
+                    .to_string_lossy()
+                    .replace('\\', "/")
+            });
         return (
             Some(GrowthExecutionPlan {
                 target,
@@ -2825,20 +2828,24 @@ fn sanitize_growth_stem(value: &str) -> String {
     result.trim_matches('-').to_string()
 }
 
-fn numbered_reference_target(root: &Path, assessed_target: &str) -> Option<String> {
+fn numbered_reference_target(
+    root: &Path,
+    assessed_target: &str,
+    subject_hint: &str,
+) -> Option<String> {
     let name = Path::new(assessed_target).file_name()?.to_str()?;
     let parent_id = matrix_numeric_id_for_name(name)?;
     let ref_id = next_available_ref_id(root, &parent_id)?;
     let context = matrix_context_for_name(name)?;
-    let subject = sanitize_growth_stem(&matrix_subject_for_name(name)?);
+    let subject = growth_subject_from_hint_or_source(name, subject_hint)?;
     Some(format!("knowledge/{ref_id}.{context}.{subject}-Ref.md"))
 }
 
-fn numbered_spawn_target(root: &Path, assessed_target: &str) -> Option<String> {
+fn numbered_spawn_target(root: &Path, assessed_target: &str, subject_hint: &str) -> Option<String> {
     let name = Path::new(assessed_target).file_name()?.to_str()?;
     let source_id = matrix_numeric_id_for_name(name)?;
     let source_kind = matrix_id_kind_for_name(name)?;
-    let subject = spawn_subject_for_source(name)?;
+    let subject = spawn_subject_for_source(name, subject_hint)?;
 
     match source_kind {
         "hub" => {
@@ -2894,9 +2901,25 @@ fn child_context_for_source(name: &str) -> Option<String> {
     Some(root.to_ascii_uppercase())
 }
 
-fn spawn_subject_for_source(name: &str) -> Option<String> {
-    let kind = matrix_id_kind_for_name(name)?;
+fn growth_subject_from_hint_or_source(name: &str, subject_hint: &str) -> Option<String> {
+    let hinted = sanitize_growth_stem(subject_hint);
+    if !hinted.is_empty() {
+        return Some(hinted);
+    }
     let subject = normalize_subject_root(&matrix_subject_for_name(name)?);
+    if subject.is_empty() {
+        return None;
+    }
+    Some(subject)
+}
+
+fn spawn_subject_for_source(name: &str, subject_hint: &str) -> Option<String> {
+    let kind = matrix_id_kind_for_name(name)?;
+    let hinted = sanitize_growth_stem(subject_hint);
+    if !hinted.is_empty() {
+        return Some(hinted);
+    }
+    let subject = growth_subject_from_hint_or_source(name, "")?;
     if subject.is_empty() {
         return None;
     }
@@ -3566,11 +3589,30 @@ mod tests {
             "spawn",
             "knowledge/110.WHO.Vela-Identity-SoT.md",
             "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
+            "",
         );
         assert!(findings.is_empty());
         let plan = plan.expect("growth plan");
         assert_eq!(plan.kind, "spawned-sot");
         assert_eq!(plan.target, "knowledge/111.VELA.Vela-Child-SoT.md");
+    }
+
+    #[test]
+    fn plans_spawn_growth_execution_with_subject_hint() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("repo root")
+            .to_path_buf();
+        let (plan, findings) = plan_growth_execution(
+            &root,
+            "spawn",
+            "knowledge/110.WHO.Vela-Identity-SoT.md",
+            "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
+            "Matrix-Crew",
+        );
+        assert!(findings.is_empty());
+        let plan = plan.expect("growth plan");
+        assert_eq!(plan.target, "knowledge/111.VELA.Matrix-Crew-SoT.md");
     }
 
     #[test]
