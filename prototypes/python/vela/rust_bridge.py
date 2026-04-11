@@ -223,6 +223,24 @@ def validate_event_payload(event: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def render_event_payload(event: dict[str, Any]) -> dict[str, Any]:
+    return _run(
+        [
+            "render-event",
+            str(event.get("event_id", "")),
+            str(event.get("timestamp", "")),
+            str(event.get("source", "")),
+            str(event.get("endpoint", "")),
+            str(event.get("actor", "")),
+            str(event.get("target", "")),
+            str(event.get("status", "")),
+            str(event.get("reason", "")),
+            "true" if bool(event.get("approval_required")) else "false",
+        ],
+        stdin=f"{json.dumps(event.get('artifacts', []))}\n===SUMMARY===\n{json.dumps(event.get('validation_summary', {}))}",
+    )
+
+
 def analyze_release_payload(repo: str, version: str, notes: str, watchlist_text: str, context_markers: list[str]) -> dict[str, Any]:
     return _run(["analyze-release", repo, version, notes, ",".join(context_markers)], stdin=watchlist_text)
 

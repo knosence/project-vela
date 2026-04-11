@@ -1,7 +1,9 @@
 use std::env;
 use std::io::{self, Read};
 
-use vela_core::events::{validate_event_record, EventRecord, ValidationSummary};
+use vela_core::events::{
+    render_event_record_json, validate_event_record, EventRecord, ValidationSummary,
+};
 use vela_core::inventory::discover_matrix_inventory;
 use vela_core::matrix::{
     build_matrix_index, validate_parent_consistency as validate_matrix_parent_consistency,
@@ -559,6 +561,63 @@ fn run() -> Result<(), String> {
                 } else {
                     "false"
                 },
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
+        "render-event" => {
+            let event_id = args.next().ok_or_else(|| "missing event id".to_string())?;
+            let timestamp = args.next().ok_or_else(|| "missing timestamp".to_string())?;
+            let source = args.next().ok_or_else(|| "missing source".to_string())?;
+            let endpoint = args.next().ok_or_else(|| "missing endpoint".to_string())?;
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let target = args.next().ok_or_else(|| "missing target".to_string())?;
+            let status = args.next().ok_or_else(|| "missing status".to_string())?;
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let approval_required = parse_bool(
+                &args
+                    .next()
+                    .ok_or_else(|| "missing approval required".to_string())?,
+            )?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (artifacts_json, validation_summary_json) = content
+                .split_once("\n===SUMMARY===\n")
+                .ok_or_else(|| "missing event render split marker".to_string())?;
+            let event = EventRecord {
+                event_id,
+                timestamp,
+                source,
+                endpoint,
+                actor,
+                target,
+                status,
+                reason,
+                artifacts: Vec::new(),
+                approval_required,
+                validation_summary: ValidationSummary {
+                    finding_codes: Vec::new(),
+                    blocking: false,
+                },
+            };
+            let findings = validate_event_record(&event);
+            println!(
+                "{{\"ok\":{},\"line\":\"{}\",\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                escape_json(&render_event_record_json(
+                    &event,
+                    artifacts_json,
+                    validation_summary_json,
+                )),
                 findings
                     .iter()
                     .map(render_finding)

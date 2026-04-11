@@ -113,6 +113,52 @@ pub fn validate_event_record(record: &EventRecord) -> Vec<ValidationFinding> {
     findings
 }
 
+pub fn render_event_record_json(
+    record: &EventRecord,
+    artifacts_json: &str,
+    validation_summary_json: &str,
+) -> String {
+    let artifacts = if artifacts_json.trim().is_empty() {
+        "[]".to_string()
+    } else {
+        artifacts_json.trim().to_string()
+    };
+    let validation_summary = if validation_summary_json.trim().is_empty() {
+        "{\"finding_codes\":[],\"blocking\":false}".to_string()
+    } else {
+        validation_summary_json.trim().to_string()
+    };
+    format!(
+        "{{\"event_id\":\"{}\",\"timestamp\":\"{}\",\"source\":\"{}\",\"endpoint\":\"{}\",\"actor\":\"{}\",\"target\":\"{}\",\"status\":\"{}\",\"reason\":\"{}\",\"artifacts\":{},\"approval_required\":{},\"validation_summary\":{}}}",
+        escape_json(&record.event_id),
+        escape_json(&record.timestamp),
+        escape_json(&record.source),
+        escape_json(&record.endpoint),
+        escape_json(&record.actor),
+        escape_json(&record.target),
+        escape_json(&record.status),
+        escape_json(&record.reason),
+        artifacts,
+        if record.approval_required { "true" } else { "false" },
+        validation_summary,
+    )
+}
+
+fn escape_json(value: &str) -> String {
+    let mut escaped = String::new();
+    for ch in value.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,5 +190,28 @@ mod tests {
         assert!(findings
             .iter()
             .any(|item| item.code == "EVENT_REASON_REQUIRED"));
+    }
+
+    #[test]
+    fn renders_event_record_json() {
+        let event = EventRecord::new(
+            "evt_123",
+            "2026-04-11T01:00:00Z",
+            "vela",
+            "verify",
+            "scribe",
+            "knowledge/ARTIFACTS/refs/test.md",
+            "committed",
+            "test write",
+        );
+        let rendered = render_event_record_json(
+            &event,
+            "[\"knowledge/ARTIFACTS/refs/test.md\"]",
+            "{\"finding_codes\":[\"OK\"],\"blocking\":false}",
+        );
+        assert!(rendered.contains("\"event_id\":\"evt_123\""));
+        assert!(rendered.contains("\"artifacts\":[\"knowledge/ARTIFACTS/refs/test.md\"]"));
+        assert!(rendered
+            .contains("\"validation_summary\":{\"finding_codes\":[\"OK\"],\"blocking\":false}"));
     }
 }

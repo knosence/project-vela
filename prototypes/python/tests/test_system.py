@@ -43,6 +43,7 @@ from prototypes.python.vela.rust_bridge import (
     matrix_inventory_payload,
     parse_dreamer_actions_payload,
     parse_operations_state_payload,
+    render_event_payload,
     register_dreamer_action_payload,
     route_for_target,
     route_inbox_payload,
@@ -416,6 +417,23 @@ class VelaSystemTest(unittest.TestCase):
             target="knowledge/ARTIFACTS/refs/event-log.md",
         )
         self.assertIn("event_id", EVENT_LOG_PATH.read_text(encoding="utf-8"))
+        rendered = render_event_payload(
+            {
+                "event_id": "evt_test",
+                "timestamp": "2026-04-11T01:00:00Z",
+                "source": "vela",
+                "endpoint": "test",
+                "actor": "scribe",
+                "target": "knowledge/ARTIFACTS/refs/test.md",
+                "status": "committed",
+                "reason": "test write",
+                "artifacts": ["knowledge/ARTIFACTS/refs/test.md"],
+                "approval_required": False,
+                "validation_summary": {"finding_codes": ["OK"], "blocking": False},
+            }
+        )
+        self.assertTrue(rendered["ok"])
+        self.assertIn("\"event_id\":\"evt_test\"", rendered["line"])
 
     def test_protected_zone_write_creates_backup(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/protected-zone-test.md"
