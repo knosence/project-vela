@@ -64,6 +64,10 @@ from prototypes.python.vela.rust_bridge import (
     plan_scheduler_run_payload,
     plan_warden_patrol_payload,
     render_dc_night_report_payload,
+    render_growth_reference_note_payload,
+    render_growth_spawned_sot_payload,
+    render_applied_growth_action_payload,
+    render_applied_growth_proposal_payload,
     render_dreamer_execution_artifact_payload,
     render_dreamer_follow_up_payload,
     render_dreamer_pattern_report_payload,
@@ -1920,6 +1924,38 @@ class VelaSystemTest(unittest.TestCase):
             "Spawned Child: [[110.WHO.Vela-Identity.Spawned-Child-SoT]]",
             growth_source_update["plan"]["link_line"],
         )
+        rendered_ref = render_growth_reference_note_payload(
+            "knowledge/ARTIFACTS/refs/Ref.example.md",
+            "knowledge/210.WHAT.Vela-Capabilities-SoT.md",
+            "knowledge/ARTIFACTS/proposals/example-growth.md",
+            "2026-04-11",
+            "## 200.WHAT.Scope",
+            ["- Example entry. (2026-04-11)\n  - Example context."],
+        )
+        self.assertTrue(rendered_ref["ok"])
+        self.assertIn("Ref.example.md", rendered_ref["content"])
+        rendered_spawn = render_growth_spawned_sot_payload(
+            "knowledge/110.WHO.Vela-Identity.Spawned-Child-SoT.md",
+            "knowledge/110.WHO.Vela-Identity-SoT.md",
+            "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
+            "2026-04-11",
+        )
+        self.assertTrue(rendered_spawn["ok"])
+        self.assertIn("Spawned-Child-SoT.md Source of Truth", rendered_spawn["content"])
+        rendered_applied = render_applied_growth_action_payload(
+            "reference-note",
+            "knowledge/210.WHAT.Vela-Capabilities-SoT.md",
+            "knowledge/ARTIFACTS/proposals/example-growth.md",
+        )
+        self.assertTrue(rendered_applied["ok"])
+        self.assertIn("Applied Growth Action", rendered_applied["content"])
+        rendered_proposal = render_applied_growth_proposal_payload(
+            "---\nstatus: proposed\n---\n\n# Growth Proposal\n",
+            "knowledge/ARTIFACTS/refs/Ref.example.md",
+            "reference-note",
+        )
+        self.assertTrue(rendered_proposal["ok"])
+        self.assertIn("status: applied", rendered_proposal["content"])
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",
             [

@@ -376,6 +376,65 @@ def plan_growth_source_update_payload(
     )
 
 
+def render_growth_reference_note_payload(
+    execution_target: str,
+    assessed_target: str,
+    proposal_target: str,
+    created: str,
+    dimension: str,
+    entries: list[str],
+) -> dict[str, Any]:
+    return _run(
+        [
+            "render-growth-reference-note",
+            execution_target,
+            assessed_target,
+            proposal_target,
+            created,
+            dimension,
+        ],
+        stdin=json.dumps(entries),
+    )
+
+
+def render_growth_spawned_sot_payload(
+    execution_target: str,
+    assessed_target: str,
+    proposal_target: str,
+    created: str,
+) -> dict[str, Any]:
+    return _run(
+        [
+            "render-growth-spawned-sot",
+            execution_target,
+            assessed_target,
+            proposal_target,
+            created,
+        ]
+    )
+
+
+def render_applied_growth_action_payload(
+    stage: str,
+    assessed_target: str,
+    proposal_target: str,
+) -> dict[str, Any]:
+    return _run(
+        ["render-applied-growth-action", stage, assessed_target, proposal_target]
+    )
+
+
+def render_applied_growth_proposal_payload(
+    proposal_text: str,
+    execution_target: str,
+    stage: str,
+) -> dict[str, Any]:
+    return _run(
+        ["render-applied-growth-proposal", execution_target, stage],
+        stdin=proposal_text,
+    )
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 

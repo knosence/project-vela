@@ -17,6 +17,10 @@ from .rust_bridge import plan_event_append_payload
 from .rust_bridge import plan_growth_execution_payload
 from .rust_bridge import plan_growth_source_update_payload
 from .rust_bridge import render_event_payload
+from .rust_bridge import render_growth_reference_note_payload
+from .rust_bridge import render_growth_spawned_sot_payload
+from .rust_bridge import render_applied_growth_action_payload
+from .rust_bridge import render_applied_growth_proposal_payload
 from .rust_bridge import route_inbox_payload
 from .rust_bridge import validate_archive_postconditions_payload
 from .rust_bridge import validate_event_payload
@@ -745,13 +749,14 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
             "dimension": str(plan.get("dimension", "")),
             "entries": list(plan.get("entries", [])),
         }
-        content = _render_reference_note(
+        content = render_growth_reference_note_payload(
             execution_target=execution_target,
             assessed_target=assessed_target,
             proposal_target=proposal_target,
             created=created,
-            extracted=extracted,
-        )
+            dimension=extracted["dimension"],
+            entries=extracted["entries"],
+        )["content"]
         return {
             "ok": True,
             "target": execution_target,
@@ -763,20 +768,13 @@ def _build_growth_execution(stage: str, assessed_target: str, proposal_target: s
 
     if stage == "spawn" and assessed_target.endswith("-SoT.md"):
         execution_target = str(plan["target"])
-        content = _render_spawned_sot(execution_target, assessed_target, proposal_target, created)
+        content = render_growth_spawned_sot_payload(
+            execution_target, assessed_target, proposal_target, created
+        )["content"]
         return {"ok": True, "target": execution_target, "content": content, "kind": str(plan["kind"])}
 
     execution_target = str(plan["target"])
-    content = (
-        "# Applied Growth Action\n\n"
-        "## This Artifact Records the Governed Structural Action Chosen from the Growth Proposal\n"
-        f"Proposal `{proposal_target}` was applied against `{assessed_target}`.\n\n"
-        f"Recommended stage: `{stage}`.\n\n"
-        "## This Artifact Records the Immediate Controlled Outcome\n"
-        f"- action kind: `{stage if stage else 'unknown'}`\n"
-        f"- assessed target: `{assessed_target}`\n"
-        "- direct canonical mutation was deferred in favor of a governed structural action artifact\n"
-    )
+    content = render_applied_growth_action_payload(stage, assessed_target, proposal_target)["content"]
     return {"ok": True, "target": execution_target, "content": content, "kind": str(plan["kind"])}
 
 
@@ -786,67 +784,6 @@ def _archive_postcondition_failure(content: str, entry_value: str, archived_reas
         [ValidationFinding(item["code"], item["detail"], item["severity"], item.get("rule_refs", [])) for item in payload["findings"]]
     )
     return findings[0] if findings else None
-
-
-def _render_spawned_sot(execution_target: str, assessed_target: str, proposal_target: str, created: str) -> str:
-    parent_name = Path(assessed_target).stem
-    child_name = Path(execution_target).name
-    return (
-        "---\n"
-        "sot-type: system\n"
-        f"created: {created}\n"
-        f"last-rewritten: {created}\n"
-        f'parent: "[[{parent_name}]]"\n'
-        "domain: growth\n"
-        "status: active\n"
-        'tags: ["growth","spawned","sot"]\n'
-        "---\n\n"
-        f"# {child_name} Source of Truth\n\n"
-        "## 000.Index\n\n"
-        "### Subject Declaration\n\n"
-        f"**Subject:** {child_name} was spawned from a governed growth proposal.\n"
-        "**Type:** system\n"
-        f"**Created:** {created}\n"
-        f"**Parent:** [[{parent_name}]]\n\n"
-        "### Links\n\n"
-        f"- Parent: [[{parent_name}]]\n"
-        f"- Source Branch: [[{parent_name}]]\n"
-        f"- Source Target: `{assessed_target}`\n"
-        "- Cornerstone: [[Cornerstone.Knosence-SoT]]\n"
-        f"- Proposal: `{proposal_target}`\n\n"
-        "### Inbox\n\n"
-        "No pending items.\n\n"
-        "### Status\n\n"
-        "Newly spawned from a governed growth proposal.\n\n"
-        "### Open Questions\n\n"
-        "- What content should migrate here from the parent SoT? "
-        f"({created})\n"
-        "  - The spawn establishes the branch before extraction work begins. [AGENT:gpt-5]\n\n"
-        "### Next Actions\n\n"
-        f"- Extract the branch-specific material from `{assessed_target}`. ({created})\n"
-        "  - The new child should earn its content through governed extraction, not duplication. [AGENT:gpt-5]\n\n"
-        "### Decisions\n\n"
-        f"- [{created}] Spawned child SoT created from `{proposal_target}`.\n\n"
-        "### Block Map — Single Source\n\n"
-        "| ID | Question | Dimension | This SoT's Name |\n"
-        "|----|----------|-----------|-----------------|\n"
-        "| 000 | — | Index | Index |\n"
-        "| 100 | Who | Circle | Identity |\n"
-        "| 200 | What | Domain | Scope |\n"
-        "| 300 | Where | Terrain | Placement |\n"
-        "| 400 | When | Chronicle | Timeline |\n"
-        "| 500 | How | Method | Operation |\n"
-        "| 600 | Why/Not | Compass | Rationale |\n"
-        "| 700 | — | Archive | Archive |\n\n"
-        "---\n\n"
-        "## 100.WHO.Identity\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
-        "## 200.WHAT.Scope\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
-        "## 300.WHERE.Placement\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
-        "## 400.WHEN.Timeline\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
-        "## 500.HOW.Method\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
-        "## 600.WHY.Compass\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n"
-        "## 700.Archive\n\n(No archived entries.)\n"
-    )
 
 
 def _apply_growth_to_source(
@@ -1018,31 +955,6 @@ def _dimension_preference(dimension: str) -> int:
     return order.get(dimension, 0)
 
 
-def _render_reference_note(
-    *,
-    execution_target: str,
-    assessed_target: str,
-    proposal_target: str,
-    created: str,
-    extracted: dict[str, Any],
-) -> str:
-    heading = extracted.get("dimension", "")
-    entries = extracted.get("entries", [])
-    entry_text = "\n\n".join(entries) if entries else "(No extracted entries.)"
-    return (
-        f"# Reference Note for {Path(execution_target).name}\n\n"
-        "## This Reference Note Exists Because the Parent Artifact Has Exceeded a Flat Shape\n"
-        f"The governed growth proposal `{proposal_target}` recommended extraction into a reference note.\n\n"
-        "## This Reference Note Points Back to the Assessed Parent Artifact\n"
-        f"- parent artifact: `{assessed_target}`\n"
-        f"- proposal: `{proposal_target}`\n"
-        f"- extracted from: `{heading}`\n"
-        f"- created: `{created}`\n\n"
-        "## This Reference Note Preserves the Extracted Active Entries\n"
-        f"{entry_text}\n"
-    )
-
-
 def _replace_entries_with_reference_pointer(
     source_text: str,
     dimension_heading: str,
@@ -1127,18 +1039,9 @@ def _entry_blocks(active_section: str) -> list[str]:
 
 
 def _mark_proposal_applied(proposal_text: str, execution_target: str, stage: str) -> str:
-    updated = proposal_text.replace("status: proposed", "status: applied", 1)
-    if "## This Proposal Records the Applied Outcome" in updated:
-        return updated
-    if not updated.endswith("\n"):
-        updated += "\n"
-    updated += (
-        "\n## This Proposal Records the Applied Outcome\n"
-        f"- stage applied: `{stage}`\n"
-        f"- execution target: `{execution_target}`\n"
-        "- proposal status changed from `proposed` to `applied`\n"
-    )
-    return updated
+    return render_applied_growth_proposal_payload(
+        proposal_text, execution_target, stage
+    )["content"]
 
 
 def _parse_frontmatter(text: str) -> dict[str, Any]:

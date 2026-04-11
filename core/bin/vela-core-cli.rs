@@ -46,12 +46,16 @@ use vela_core::operations::{
     plan_warden_patrol as plan_warden_patrol_policy,
     register_dreamer_action as register_dreamer_action_policy,
     render_applied_dreamer_follow_up as render_applied_dreamer_follow_up_policy,
+    render_applied_growth_action as render_applied_growth_action_policy,
+    render_applied_growth_proposal as render_applied_growth_proposal_policy,
     render_dc_night_report as render_dc_night_report_policy,
     render_dreamer_execution_artifact as render_dreamer_execution_artifact_policy,
     render_dreamer_follow_up as render_dreamer_follow_up_policy,
     render_dreamer_pattern_report as render_dreamer_pattern_report_policy,
     render_dreamer_proposal as render_dreamer_proposal_policy,
+    render_growth_reference_note as render_growth_reference_note_policy,
     render_reviewed_dreamer_proposal as render_reviewed_dreamer_proposal_policy,
+    render_spawned_sot as render_spawned_sot_policy,
     render_warden_patrol_report as render_warden_patrol_report_policy,
     route_inbox_entry as route_inbox_dimension,
     update_dreamer_action_status as update_dreamer_action_status_policy,
@@ -212,6 +216,83 @@ fn run() -> Result<(), String> {
             } else {
                 println!("{{\"ok\":true,\"plan\":null}}");
             }
+        }
+        "render-growth-reference-note" => {
+            let execution_target = args
+                .next()
+                .ok_or_else(|| "missing execution target".to_string())?;
+            let assessed_target = args
+                .next()
+                .ok_or_else(|| "missing assessed target".to_string())?;
+            let proposal_target = args
+                .next()
+                .ok_or_else(|| "missing proposal target".to_string())?;
+            let created = args
+                .next()
+                .ok_or_else(|| "missing created date".to_string())?;
+            let dimension = args
+                .next()
+                .ok_or_else(|| "missing dimension heading".to_string())?;
+            let mut stdin = String::new();
+            io::stdin()
+                .read_to_string(&mut stdin)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let entries = extract_string_array(&stdin);
+            let content = render_growth_reference_note_policy(
+                &execution_target,
+                &assessed_target,
+                &proposal_target,
+                &created,
+                &dimension,
+                &entries,
+            );
+            println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&content));
+        }
+        "render-growth-spawned-sot" => {
+            let execution_target = args
+                .next()
+                .ok_or_else(|| "missing execution target".to_string())?;
+            let assessed_target = args
+                .next()
+                .ok_or_else(|| "missing assessed target".to_string())?;
+            let proposal_target = args
+                .next()
+                .ok_or_else(|| "missing proposal target".to_string())?;
+            let created = args
+                .next()
+                .ok_or_else(|| "missing created date".to_string())?;
+            let content = render_spawned_sot_policy(
+                &execution_target,
+                &assessed_target,
+                &proposal_target,
+                &created,
+            );
+            println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&content));
+        }
+        "render-applied-growth-action" => {
+            let stage = args.next().ok_or_else(|| "missing stage".to_string())?;
+            let assessed_target = args
+                .next()
+                .ok_or_else(|| "missing assessed target".to_string())?;
+            let proposal_target = args
+                .next()
+                .ok_or_else(|| "missing proposal target".to_string())?;
+            let content =
+                render_applied_growth_action_policy(&stage, &assessed_target, &proposal_target);
+            println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&content));
+        }
+        "render-applied-growth-proposal" => {
+            let execution_target = args
+                .next()
+                .ok_or_else(|| "missing execution target".to_string())?;
+            let stage = args.next().ok_or_else(|| "missing stage".to_string())?;
+            let mut proposal_text = String::new();
+            io::stdin()
+                .read_to_string(&mut proposal_text)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let content =
+                render_applied_growth_proposal_policy(&proposal_text, &execution_target, &stage);
+            println!("{{\"ok\":true,\"content\":\"{}\"}}", escape_json(&content));
         }
         "validate-archive-postconditions" => {
             let entry_value = args
@@ -2016,4 +2097,40 @@ fn escape_json(value: &str) -> String {
         }
     }
     escaped
+}
+
+fn extract_string_array(text: &str) -> Vec<String> {
+    let trimmed = text.trim();
+    if trimmed.len() < 2 || !trimmed.starts_with('[') || !trimmed.ends_with(']') {
+        return Vec::new();
+    }
+    let inner = &trimmed[1..trimmed.len() - 1];
+    if inner.trim().is_empty() {
+        return Vec::new();
+    }
+    let mut values = Vec::new();
+    let mut current = String::new();
+    let mut in_string = false;
+    let mut escaped = false;
+    for ch in inner.chars() {
+        if in_string {
+            if escaped {
+                current.push(ch);
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+                values.push(current.clone());
+                current.clear();
+            } else {
+                current.push(ch);
+            }
+            continue;
+        }
+        if ch == '"' {
+            in_string = true;
+        }
+    }
+    values
 }

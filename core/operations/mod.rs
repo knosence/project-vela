@@ -365,6 +365,155 @@ pub fn plan_growth_source_update(
     )
 }
 
+pub fn render_growth_reference_note(
+    execution_target: &str,
+    assessed_target: &str,
+    proposal_target: &str,
+    created: &str,
+    dimension: &str,
+    entries: &[String],
+) -> String {
+    let entry_text = if entries.is_empty() {
+        "(No extracted entries.)".to_string()
+    } else {
+        entries.join("\n\n")
+    };
+    format!(
+        "# Reference Note for {}\n\n\
+## This Reference Note Exists Because the Parent Artifact Has Exceeded a Flat Shape\n\
+The governed growth proposal `{}` recommended extraction into a reference note.\n\n\
+## This Reference Note Points Back to the Assessed Parent Artifact\n\
+- parent artifact: `{}`\n\
+- proposal: `{}`\n\
+- extracted from: `{}`\n\
+- created: `{}`\n\n\
+## This Reference Note Preserves the Extracted Active Entries\n\
+{}\n",
+        Path::new(execution_target)
+            .file_name()
+            .and_then(|item| item.to_str())
+            .unwrap_or(execution_target),
+        proposal_target,
+        assessed_target,
+        proposal_target,
+        dimension,
+        created,
+        entry_text
+    )
+}
+
+pub fn render_spawned_sot(
+    execution_target: &str,
+    assessed_target: &str,
+    proposal_target: &str,
+    created: &str,
+) -> String {
+    let parent_name = Path::new(assessed_target)
+        .file_stem()
+        .and_then(|item| item.to_str())
+        .unwrap_or("parent");
+    let child_name = Path::new(execution_target)
+        .file_name()
+        .and_then(|item| item.to_str())
+        .unwrap_or(execution_target);
+    format!(
+        "---\n\
+sot-type: system\n\
+created: {created}\n\
+last-rewritten: {created}\n\
+parent: \"[[{parent_name}]]\"\n\
+domain: growth\n\
+status: active\n\
+tags: [\"growth\",\"spawned\",\"sot\"]\n\
+---\n\n\
+# {child_name} Source of Truth\n\n\
+## 000.Index\n\n\
+### Subject Declaration\n\n\
+**Subject:** {child_name} was spawned from a governed growth proposal.\n\
+**Type:** system\n\
+**Created:** {created}\n\
+**Parent:** [[{parent_name}]]\n\n\
+### Links\n\n\
+- Parent: [[{parent_name}]]\n\
+- Source Branch: [[{parent_name}]]\n\
+- Source Target: `{assessed_target}`\n\
+- Cornerstone: [[Cornerstone.Knosence-SoT]]\n\
+- Proposal: `{proposal_target}`\n\n\
+### Inbox\n\n\
+No pending items.\n\n\
+### Status\n\n\
+Newly spawned from a governed growth proposal.\n\n\
+### Open Questions\n\n\
+- What content should migrate here from the parent SoT? ({created})\n\
+  - The spawn establishes the branch before extraction work begins. [AGENT:gpt-5]\n\n\
+### Next Actions\n\n\
+- Extract the branch-specific material from `{assessed_target}`. ({created})\n\
+  - The new child should earn its content through governed extraction, not duplication. [AGENT:gpt-5]\n\n\
+### Decisions\n\n\
+- [{created}] Spawned child SoT created from `{proposal_target}`.\n\n\
+### Block Map — Single Source\n\n\
+| ID | Question | Dimension | This SoT's Name |\n\
+|----|----------|-----------|-----------------|\n\
+| 000 | — | Index | Index |\n\
+| 100 | Who | Circle | Identity |\n\
+| 200 | What | Domain | Scope |\n\
+| 300 | Where | Terrain | Placement |\n\
+| 400 | When | Chronicle | Timeline |\n\
+| 500 | How | Method | Operation |\n\
+| 600 | Why/Not | Compass | Rationale |\n\
+| 700 | — | Archive | Archive |\n\n\
+---\n\n\
+## 100.WHO.Identity\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 200.WHAT.Scope\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 300.WHERE.Placement\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 400.WHEN.Timeline\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 500.HOW.Method\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 600.WHY.Compass\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 700.Archive\n\n(No archived entries.)\n"
+    )
+}
+
+pub fn render_applied_growth_action(
+    stage: &str,
+    assessed_target: &str,
+    proposal_target: &str,
+) -> String {
+    format!(
+        "# Applied Growth Action\n\n\
+## This Artifact Records the Governed Structural Action Chosen from the Growth Proposal\n\
+Proposal `{}` was applied against `{}`.\n\n\
+Recommended stage: `{}`.\n\n\
+## This Artifact Records the Immediate Controlled Outcome\n\
+- action kind: `{}`\n\
+- assessed target: `{}`\n\
+- direct canonical mutation was deferred in favor of a governed structural action artifact\n",
+        proposal_target,
+        assessed_target,
+        stage,
+        if stage.is_empty() { "unknown" } else { stage },
+        assessed_target
+    )
+}
+
+pub fn render_applied_growth_proposal(
+    proposal_text: &str,
+    execution_target: &str,
+    stage: &str,
+) -> String {
+    let mut updated = proposal_text.replacen("status: proposed", "status: applied", 1);
+    if updated.contains("## This Proposal Records the Applied Outcome") {
+        return updated;
+    }
+    if !updated.ends_with('\n') {
+        updated.push('\n');
+    }
+    updated.push_str(&format!(
+        "\n## This Proposal Records the Applied Outcome\n- stage applied: `{}`\n- execution target: `{}`\n- proposal status changed from `proposed` to `applied`\n",
+        stage, execution_target
+    ));
+    updated
+}
+
 pub fn parse_operations_state(state_json: &str) -> (OperationsState, Vec<ValidationFinding>) {
     let mut findings = Vec::new();
     let mut state = default_operations_state();
