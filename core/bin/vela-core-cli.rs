@@ -2,7 +2,8 @@ use std::env;
 use std::io::{self, Read};
 
 use vela_core::events::{
-    extract_blocked_items as extract_blocked_items_policy, plan_event_append,
+    extract_blocked_items as extract_blocked_items_policy,
+    extract_patch_targets as extract_patch_targets_policy, plan_event_append,
     render_event_record_json, validate_event_record, EventRecord, ValidationSummary,
 };
 use vela_core::inventory::{
@@ -14,7 +15,7 @@ use vela_core::matrix::{
 };
 use vela_core::models::{
     BlockedItemSummary, DreamerProposalCandidate, GrowthTarget, OnboardingConfig,
-    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState,
+    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget,
     SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
@@ -1127,6 +1128,21 @@ fn run() -> Result<(), String> {
                     .join(",")
             );
         }
+        "extract-patch-targets" => {
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let items = extract_patch_targets_policy(&content);
+            println!(
+                "{{\"ok\":true,\"items\":[{}]}}",
+                items
+                    .iter()
+                    .map(render_patch_target)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "list-growth-targets" => {
             let repo_root = env::current_dir()
                 .map_err(|err| format!("failed to determine repo root: {err}"))?
@@ -1671,6 +1687,10 @@ fn render_blocked_item_summary(item: &BlockedItemSummary) -> String {
         escape_json(&item.actor),
         escape_json(&item.endpoint),
     )
+}
+
+fn render_patch_target(item: &PatchTarget) -> String {
+    format!("{{\"path\":\"{}\"}}", escape_json(&item.path))
 }
 
 fn render_growth_target(item: &GrowthTarget) -> String {

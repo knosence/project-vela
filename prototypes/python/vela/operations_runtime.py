@@ -17,6 +17,7 @@ from .rust_bridge import (
     inspect_dreamer_follow_up_kind_payload,
     inspect_dreamer_proposal_payload,
     extract_blocked_items_payload,
+    extract_patch_targets_payload,
     list_dreamer_follow_ups_payload,
     list_dreamer_queue_payload,
     list_growth_targets_payload,
@@ -581,17 +582,8 @@ def apply_dreamer_follow_up(target: str, actor: str, reason: str) -> dict[str, A
 def _patched_targets() -> list[str]:
     if not PATCH_LOG_PATH.exists():
         return []
-    targets: list[str] = []
-    for line in PATCH_LOG_PATH.read_text(encoding="utf-8").splitlines():
-        if line.startswith("  TARGET: "):
-            target = line.split(":", 1)[1].strip()
-            if target not in targets:
-                targets.append(target)
-        if line.startswith("  DETAIL: Extracted into "):
-            detail_target = line.split("Extracted into ", 1)[1].split(" ", 1)[0].strip()
-            if detail_target not in targets:
-                targets.append(detail_target)
-    return targets
+    payload = extract_patch_targets_payload(PATCH_LOG_PATH.read_text(encoding="utf-8"))
+    return [str(item.get("path", "")) for item in payload.get("items", []) if str(item.get("path", ""))]
 
 
 def _growth_candidates() -> list[dict[str, Any]]:

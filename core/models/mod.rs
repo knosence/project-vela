@@ -106,6 +106,11 @@ pub struct GrowthTarget {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PatchTarget {
+    pub path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DreamerFollowUpSummary {
     pub target: String,
     pub status: String,

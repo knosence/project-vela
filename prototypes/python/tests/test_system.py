@@ -48,6 +48,7 @@ from prototypes.python.vela.rust_bridge import (
     matrix_inventory_payload,
     parse_dreamer_actions_payload,
     extract_blocked_items_payload,
+    extract_patch_targets_payload,
     parse_operations_state_payload,
     plan_event_append_payload,
     plan_night_cycle_payload,
@@ -1876,6 +1877,12 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(blocked_items["ok"])
         self.assertEqual(blocked_items["items"][0]["target"], "knowledge/a.md")
         self.assertEqual(blocked_items["items"][0]["endpoint"], "patrol")
+        patch_targets = extract_patch_targets_payload(
+            "[20260410@1200] ACTION: routed\n  TARGET: knowledge/210.WHAT.Vela-Capabilities-SoT.md\n  DETAIL: Extracted into knowledge/ARTIFACTS/refs/Ref.example.md companion\n"
+        )
+        self.assertTrue(patch_targets["ok"])
+        self.assertEqual(patch_targets["items"][0]["path"], "knowledge/210.WHAT.Vela-Capabilities-SoT.md")
+        self.assertEqual(patch_targets["items"][1]["path"], "knowledge/ARTIFACTS/refs/Ref.example.md")
         growth_targets = list_growth_targets_payload()
         self.assertTrue(growth_targets["ok"])
         self.assertTrue(any(item["inventory_role"] == "cornerstone" for item in growth_targets["items"]))

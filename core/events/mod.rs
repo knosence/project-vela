@@ -1,4 +1,4 @@
-use crate::models::{BlockedItemSummary, EventAppendPlan, ValidationFinding};
+use crate::models::{BlockedItemSummary, EventAppendPlan, PatchTarget, ValidationFinding};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationSummary {
@@ -183,6 +183,33 @@ pub fn extract_blocked_items(log_text: &str) -> Vec<BlockedItemSummary> {
         .collect()
 }
 
+pub fn extract_patch_targets(log_text: &str) -> Vec<PatchTarget> {
+    let mut targets: Vec<String> = Vec::new();
+    for line in log_text.lines() {
+        if let Some(target) = line.strip_prefix("  TARGET: ") {
+            let value = target.trim().to_string();
+            if !value.is_empty() && !targets.contains(&value) {
+                targets.push(value);
+            }
+        }
+        if let Some(detail) = line.strip_prefix("  DETAIL: Extracted into ") {
+            let value = detail
+                .split(' ')
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+            if !value.is_empty() && !targets.contains(&value) {
+                targets.push(value);
+            }
+        }
+    }
+    targets
+        .into_iter()
+        .map(|path| PatchTarget { path })
+        .collect()
+}
+
 fn extract_json_string(text: &str, field: &str) -> Option<String> {
     let pattern = format!("\"{field}\":\"");
     let start = text.find(&pattern)? + pattern.len();
@@ -294,5 +321,15 @@ mod tests {
         assert_eq!(items[0].target, "knowledge/a.md");
         assert_eq!(items[0].reason, "lock conflict");
         assert_eq!(items[0].endpoint, "patrol");
+    }
+
+    #[test]
+    fn extracts_patch_targets_from_patch_log() {
+        let items = extract_patch_targets(
+            "[20260410@1200] ACTION: routed\n  TARGET: knowledge/210.WHAT.Vela-Capabilities-SoT.md\n  DETAIL: Extracted into knowledge/ARTIFACTS/refs/Ref.example.md companion\n",
+        );
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].path, "knowledge/210.WHAT.Vela-Capabilities-SoT.md");
+        assert_eq!(items[1].path, "knowledge/ARTIFACTS/refs/Ref.example.md");
     }
 }
