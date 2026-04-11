@@ -2546,6 +2546,19 @@ class VelaSystemTest(unittest.TestCase):
         findings = validate_parent_consistency(target)
         self.assertTrue(any(item.code == "MATRIX_HUB_PARENT_REQUIRED" for item in findings))
 
+    def test_matrix_parent_rule_rejects_non_local_grandchild_id(self) -> None:
+        target = REPO_ROOT / "knowledge/ARTIFACTS/proposals/221.WHAT.Vela-Capabilities-SoT.md"
+        target.write_text(
+            (
+                (REPO_ROOT / "knowledge/111.VELA.Capabilities-SoT.md")
+                .read_text(encoding="utf-8")
+                .replace("# Vela Capabilities Source of Truth", "# Misnumbered Branch Source of Truth")
+            ),
+            encoding="utf-8",
+        )
+        findings = validate_parent_consistency(target)
+        self.assertTrue(any(item.code == "MATRIX_LOCAL_HIERARCHY_REQUIRED" for item in findings))
+
     def test_matrix_index_layer(self) -> None:
         result = write_matrix_index()
         self.assertTrue((REPO_ROOT / result["path"]).exists())

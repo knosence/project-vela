@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::inventory::{
     discover_matrix_inventory, inferred_inventory_role_for_path, inventory_area_for_path,
     inventory_role_for_path, matrix_id_kind_for_name, matrix_id_kind_for_path,
-    matrix_numeric_id_for_path,
+    matrix_numeric_id_for_name, matrix_numeric_id_for_path,
 };
 use crate::models::{GovernedReference, MatrixSoT, Severity, ValidationFinding};
 
@@ -187,6 +187,42 @@ pub fn validate_parent_consistency(path: &str, text: &str) -> Vec<ValidationFind
         ));
     }
 
+    if let Some(parent_name) = parent_target_name(&fm_parent) {
+        let child_kind = matrix_id_kind_for_path(path);
+        let parent_kind = matrix_id_kind_for_name(&parent_name);
+        if parent_kind == Some("direct-child") {
+            if child_kind != Some("grandchild") {
+                findings.push(ValidationFinding::error(
+                    "MATRIX_GRANDCHILD_ID_REQUIRED",
+                    format!(
+                        "{path} points to child parent {parent_name} and must use an `XXX` grandchild ID"
+                    ),
+                ));
+            } else if let (Some(child_id), Some(parent_id)) = (
+                matrix_numeric_id_for_path(path),
+                matrix_numeric_id_for_name(&parent_name),
+            ) {
+                if !child_id.starts_with(&parent_id[..2]) {
+                    findings.push(ValidationFinding::error(
+                        "MATRIX_LOCAL_HIERARCHY_REQUIRED",
+                        format!(
+                            "{path} must stay in the local `{}` address band because its parent is {parent_name}",
+                            &parent_id[..2],
+                        ),
+                    ));
+                }
+            }
+        }
+        if parent_kind == Some("grandchild") && child_kind.is_some() {
+            findings.push(ValidationFinding::error(
+                "MATRIX_THREE_HOP_CEILING_EXCEEDED",
+                format!(
+                    "{path} cannot attach beneath grandchild parent {parent_name} because the matrix stops at three hops"
+                ),
+            ));
+        }
+    }
+
     findings
 }
 
@@ -299,14 +335,51 @@ fn validate_matrix_rules(entries: &[MatrixSoT]) -> Vec<ValidationFinding> {
 
         let parent_name = parent_target_name(&entry.parent);
         if let Some(parent_name) = parent_name {
-            if matrix_id_kind_for_name(&parent_name) == Some("hub")
+            let child_kind = matrix_id_kind_for_path(&entry.path);
+            let parent_kind = matrix_id_kind_for_name(&parent_name);
+            if parent_kind == Some("hub")
                 && !entry.is_cornerstone
-                && matrix_id_kind_for_path(&entry.path) != Some("direct-child")
+                && child_kind != Some("direct-child")
             {
                 findings.push(ValidationFinding::error(
                     "MATRIX_DIRECT_CHILD_ID_REQUIRED",
                     format!(
                         "{} points to hub parent {} and must use an `XX0` child ID",
+                        entry.path, parent_name
+                    ),
+                ));
+            }
+            if parent_kind == Some("direct-child") {
+                if child_kind != Some("grandchild") {
+                    findings.push(ValidationFinding::error(
+                        "MATRIX_GRANDCHILD_ID_REQUIRED",
+                        format!(
+                            "{} points to child parent {} and must use an `XXX` grandchild ID",
+                            entry.path, parent_name
+                        ),
+                    ));
+                } else if let (Some(child_id), Some(parent_id)) = (
+                    matrix_numeric_id_for_path(&entry.path),
+                    matrix_numeric_id_for_name(&parent_name),
+                ) {
+                    if !child_id.starts_with(&parent_id[..2]) {
+                        findings.push(ValidationFinding::error(
+                            "MATRIX_LOCAL_HIERARCHY_REQUIRED",
+                            format!(
+                                "{} must stay in the local `{}` address band because its parent is {}",
+                                entry.path,
+                                &parent_id[..2],
+                                parent_name
+                            ),
+                        ));
+                    }
+                }
+            }
+            if parent_kind == Some("grandchild") && child_kind.is_some() {
+                findings.push(ValidationFinding::error(
+                    "MATRIX_THREE_HOP_CEILING_EXCEEDED",
+                    format!(
+                        "{} cannot attach beneath grandchild parent {} because the matrix stops at three hops",
                         entry.path, parent_name
                     ),
                 ));
@@ -332,7 +405,12 @@ fn validate_matrix_rules(entries: &[MatrixSoT]) -> Vec<ValidationFinding> {
 fn parent_target_name(value: &str) -> Option<String> {
     let trimmed = value.trim().trim_matches('"').trim();
     let inner = trimmed.strip_prefix("[[")?.strip_suffix("]]")?;
-    Some(inner.split('#').next()?.to_string())
+    let target = inner.split('#').next()?.to_string();
+    if target.ends_with(".md") {
+        Some(target)
+    } else {
+        Some(format!("{target}.md"))
+    }
 }
 
 fn render_matrix_index(entries: &[MatrixSoT], refs: &[GovernedReference]) -> String {
@@ -559,6 +637,29 @@ tags: [\"dimension\"]\n\
         assert!(findings
             .iter()
             .any(|item| item.code == "MATRIX_HUB_PARENT_REQUIRED"));
+    }
+
+    #[test]
+    fn rejects_non_local_grandchild_id_for_child_parent() {
+        let text = "---\n\
+sot-type: system\n\
+created: 2026-04-08\n\
+last-rewritten: 2026-04-08\n\
+parent: \"[[110.WHO.Vela-Identity-SoT#200.WHAT.Scope]]\"\n\
+domain: agents\n\
+status: active\n\
+tags: [\"agent\"]\n\
+---\n\n\
+# Example\n\n\
+## 000.Index\n\n\
+### Subject Declaration\n\n\
+**Parent:** [[110.WHO.Vela-Identity-SoT#200.WHAT.Scope]]\n";
+
+        let findings =
+            validate_parent_consistency("knowledge/221.WHAT.Vela-Capabilities-SoT.md", text);
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "MATRIX_LOCAL_HIERARCHY_REQUIRED"));
     }
 
     #[test]
