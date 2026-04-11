@@ -12,6 +12,9 @@ use vela_core::models::{
     ValidationFinding,
 };
 use vela_core::operations::{
+    classify_dreamer_follow_up as classify_dreamer_follow_up_policy,
+    dreamer_follow_up_queue_name as dreamer_follow_up_queue_name_policy,
+    dreamer_follow_up_registry_mode as dreamer_follow_up_registry_mode_policy,
     match_dreamer_actions as match_dreamer_actions_policy,
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
@@ -345,6 +348,53 @@ fn run() -> Result<(), String> {
             let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
             let findings = validate_dreamer_follow_up_apply_policy(&current_status, &actor);
             print_findings(&findings, None);
+        }
+        "classify-dreamer-follow-up" => {
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let kind = classify_dreamer_follow_up_policy(&reason);
+            let queue_name = match dreamer_follow_up_queue_name_policy(&kind) {
+                Ok(value) => value.to_string(),
+                Err(findings) => {
+                    print_findings(&findings, None);
+                    return Ok(());
+                }
+            };
+            let registry_mode = match dreamer_follow_up_registry_mode_policy(&kind) {
+                Ok(value) => value.to_string(),
+                Err(findings) => {
+                    print_findings(&findings, None);
+                    return Ok(());
+                }
+            };
+            println!(
+                "{{\"ok\":true,\"kind\":\"{}\",\"queue_name\":\"{}\",\"registry_mode\":\"{}\"}}",
+                escape_json(&kind),
+                escape_json(&queue_name),
+                escape_json(&registry_mode),
+            );
+        }
+        "inspect-dreamer-follow-up-kind" => {
+            let kind = args.next().ok_or_else(|| "missing kind".to_string())?;
+            let queue_name = match dreamer_follow_up_queue_name_policy(&kind) {
+                Ok(value) => value.to_string(),
+                Err(findings) => {
+                    print_findings(&findings, None);
+                    return Ok(());
+                }
+            };
+            let registry_mode = match dreamer_follow_up_registry_mode_policy(&kind) {
+                Ok(value) => value.to_string(),
+                Err(findings) => {
+                    print_findings(&findings, None);
+                    return Ok(());
+                }
+            };
+            println!(
+                "{{\"ok\":true,\"kind\":\"{}\",\"queue_name\":\"{}\",\"registry_mode\":\"{}\"}}",
+                escape_json(&kind),
+                escape_json(&queue_name),
+                escape_json(&registry_mode),
+            );
         }
         "validate-config" => {
             let owner_name = args

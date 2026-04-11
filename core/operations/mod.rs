@@ -211,6 +211,69 @@ pub fn validate_dreamer_follow_up_apply(
     findings
 }
 
+pub fn classify_dreamer_follow_up(reason: &str) -> String {
+    let lowered = reason.to_lowercase();
+    if [
+        "validator",
+        "validation",
+        "rule",
+        "frontmatter",
+        "structure",
+    ]
+    .iter()
+    .any(|token| lowered.contains(token))
+    {
+        "validator-change".to_string()
+    } else if ["workflow", "triage", "route", "pipeline", "queue"]
+        .iter()
+        .any(|token| lowered.contains(token))
+    {
+        "workflow-change".to_string()
+    } else {
+        "refusal-tightening".to_string()
+    }
+}
+
+pub fn validate_dreamer_follow_up_kind(kind: &str) -> Vec<ValidationFinding> {
+    if matches!(
+        kind,
+        "validator-change" | "workflow-change" | "refusal-tightening"
+    ) {
+        Vec::new()
+    } else {
+        vec![ValidationFinding::error(
+            "DREAMER_FOLLOW_UP_KIND_INVALID",
+            format!("Unsupported Dreamer follow up kind: {kind}"),
+        )]
+    }
+}
+
+pub fn dreamer_follow_up_registry_mode(kind: &str) -> Result<&'static str, Vec<ValidationFinding>> {
+    let findings = validate_dreamer_follow_up_kind(kind);
+    if !findings.is_empty() {
+        return Err(findings);
+    }
+    Ok(match kind {
+        "validator-change" => "validator",
+        "workflow-change" => "workflow",
+        "refusal-tightening" => "refusal",
+        _ => unreachable!(),
+    })
+}
+
+pub fn dreamer_follow_up_queue_name(kind: &str) -> Result<&'static str, Vec<ValidationFinding>> {
+    let findings = validate_dreamer_follow_up_kind(kind);
+    if !findings.is_empty() {
+        return Err(findings);
+    }
+    Ok(match kind {
+        "validator-change" => "Validator-Change-Queue",
+        "workflow-change" => "Workflow-Change-Queue",
+        "refusal-tightening" => "Refusal-Tightening-Queue",
+        _ => unreachable!(),
+    })
+}
+
 pub fn parse_dreamer_action_registry(
     registry_json: &str,
 ) -> (DreamerActionRegistry, Vec<ValidationFinding>) {
@@ -943,5 +1006,29 @@ mod tests {
         assert!(findings
             .iter()
             .any(|item| item.code == "DREAMER_FOLLOW_UP_ACTOR_NOT_ALLOWED"));
+    }
+
+    #[test]
+    fn classifies_dreamer_follow_up_kind() {
+        assert_eq!(
+            classify_dreamer_follow_up("validator structure regression"),
+            "validator-change"
+        );
+        assert_eq!(
+            classify_dreamer_follow_up("workflow queue routing drift"),
+            "workflow-change"
+        );
+        assert_eq!(
+            classify_dreamer_follow_up("need tighter refusal behavior"),
+            "refusal-tightening"
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_dreamer_follow_up_kind() {
+        let findings = validate_dreamer_follow_up_kind("sandbox-change");
+        assert!(findings
+            .iter()
+            .any(|item| item.code == "DREAMER_FOLLOW_UP_KIND_INVALID"));
     }
 }

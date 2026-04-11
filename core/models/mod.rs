@@ -251,6 +251,11 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
             "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
             "Role Purity".to_string(),
         ],
+        "DREAMER_FOLLOW_UP_KIND_INVALID" => vec![
+            "SoT Operations Reference: Dreamer Feedback Loop".to_string(),
+            "Role Purity".to_string(),
+            "One Home, Many Pointers".to_string(),
+        ],
         _ => Vec::new(),
     }
 }

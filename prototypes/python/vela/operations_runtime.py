@@ -15,6 +15,8 @@ from .growth import assess_growth
 from .models import EventRecord
 from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
 from .rust_bridge import (
+    classify_dreamer_follow_up_payload,
+    inspect_dreamer_follow_up_kind_payload,
     matrix_inventory_payload,
     validate_dreamer_follow_up_apply_payload,
     validate_dreamer_review_payload,
@@ -777,7 +779,8 @@ def _build_dreamer_follow_up(target: str, proposal_text: str, decision: str, act
     if decision != "approved":
         return None
     reason = _proposal_reason(proposal_text)
-    classification = _classify_dreamer_follow_up(reason)
+    classification_payload = classify_dreamer_follow_up_payload(reason)
+    classification = str(classification_payload.get("kind", "refusal-tightening"))
     stem = Path(target).stem.replace("Dreamer-Proposal.", "Dreamer-Follow-Up.")
     follow_up_target = f"knowledge/ARTIFACTS/proposals/{stem}.md"
     return {
@@ -785,15 +788,6 @@ def _build_dreamer_follow_up(target: str, proposal_text: str, decision: str, act
         "kind": classification,
         "content": _render_dreamer_follow_up(follow_up_target, target, reason, classification, actor),
     }
-
-
-def _classify_dreamer_follow_up(reason: str) -> str:
-    lowered = reason.lower()
-    if any(token in lowered for token in ["validator", "validation", "rule", "frontmatter", "structure"]):
-        return "validator-change"
-    if any(token in lowered for token in ["workflow", "triage", "route", "pipeline", "queue"]):
-        return "workflow-change"
-    return "refusal-tightening"
 
 
 def _render_dreamer_follow_up(
@@ -836,11 +830,8 @@ def _build_follow_up_execution(
     stem = Path(target).stem.replace("Dreamer-Follow-Up.", "Dreamer-Execution.")
     execution_target = f"knowledge/ARTIFACTS/refs/{stem}.md"
     created = datetime.now(timezone.utc).date().isoformat()
-    queue_name = {
-        "validator-change": "Validator-Change-Queue",
-        "workflow-change": "Workflow-Change-Queue",
-        "refusal-tightening": "Refusal-Tightening-Queue",
-    }.get(kind, "Dreamer-Action-Queue")
+    kind_payload = inspect_dreamer_follow_up_kind_payload(kind)
+    queue_name = str(kind_payload.get("queue_name", "Dreamer-Action-Queue"))
     content = (
         "---\n"
         "sot-type: reference\n"
@@ -901,11 +892,8 @@ def _register_dreamer_action(
     actor: str,
     execution_reason: str,
 ) -> dict[str, Any]:
-    mode = {
-        "validator-change": "validator",
-        "workflow-change": "workflow",
-        "refusal-tightening": "refusal",
-    }.get(kind, "workflow")
+    kind_payload = inspect_dreamer_follow_up_kind_payload(kind)
+    mode = str(kind_payload.get("registry_mode", "workflow"))
     result = register_dreamer_action_runtime(
         kind=mode,
         follow_up_target=follow_up_target,

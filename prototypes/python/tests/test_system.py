@@ -37,6 +37,8 @@ from prototypes.python.vela.paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, O
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
 from prototypes.python.vela.repo_watch import analyze_release
 from prototypes.python.vela.rust_bridge import (
+    classify_dreamer_follow_up_payload,
+    inspect_dreamer_follow_up_kind_payload,
     inspect_reference_payload,
     matrix_inventory_payload,
     parse_dreamer_actions_payload,
@@ -1074,6 +1076,15 @@ class VelaSystemTest(unittest.TestCase):
         invalid_follow_up_apply = validate_dreamer_follow_up_apply_payload("archived", "vela")
         self.assertFalse(invalid_follow_up_apply["ok"])
         self.assertTrue(any(item["code"] == "DREAMER_FOLLOW_UP_ACTOR_NOT_ALLOWED" for item in invalid_follow_up_apply["findings"]))
+
+        classified = classify_dreamer_follow_up_payload("workflow queue routing drift")
+        self.assertTrue(classified["ok"])
+        self.assertEqual(classified["kind"], "workflow-change")
+
+        inspected = inspect_dreamer_follow_up_kind_payload("workflow-change")
+        self.assertTrue(inspected["ok"])
+        self.assertEqual(inspected["registry_mode"], "workflow")
+        self.assertEqual(inspected["queue_name"], "Workflow-Change-Queue")
 
     def test_operations_runtime_blocks_unauthorized_requester(self) -> None:
         blocked_patrol = run_warden_patrol(requested_by="vela")

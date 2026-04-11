@@ -137,6 +137,14 @@ def validate_dreamer_follow_up_apply_payload(current_status: str, actor: str) ->
     return _run(["validate-dreamer-follow-up-apply", current_status, actor])
 
 
+def classify_dreamer_follow_up_payload(reason: str) -> dict[str, Any]:
+    return _run(["classify-dreamer-follow-up", reason])
+
+
+def inspect_dreamer_follow_up_kind_payload(kind: str) -> dict[str, Any]:
+    return _run(["inspect-dreamer-follow-up-kind", kind])
+
+
 def route_inbox_payload(content: str) -> dict[str, Any]:
     return _run(["route-inbox"], stdin=content)
 
