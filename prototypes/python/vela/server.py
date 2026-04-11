@@ -22,10 +22,12 @@ from .models import new_id
 from .operations_runtime import (
     apply_dreamer_follow_up,
     list_merge_candidates,
+    list_merge_follow_ups,
     list_merge_proposals,
     list_dreamer_follow_ups,
     list_dreamer_queue,
     operations_state,
+    review_merge_proposal,
     review_dreamer_proposal,
     run_night_cycle_scheduler,
     run_night_cycle,
@@ -333,6 +335,20 @@ class VelaService:
     def merge_proposals(self) -> dict[str, Any]:
         return envelope(True, "merge-proposals", "accepted", "Merge proposals listed", data=list_merge_proposals())
 
+    def merge_follow_ups(self) -> dict[str, Any]:
+        return envelope(True, "merge-follow-ups", "accepted", "Merge follow up queue listed", data=list_merge_follow_ups())
+
+    def merge_review(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = review_merge_proposal(
+            target=payload["target"],
+            decision=payload["decision"],
+            actor=payload.get("actor", "human"),
+            reason=payload.get("reason", ""),
+        )
+        if result["ok"]:
+            return envelope(True, "merge-review", "accepted", "Merge proposal reviewed", data=result)
+        return envelope(False, "merge-review", "rejected", "Merge proposal review blocked", data=result, errors=result.get("findings", []))
+
     def dreamer_review(self, payload: dict[str, Any]) -> dict[str, Any]:
         result = review_dreamer_proposal(
             target=payload["target"],
@@ -406,6 +422,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/n8n/merge/proposals":
             self._send(self.service.merge_proposals())
             return
+        if parsed.path == "/api/n8n/merge/follow-ups":
+            self._send(self.service.merge_follow_ups())
+            return
         self._send(envelope(False, "unknown", "rejected", "Endpoint not found", errors=[{"code": "NOT_FOUND", "detail": self.path}]), HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
@@ -430,6 +449,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             "/api/n8n/dreamer/follow-ups/apply": self.service.dreamer_apply_follow_up,
             "/api/n8n/dreamer/actions/register": self.service.dreamer_register_action,
             "/api/n8n/dreamer/actions/status": self.service.dreamer_update_action_status,
+            "/api/n8n/merge/review": self.service.merge_review,
             "/api/n8n/profiles/use": self.service.profiles_use,
         }
         handler = routes.get(self.path)

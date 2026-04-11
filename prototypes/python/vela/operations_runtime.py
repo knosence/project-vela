@@ -10,7 +10,17 @@ from .dreamer_actions import load_dreamer_actions
 from .dreamer_actions import register_dreamer_action as register_dreamer_action_runtime
 from .governance import append_event, record_approval, validate_target, write_text
 from .growth import assess_growth
-from .merge import detect_merge_candidates, list_merge_proposals as list_merge_proposals_runtime, merge_proposal_target, render_merge_proposal
+from .merge import (
+    detect_merge_candidates,
+    list_merge_follow_ups as list_merge_follow_ups_runtime,
+    list_merge_proposals as list_merge_proposals_runtime,
+    merge_follow_up_target,
+    merge_proposal_target,
+    render_merge_follow_up,
+    render_merge_proposal,
+    render_reviewed_merge_proposal,
+    suggest_merge_target,
+)
 from .models import EventRecord
 from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
 from .rust_bridge import (
@@ -415,6 +425,71 @@ def list_merge_candidates() -> dict[str, Any]:
 def list_merge_proposals() -> dict[str, Any]:
     payload = list_merge_proposals_runtime()
     return {"ok": bool(payload.get("ok")), "items": list(payload.get("items", []))}
+
+
+def list_merge_follow_ups() -> dict[str, Any]:
+    payload = list_merge_follow_ups_runtime()
+    return {"ok": bool(payload.get("ok")), "items": list(payload.get("items", []))}
+
+
+def review_merge_proposal(target: str, decision: str, actor: str, reason: str) -> dict[str, Any]:
+    if decision not in {"approved", "denied", "needs-more-info"}:
+        return {"ok": False, "findings": [{"code": "MERGE_REVIEW_DECISION_INVALID", "detail": f"Unsupported merge review decision: {decision}"}]}
+    path = REPO_ROOT / target
+    if not path.exists():
+        return {"ok": False, "findings": [{"code": "MERGE_PROPOSAL_NOT_FOUND", "detail": f"Merge proposal not found: {target}"}]}
+    current = path.read_text(encoding="utf-8")
+    frontmatter = _parse_frontmatter(current)
+    if str(frontmatter.get("status", "unknown")) != "proposed":
+        return {"ok": False, "findings": [{"code": "MERGE_PROPOSAL_STATE_INVALID", "detail": f"Merge proposal `{target}` is not in proposed state"}]}
+    record_approval(f"merge_{_slug(target)}_{_stamp()}", decision, actor, reason, target)
+    ref_target = str(frontmatter.get("ref-target", ""))
+    count = int(str(frontmatter.get("entity-count", "0")) or 0)
+    follow_up_target = None
+    follow_up_result: dict[str, Any] = {"ok": True, "artifacts": []}
+    if decision == "approved":
+        follow_up_target = merge_follow_up_target(target)
+        follow_up_result = write_text(
+            follow_up_target,
+            render_merge_follow_up(
+                target,
+                ref_target,
+                count,
+                actor,
+                reason,
+                suggest_merge_target(ref_target),
+            ),
+            actor="system",
+            endpoint="merge-review",
+            reason=f"merge follow up for {target}",
+        )
+    updated = render_reviewed_merge_proposal(current, decision, actor, reason, follow_up_target=follow_up_target)
+    proposal_result = write_text(target, updated, actor="system", endpoint="merge-review", reason=f"merge proposal {decision}")
+    append_event(
+        EventRecord(
+            source="vela",
+            endpoint="merge-review",
+            actor=actor,
+            target=target,
+            status="committed" if proposal_result["ok"] and follow_up_result["ok"] else "blocked",
+            reason=reason,
+            artifacts=[
+                target,
+                *proposal_result.get("artifacts", [target]),
+                *([follow_up_target] if follow_up_target and follow_up_result["ok"] else []),
+                *follow_up_result.get("artifacts", []),
+            ],
+            validation_summary={"decision": decision, "ref_target": ref_target, "follow_up_target": follow_up_target},
+        )
+    )
+    return {
+        "ok": proposal_result["ok"] and follow_up_result["ok"],
+        "target": target,
+        "decision": decision,
+        "follow_up_target": follow_up_target,
+        "suggested_target": suggest_merge_target(ref_target) if follow_up_target else None,
+        "findings": proposal_result.get("findings", []) + follow_up_result.get("findings", []),
+    }
 
 
 def review_dreamer_proposal(target: str, decision: str, actor: str, reason: str) -> dict[str, Any]:

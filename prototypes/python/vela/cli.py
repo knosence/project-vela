@@ -13,10 +13,12 @@ from .models import EventRecord
 from .operations_runtime import (
     apply_dreamer_follow_up,
     list_merge_candidates,
+    list_merge_follow_ups,
     list_merge_proposals,
     list_dreamer_follow_ups,
     list_dreamer_queue,
     operations_state,
+    review_merge_proposal,
     review_dreamer_proposal,
     run_night_cycle_scheduler,
     run_night_cycle,
@@ -121,6 +123,17 @@ def cmd_merge_candidates(_: argparse.Namespace) -> int:
 def cmd_merge_proposals(_: argparse.Namespace) -> int:
     print(json.dumps(list_merge_proposals(), indent=2))
     return 0
+
+
+def cmd_merge_follow_ups(_: argparse.Namespace) -> int:
+    print(json.dumps(list_merge_follow_ups(), indent=2))
+    return 0
+
+
+def cmd_merge_review(args: argparse.Namespace) -> int:
+    result = review_merge_proposal(target=args.target, decision=args.decision, actor="human", reason=args.reason)
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
 
 
 def cmd_patrol_run(_: argparse.Namespace) -> int:
@@ -335,6 +348,13 @@ def build_parser() -> argparse.ArgumentParser:
     merge_candidates_parser.set_defaults(func=cmd_merge_candidates)
     merge_proposals_parser = merge_sub.add_parser("proposals")
     merge_proposals_parser.set_defaults(func=cmd_merge_proposals)
+    merge_follow_ups_parser = merge_sub.add_parser("follow-ups")
+    merge_follow_ups_parser.set_defaults(func=cmd_merge_follow_ups)
+    merge_review_parser = merge_sub.add_parser("review")
+    merge_review_parser.add_argument("target")
+    merge_review_parser.add_argument("decision")
+    merge_review_parser.add_argument("--reason", default="")
+    merge_review_parser.set_defaults(func=cmd_merge_review)
 
     patrol_parser = sub.add_parser("patrol")
     patrol_sub = patrol_parser.add_subparsers(dest="patrol_command", required=True)

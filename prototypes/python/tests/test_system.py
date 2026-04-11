@@ -26,10 +26,12 @@ from prototypes.python.vela.matrix import validate_parent_consistency
 from prototypes.python.vela.operations_runtime import (
     apply_dreamer_follow_up,
     list_merge_candidates,
+    list_merge_follow_ups,
     list_merge_proposals,
     list_dreamer_follow_ups,
     list_dreamer_queue,
     operations_state,
+    review_merge_proposal,
     review_dreamer_proposal,
     run_night_cycle_scheduler,
     run_night_cycle,
@@ -241,6 +243,8 @@ class VelaSystemTest(unittest.TestCase):
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Dreamer-Follow-Up.*.md"):
             path.unlink()
         for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Merge-Proposal.*.md"):
+            path.unlink()
+        for path in (REPO_ROOT / "knowledge/ARTIFACTS/proposals").glob("Merge-Follow-Up.*.md"):
             path.unlink()
         if PATCH_LOG_PATH.exists():
             PATCH_LOG_PATH.unlink()
@@ -1687,6 +1691,35 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(proposals["ok"])
         self.assertEqual(proposals["endpoint"], "merge-proposals")
         self.assertTrue(any(item["ref_target"] == "310a.WHERE.Shared-Topic-Ref" for item in proposals["data"]["items"]))
+
+    def test_merge_queue_and_review(self) -> None:
+        self.test_merge_candidates_are_detected_after_three_entities_share_a_ref()
+        cycle = run_night_cycle(requested_by="human")
+        self.assertTrue(cycle["merge_proposals"])
+        target = cycle["merge_proposals"][0]["target"]
+        review = review_merge_proposal(target=target, decision="approved", actor="human", reason="merge the repeated subject")
+        self.assertTrue(review["ok"])
+        self.assertTrue(review["follow_up_target"])
+        follow_ups = list_merge_follow_ups()
+        self.assertTrue(follow_ups["ok"])
+        self.assertTrue(any(item["target"] == review["follow_up_target"] for item in follow_ups["items"]))
+        follow_up_text = (REPO_ROOT / review["follow_up_target"]).read_text(encoding="utf-8")
+        self.assertIn("suggested target:", follow_up_text)
+        self.assertIn("Merge Follow Up", follow_up_text)
+
+    def test_merge_review_service_endpoint(self) -> None:
+        self.test_merge_candidates_are_detected_after_three_entities_share_a_ref()
+        cycle = VelaService().night_cycle_run({"actor": "n8n"})
+        self.assertTrue(cycle["ok"])
+        target = cycle["data"]["merge_proposals"][0]["target"]
+        review = VelaService().merge_review(
+            {"target": target, "decision": "approved", "actor": "human", "reason": "review the merge"}
+        )
+        self.assertTrue(review["ok"])
+        self.assertEqual(review["endpoint"], "merge-review")
+        follow_ups = VelaService().merge_follow_ups()
+        self.assertTrue(follow_ups["ok"])
+        self.assertTrue(follow_ups["data"]["items"])
 
     def test_inbox_triage_moves_text_file_to_companion_and_links_it(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/inbox-triage-target.md"
