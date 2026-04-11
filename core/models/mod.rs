@@ -172,6 +172,16 @@ pub struct OperationLifecyclePlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SchedulerPlan {
+    pub operation: String,
+    pub requested_by: String,
+    pub interval_seconds: u64,
+    pub max_runs: i32,
+    pub unbounded: bool,
+    pub current_status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationFinding {
     pub code: String,
     pub detail: String,
@@ -309,6 +319,10 @@ fn rule_refs_for_code(code: &str) -> Vec<String> {
         "OPERATION_REQUEST_NOT_ALLOWED" | "OPERATION_STATE_TRANSITION_INVALID" => vec![
             "SoT Operations Reference: Three-Tier Vault Maintenance".to_string(),
             "Role Purity".to_string(),
+            "Sequential Interplay Over Parallel Chaos".to_string(),
+        ],
+        "SCHEDULER_INTERVAL_INVALID" => vec![
+            "SoT Operations Reference: Three-Tier Vault Maintenance".to_string(),
             "Sequential Interplay Over Parallel Chaos".to_string(),
         ],
         "DREAMER_REVIEW_DECISION_INVALID"

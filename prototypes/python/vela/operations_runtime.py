@@ -25,6 +25,7 @@ from .rust_bridge import (
     plan_dreamer_review_payload,
     plan_operation_start_payload,
     plan_operation_state_update_payload,
+    plan_scheduler_run_payload,
     plan_warden_patrol_payload,
     render_dc_night_report_payload,
     render_dreamer_pattern_report_payload,
@@ -901,9 +902,33 @@ def _update_operation_state(
 
 
 def _run_scheduler(name: str, *, requested_by: str, interval_seconds: int, max_runs: int) -> dict[str, Any]:
+    current_state = "{}"
+    if OPERATIONS_STATE_PATH.exists():
+        current_state = OPERATIONS_STATE_PATH.read_text(encoding="utf-8")
+    schedule_plan_payload = plan_scheduler_run_payload(
+        current_state,
+        name,
+        requested_by,
+        interval_seconds,
+        max_runs,
+    )
+    schedule_plan = schedule_plan_payload.get("plan")
+    if not schedule_plan_payload.get("ok") or not schedule_plan:
+        return {
+            "ok": False,
+            "operation": name,
+            "interval_seconds": interval_seconds,
+            "runs_attempted": 0,
+            "runs": [],
+            "state": operations_state().get(name, {}),
+            "findings": schedule_plan_payload.get("findings", []),
+        }
     runs: list[dict[str, Any]] = []
     executed = 0
-    while max_runs <= 0 or executed < max_runs:
+    effective_interval = int(schedule_plan["interval_seconds"])
+    effective_max_runs = int(schedule_plan["max_runs"])
+    unbounded = bool(schedule_plan["unbounded"])
+    while unbounded or executed < effective_max_runs:
         if name == "patrol":
             result = run_warden_patrol(requested_by=requested_by)
         else:
@@ -912,13 +937,13 @@ def _run_scheduler(name: str, *, requested_by: str, interval_seconds: int, max_r
         executed += 1
         if not result.get("ok", False):
             break
-        if max_runs > 0 and executed >= max_runs:
+        if not unbounded and executed >= effective_max_runs:
             break
-        time.sleep(interval_seconds)
+        time.sleep(effective_interval)
     return {
         "ok": all(item.get("ok", False) for item in runs),
         "operation": name,
-        "interval_seconds": interval_seconds,
+        "interval_seconds": effective_interval,
         "runs_attempted": executed,
         "runs": runs,
         "state": operations_state().get(name, {}),

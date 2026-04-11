@@ -1,7 +1,8 @@
 use crate::models::{
     DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
     DreamerProposalSummary, DreamerReviewPlan, NightCyclePlan, OperationLifecyclePlan,
-    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, ValidationFinding,
+    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan,
+    ValidationFinding,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -160,6 +161,43 @@ pub fn plan_operation_state_update(
             lock_target: format!("runtime/queues/operation-{name}.lock"),
             lock_content: String::new(),
             release_lock,
+        }),
+        Vec::new(),
+    )
+}
+
+pub fn plan_scheduler_run(
+    current_state_json: &str,
+    name: &str,
+    requested_by: &str,
+    interval_seconds: i64,
+    max_runs: i32,
+) -> (Option<SchedulerPlan>, Vec<ValidationFinding>) {
+    let (_, mut findings) = parse_operations_state(current_state_json);
+    findings.extend(validate_operation_request(name, requested_by));
+    if interval_seconds < 0 || (interval_seconds == 0 && max_runs != 1) {
+        findings.push(ValidationFinding::error(
+            "SCHEDULER_INTERVAL_INVALID",
+            format!("Scheduler interval must be positive for `{name}`."),
+        ));
+    }
+    let (state, _) = parse_operations_state(current_state_json);
+    let current_status = match name {
+        "patrol" => state.patrol.status,
+        "night-cycle" => state.night_cycle.status,
+        _ => String::new(),
+    };
+    if !findings.is_empty() {
+        return (None, findings);
+    }
+    (
+        Some(SchedulerPlan {
+            operation: name.to_string(),
+            requested_by: requested_by.to_string(),
+            interval_seconds: interval_seconds as u64,
+            max_runs,
+            unbounded: max_runs <= 0,
+            current_status,
         }),
         Vec::new(),
     )

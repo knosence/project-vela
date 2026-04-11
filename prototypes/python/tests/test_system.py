@@ -53,6 +53,7 @@ from prototypes.python.vela.rust_bridge import (
     plan_dreamer_review_payload,
     plan_operation_start_payload,
     plan_operation_state_update_payload,
+    plan_scheduler_run_payload,
     plan_warden_patrol_payload,
     render_dc_night_report_payload,
     render_dreamer_execution_artifact_payload,
@@ -1137,6 +1138,26 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(complete_plan["ok"])
         self.assertTrue(complete_plan["plan"]["release_lock"])
         self.assertEqual(complete_plan["plan"]["state_status"], "completed")
+        scheduler_plan = plan_scheduler_run_payload(
+            "{}",
+            "patrol",
+            "human",
+            60,
+            2,
+        )
+        self.assertTrue(scheduler_plan["ok"])
+        self.assertEqual(scheduler_plan["plan"]["operation"], "patrol")
+        self.assertEqual(scheduler_plan["plan"]["interval_seconds"], 60)
+        self.assertEqual(scheduler_plan["plan"]["max_runs"], 2)
+        invalid_scheduler_plan = plan_scheduler_run_payload(
+            "{}",
+            "patrol",
+            "human",
+            0,
+            2,
+        )
+        self.assertFalse(invalid_scheduler_plan["ok"])
+        self.assertTrue(any(item["code"] == "SCHEDULER_INTERVAL_INVALID" for item in invalid_scheduler_plan["findings"]))
 
         invalid_lock = validate_operation_lock_payload("{}", "patrol")
         self.assertFalse(invalid_lock["ok"])

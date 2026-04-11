@@ -12,7 +12,7 @@ use vela_core::matrix::{
 };
 use vela_core::models::{
     OnboardingConfig, OperationLifecyclePlan, OperationLockRecord, OperationStateEntry,
-    OperationsState, Severity, ValidationFinding,
+    OperationsState, SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
     classify_dreamer_follow_up as classify_dreamer_follow_up_policy,
@@ -31,6 +31,7 @@ use vela_core::operations::{
     plan_dreamer_review as plan_dreamer_review_policy, plan_night_cycle as plan_night_cycle_policy,
     plan_operation_start as plan_operation_start_policy,
     plan_operation_state_update as plan_operation_state_update_policy,
+    plan_scheduler_run as plan_scheduler_run_policy,
     plan_warden_patrol as plan_warden_patrol_policy,
     register_dreamer_action as register_dreamer_action_policy,
     render_applied_dreamer_follow_up as render_applied_dreamer_follow_up_policy,
@@ -1002,6 +1003,49 @@ fn run() -> Result<(), String> {
                     .join(",")
             );
         }
+        "plan-scheduler-run" => {
+            let name = args.next().ok_or_else(|| "missing name".to_string())?;
+            let requested_by = args
+                .next()
+                .ok_or_else(|| "missing requested_by".to_string())?;
+            let interval_seconds = args
+                .next()
+                .ok_or_else(|| "missing interval_seconds".to_string())?
+                .parse::<i64>()
+                .map_err(|err| format!("invalid interval_seconds: {err}"))?;
+            let max_runs = args
+                .next()
+                .ok_or_else(|| "missing max_runs".to_string())?
+                .parse::<i32>()
+                .map_err(|err| format!("invalid max_runs: {err}"))?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (plan, findings) = plan_scheduler_run_policy(
+                &content,
+                &name,
+                &requested_by,
+                interval_seconds,
+                max_runs,
+            );
+            println!(
+                "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                plan.as_ref()
+                    .map(render_scheduler_plan)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "validate-config" => {
             let owner_name = args
                 .next()
@@ -1588,6 +1632,18 @@ fn render_operation_lifecycle_plan(item: &OperationLifecyclePlan) -> String {
         escape_json(&item.lock_target),
         escape_json(&item.lock_content),
         if item.release_lock { "true" } else { "false" },
+    )
+}
+
+fn render_scheduler_plan(item: &SchedulerPlan) -> String {
+    format!(
+        "{{\"operation\":\"{}\",\"requested_by\":\"{}\",\"interval_seconds\":{},\"max_runs\":{},\"unbounded\":{},\"current_status\":\"{}\"}}",
+        escape_json(&item.operation),
+        escape_json(&item.requested_by),
+        item.interval_seconds,
+        item.max_runs,
+        if item.unbounded { "true" } else { "false" },
+        escape_json(&item.current_status),
     )
 }
 

@@ -301,6 +301,25 @@ def plan_operation_state_update_payload(
     )
 
 
+def plan_scheduler_run_payload(
+    state_json: str,
+    name: str,
+    requested_by: str,
+    interval_seconds: int,
+    max_runs: int,
+) -> dict[str, Any]:
+    return _run(
+        [
+            "plan-scheduler-run",
+            name,
+            requested_by,
+            str(interval_seconds),
+            str(max_runs),
+        ],
+        stdin=state_json,
+    )
+
+
 def validate_dreamer_execution_artifact_payload(content: str) -> dict[str, Any]:
     return _run(["validate-dreamer-execution-artifact"], stdin=content)
 
