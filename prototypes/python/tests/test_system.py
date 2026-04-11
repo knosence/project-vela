@@ -1938,12 +1938,12 @@ class VelaSystemTest(unittest.TestCase):
         self.assertEqual(growth_execution["plan"]["kind"], "spawned-sot")
         self.assertEqual(
             growth_execution["plan"]["target"],
-            "knowledge/140.WHO.Vela-Identity-Spawned-Child-SoT.md",
+            "knowledge/111.VELA.Vela-Child-SoT.md",
         )
         growth_source_update = plan_growth_source_update_payload(
             "spawn",
             "knowledge/110.WHO.Vela-Identity-SoT.md",
-            "knowledge/140.WHO.Vela-Identity-Spawned-Child-SoT.md",
+            "knowledge/111.VELA.Vela-Child-SoT.md",
             "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
         )
         self.assertTrue(growth_source_update["ok"])
@@ -1952,7 +1952,7 @@ class VelaSystemTest(unittest.TestCase):
             "## 200.WHAT.Scope",
         )
         self.assertIn(
-            "Spawned Child: [[140.WHO.Vela-Identity-Spawned-Child-SoT]]",
+            "Spawned Child: [[111.VELA.Vela-Child-SoT]]",
             growth_source_update["plan"]["link_line"],
         )
         rendered_ref = render_growth_reference_note_payload(
@@ -1966,13 +1966,14 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(rendered_ref["ok"])
         self.assertIn("210a.WHAT.Vela-Capabilities-Ref.md", rendered_ref["content"])
         rendered_spawn = render_growth_spawned_sot_payload(
-            "knowledge/140.WHO.Vela-Identity-Spawned-Child-SoT.md",
+            "knowledge/111.VELA.Vela-Child-SoT.md",
             "knowledge/110.WHO.Vela-Identity-SoT.md",
             "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
             "2026-04-11",
         )
         self.assertTrue(rendered_spawn["ok"])
-        self.assertIn("Spawned-Child-SoT.md Source of Truth", rendered_spawn["content"])
+        self.assertIn("Vela-Child-SoT.md Source of Truth", rendered_spawn["content"])
+        self.assertIn("This SoT carries the branch-specific detail", rendered_spawn["content"])
         rendered_applied = render_applied_growth_action_payload(
             "reference-note",
             "knowledge/210.WHAT.Vela-Capabilities-SoT.md",

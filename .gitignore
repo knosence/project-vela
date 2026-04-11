@@ -34,3 +34,9 @@ knowledge/ARTIFACTS/refs/verification-*.json
 runtime/config/verification-status.json
 runtime/config/approvals.json
 runtime/queues/*.lock
+
+
+
+
+# Ignore Smart Environment folder
+.smart-env

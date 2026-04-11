@@ -245,6 +245,39 @@ pub fn next_available_ref_id(root: &Path, parent_numeric_id: &str) -> Option<Str
     None
 }
 
+pub fn next_available_grandchild_id(root: &Path, parent_numeric_id: &str) -> Option<String> {
+    if parent_numeric_id.len() != 3 || !parent_numeric_id.ends_with('0') {
+        return None;
+    }
+    let knowledge_dir = root.join("knowledge");
+    let mut used = std::collections::BTreeSet::new();
+    let Ok(entries) = fs::read_dir(&knowledge_dir) else {
+        return None;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|item| item.to_str()) else {
+            continue;
+        };
+        if matrix_id_kind_for_name(name) != Some("grandchild") {
+            continue;
+        }
+        let Some(id) = matrix_numeric_id_for_name(name) else {
+            continue;
+        };
+        if id.starts_with(&parent_numeric_id[..2]) && !id.ends_with('0') {
+            used.insert(id);
+        }
+    }
+    for slot in BASE36_CHILD_SLOTS.chars() {
+        let candidate = format!("{}{}", &parent_numeric_id[..2], slot);
+        if !used.contains(&candidate) {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
 pub fn hub_id_for_numeric_id(id: &str) -> Option<String> {
     match id.len() {
         3 => {
@@ -255,6 +288,19 @@ pub fn hub_id_for_numeric_id(id: &str) -> Option<String> {
             let numeric: String = id.chars().take(3).collect();
             hub_id_for_numeric_id(&numeric)
         }
+        _ => None,
+    }
+}
+
+pub fn hub_context_for_numeric_id(id: &str) -> Option<&'static str> {
+    match hub_id_for_numeric_id(id)?.as_str() {
+        "100" => Some("WHO"),
+        "200" => Some("WHAT"),
+        "300" => Some("WHERE"),
+        "400" => Some("WHEN"),
+        "500" => Some("HOW"),
+        "600" => Some("WHY"),
+        "700" => Some("ARCHIVE"),
         _ => None,
     }
 }

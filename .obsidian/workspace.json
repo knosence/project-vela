@@ -20,8 +20,19 @@
               "icon": "lucide-file",
               "title": "230a.DOMAIN.SoT-Framework-Ref"
             }
+          },
+          {
+            "id": "2978c39960c2de70",
+            "type": "leaf",
+            "state": {
+              "type": "smart-release-notes-view",
+              "state": {},
+              "icon": "file-text",
+              "title": "Release Notes"
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -164,13 +175,33 @@
               "icon": "lucide-list",
               "title": "Outline of 230a.DOMAIN.SoT-Framework-Ref"
             }
+          },
+          {
+            "id": "1c45ec7c276d7b95",
+            "type": "leaf",
+            "state": {
+              "type": "calendar",
+              "state": {},
+              "icon": "calendar-with-checkmark",
+              "title": "Calendar"
+            }
+          },
+          {
+            "id": "d1349a053913200a",
+            "type": "leaf",
+            "state": {
+              "type": "smart-connections-view",
+              "state": {},
+              "icon": "smart-connections",
+              "title": "Connections"
+            }
           }
-        ]
+        ],
+        "currentTab": 6
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -180,41 +211,51 @@
       "daily-notes:Open today's daily note": false,
       "templates:Insert template": false,
       "command-palette:Open command palette": false,
-      "bases:Create new base": false
+      "bases:Create new base": false,
+      "table-editor-obsidian:Advanced Tables Toolbar": false,
+      "templater-obsidian:Templater": false,
+      "obsidian-excalidraw-plugin:New drawing": false,
+      "homepage:Open homepage": false,
+      "smart-connections:Smart Connections: Open connections view": false,
+      "smart-connections:Smart Connections: Open random connection": false,
+      "smart-connections:Smart Lookup: Open lookup view": false,
+      "pdf-plus:PDF++: Toggle auto-copy": false,
+      "pdf-plus:PDF++: Toggle auto-focus": false,
+      "pdf-plus:PDF++: Toggle auto-paste": false
     }
   },
-  "active": "3e08b19d68062871",
+  "active": "d1349a053913200a",
   "lastOpenFiles": [
-    "knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-2145.md",
+    "knowledge/220a.WHAT.repo-watch-scenario-test-Release-Intelligence-Ref.md",
+    "knowledge/ARTIFACTS/proposals/repo-watch-scenario-test.validation.json",
+    "knowledge/ARTIFACTS/proposals/repo-watch-scenario-test.reflection.json",
+    "knowledge/ARTIFACTS/proposals/repo-watch-scenario-test.md",
+    "runtime/queues/9aa7cd6fd136d2e8bad2d8300b1b6e023aefdf3c.lock",
+    "knowledge/ARTIFACTS/proposals/repo-watch-scenario-test.assessment.json",
+    "knowledge/ARTIFACTS/proposals/repo-watch-scenario-test.packet.json",
+    "runtime/queues/ccff0fc4998eae81fc573fc4b8f74fcc8fddde94.lock",
+    "knowledge/ARTIFACTS/refs/Warden-Patrol-20260411-2152.md",
     "runtime/queues/operation-patrol.lock",
     "runtime/config/operations-state.json",
     "knowledge/ARTIFACTS/logs/Vela-Patch-Log.md",
-    "runtime/queues/b7afeb1f5f88cd6e30e0de38351d4086c9b3ef7a.lock",
     "knowledge/INBOX/test-inbox-item.md",
     "knowledge/ARTIFACTS/proposals/inbox-triage-target.md",
-    "knowledge/ARTIFACTS/archive/backups/202604112145(subject-declaration-test.md)Backup.md",
+    "knowledge/ARTIFACTS/archive/backups/202604112152(subject-declaration-test.md)Backup.md",
     "runtime/queues/2db7eb1811217146b90a52317b02820a1a25ab0e.lock",
-    "knowledge/ARTIFACTS/archive/backups/202604112145(TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
+    "knowledge/ARTIFACTS/archive/backups/202604112152(TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
     "knowledge/220a.WHAT.TEST.Sovereign-Guardrail-Fixture-Release-Intelligence-Ref.md",
-    "runtime/queues/42505ed3e3689515da236dbe57b7d6e608cd44c2.lock",
-    "knowledge/ARTIFACTS/archive/backups/202604112145(Growth-Proposal.2026-04-11.sovereign-change.TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
+    "runtime/queues/64174cffccd395b3f9d842b40d7646fc5371aaa6.lock",
+    "knowledge/ARTIFACTS/archive/backups/202604112152(Growth-Proposal.2026-04-11.sovereign-change.TEST.Sovereign-Guardrail-Fixture.md)Backup.md",
     "knowledge/220a.WHAT.repo-watch-test-Release-Intelligence-Ref.md",
-    "knowledge/ARTIFACTS/proposals/repo-watch-test.validation.json",
-    "knowledge/ARTIFACTS/proposals/repo-watch-test.reflection.json",
     "knowledge/ARTIFACTS/proposals/repo-watch-test.md",
-    "knowledge/ARTIFACTS/proposals/repo-watch-test.assessment.json",
-    "knowledge/ARTIFACTS/proposals/repo-watch-test.packet.json",
-    "knowledge/ARTIFACTS/archive/backups/202604112145(protected-zone-test.md)Backup.md",
-    "knowledge/ARTIFACTS/refs/DC-Night-Report-20260411-2145.md",
-    "knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-20260411-2145.md",
-    "runtime/queues/operation-night-cycle.lock",
-    "knowledge/ARTIFACTS/archive/backups/202604112145(Warden-Patrol-20260411-2145.md)Backup.md",
-    "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.20260411-2145.force-blocked-pattern-for-night-report.md",
-    "knowledge/ARTIFACTS/proposals/direct-root-dimension-branch-test.md",
-    "knowledge/ARTIFACTS/proposals/direct-root-agent-branch-test.md",
+    "knowledge/ARTIFACTS/archive/backups/202604112152(protected-zone-test.md)Backup.md",
+    "knowledge/ARTIFACTS/refs/DC-Night-Report-20260411-2152.md",
+    "knowledge/ARTIFACTS/refs/Dreamer-Pattern-Report-20260411-2152.md",
+    "knowledge/ARTIFACTS/archive/backups/202604112152(Warden-Patrol-20260411-2152.md)Backup.md",
+    "knowledge/ARTIFACTS/proposals/Dreamer-Proposal.20260411-2152.force-blocked-pattern-for-night-report.md",
     "knowledge/220a.WHAT.indexed-release-summary-Release-Intelligence-Ref.md",
     "knowledge/ARTIFACTS/refs/indexed-release-summary.md",
-    "knowledge/ARTIFACTS/archive/backups/202604112145(IMAGE-TARGET.MD)Backup.md",
+    "knowledge/ARTIFACTS/archive/backups/202604112152(IMAGE-TARGET.MD)Backup.md",
     "knowledge/ARTIFACTS/proposals/IMAGE-TARGET.png",
     "knowledge/INBOX/test-inbox-image.png",
     "knowledge/INBOX/test-inbox-image-1.png",
@@ -222,7 +263,8 @@
     "knowledge/INBOX/test-inbox-binary.png",
     "knowledge/INBOX/test-inbox-missing-target.md",
     "knowledge/ARTIFACTS/proposals/Synthetic-Identity-SoT.md",
-    "knowledge/ARTIFACTS/archive/backups/202604112145(growth-apply-service-test.md)Backup.md",
-    "knowledge/ARTIFACTS/refs/Ref.service-source.md"
+    "knowledge/ARTIFACTS/archive/backups/202604112152(growth-apply-service-test.md)Backup.md",
+    "knowledge/ARTIFACTS/refs/Ref.service-source.md",
+    "knowledge/ARTIFACTS/proposals/growth-apply-service-test.md"
   ]
 }

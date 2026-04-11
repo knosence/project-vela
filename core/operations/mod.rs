@@ -1,8 +1,9 @@
 use crate::events::{plan_event_append, EventRecord, ValidationSummary};
 use crate::inventory::{
-    discover_matrix_inventory, hub_id_for_numeric_id, inferred_inventory_role_for_path,
-    matrix_context_for_name, matrix_numeric_id_for_name, matrix_subject_for_name,
-    next_available_direct_child_id, next_available_ref_id,
+    discover_matrix_inventory, hub_context_for_numeric_id, hub_id_for_numeric_id,
+    inferred_inventory_role_for_path, matrix_context_for_name, matrix_id_kind_for_name,
+    matrix_numeric_id_for_name, matrix_subject_for_name, next_available_direct_child_id,
+    next_available_grandchild_id, next_available_ref_id,
 };
 use crate::models::{
     ArchiveTransactionPlan, CompanionPathPlan, CrossReferencePlan, CsvInboxEntry, CsvInboxPlan,
@@ -471,6 +472,11 @@ pub fn render_spawned_sot(
         .file_name()
         .and_then(|item| item.to_str())
         .unwrap_or(execution_target);
+    let child_subject = Path::new(execution_target)
+        .file_stem()
+        .and_then(|item| item.to_str())
+        .and_then(matrix_subject_for_name)
+        .unwrap_or_else(|| child_name.trim_end_matches(".md").to_string());
     format!(
         "---\n\
 sot-type: system\n\
@@ -499,11 +505,11 @@ No pending items.\n\n\
 ### Status\n\n\
 Newly spawned from a governed growth proposal.\n\n\
 ### Open Questions\n\n\
-- What content should migrate here from the parent SoT? ({created})\n\
-  - The spawn establishes the branch before extraction work begins. [AGENT:gpt-5]\n\n\
+- Which parts of `{assessed_target}` now belong here permanently, and which should remain only as pointers in the parent? ({created})\n\
+  - The child should become dense in its own subject rather than duplicating the whole parent. [AGENT:gpt-5]\n\n\
 ### Next Actions\n\n\
-- Extract the branch-specific material from `{assessed_target}`. ({created})\n\
-  - The new child should earn its content through governed extraction, not duplication. [AGENT:gpt-5]\n\n\
+- Deepen this SoT with branch-specific facts before considering any further abstraction. ({created})\n\
+  - Ordinary SoTs should stay content-dense until the growth ladder justifies fractal, ref, or spawn. [HUMAN]\n\n\
 ### Decisions\n\n\
 - [{created}] Spawned child SoT created from `{proposal_target}`.\n\n\
 ### Block Map — Single Source\n\n\
@@ -518,12 +524,12 @@ Newly spawned from a governed growth proposal.\n\n\
 | 600 | Why/Not | Compass | Rationale |\n\
 | 700 | — | Archive | Archive |\n\n\
 ---\n\n\
-## 100.WHO.Identity\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
-## 200.WHAT.Scope\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
-## 300.WHERE.Placement\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
-## 400.WHEN.Timeline\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
-## 500.HOW.Method\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
-## 600.WHY.Compass\n\n### Active\n\n(No active entries.)\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 100.WHO.Identity\n\n### Active\n\n- {child_subject} now has its own governed branch beneath {parent_link}. ({created})\n  - This child exists because the parent subject accumulated enough branch-specific weight to justify its own home. [HUMAN]\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 200.WHAT.Scope\n\n### Active\n\n- This SoT carries the branch-specific detail that should no longer stay packed into `{assessed_target}`. ({created})\n  - The child is expected to become content-dense before any future abstraction is considered. [HUMAN]\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 300.WHERE.Placement\n\n### Active\n\n- Canonical knowledge for this branch lives here in the flat matrix root, while runtime exhaust stays in `knowledge/ARTIFACTS/`. ({created})\n  - Matrix position is determined by ID, context, and suffix rather than by folders. [AGENT:gpt-5]\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 400.WHEN.Timeline\n\n### Active\n\n- This branch was spawned through governed growth on {created}. ({created})\n  - The timeline entry records the moment the branch became independent. [AGENT:gpt-5]\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 500.HOW.Method\n\n### Active\n\n- This SoT should deepen through normal entries first, then fractal, then ref extraction, and only then further spawning if pressure returns. ({created})\n  - The lightest intervention rule still applies inside the new child. [HUMAN]\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
+## 600.WHY.Compass\n\n### Active\n\n- This branch exists to keep the parent readable while preserving one canonical home for the denser subject it was carrying. ({created})\n  - Spawn is justified only when one subject has clearly become its own thing. [HUMAN]\n\n### Inactive\n\n(No inactive entries.)\n\n---\n\n\
 ## 700.Archive\n\n(No archived entries.)\n"
     )
 }
@@ -2831,13 +2837,29 @@ fn numbered_reference_target(root: &Path, assessed_target: &str) -> Option<Strin
 fn numbered_spawn_target(root: &Path, assessed_target: &str) -> Option<String> {
     let name = Path::new(assessed_target).file_name()?.to_str()?;
     let source_id = matrix_numeric_id_for_name(name)?;
-    let hub_id = hub_id_for_numeric_id(&source_id)?;
-    let child_id = next_available_direct_child_id(root, &hub_id)?;
-    let context = matrix_context_for_name(name)?;
-    let subject = sanitize_growth_stem(&matrix_subject_for_name(name)?);
-    Some(format!(
-        "knowledge/{child_id}.{context}.{subject}-Spawned-Child-SoT.md"
-    ))
+    let source_kind = matrix_id_kind_for_name(name)?;
+    let subject = spawn_subject_for_source(name)?;
+
+    match source_kind {
+        "hub" => {
+            let hub_id = hub_id_for_numeric_id(&source_id)?;
+            let child_id = next_available_direct_child_id(root, &hub_id)?;
+            let context = hub_context_for_numeric_id(&source_id)?;
+            Some(format!("knowledge/{child_id}.{context}.{subject}-SoT.md"))
+        }
+        "direct-child" => {
+            let child_id = next_available_grandchild_id(root, &source_id)?;
+            let context = child_context_for_source(name)?;
+            Some(format!("knowledge/{child_id}.{context}.{subject}-SoT.md"))
+        }
+        "grandchild" => {
+            let hub_id = hub_id_for_numeric_id(&source_id)?;
+            let child_id = next_available_direct_child_id(root, &hub_id)?;
+            let context = hub_context_for_numeric_id(&source_id)?;
+            Some(format!("knowledge/{child_id}.{context}.{subject}-SoT.md"))
+        }
+        _ => None,
+    }
 }
 
 fn spawned_parent_link(execution_target: &str) -> Option<String> {
@@ -2851,6 +2873,38 @@ fn spawned_parent_link(execution_target: &str) -> Option<String> {
         "500" => Some("[[500.HOW.Method-SoT#500.HOW.Method]]".to_string()),
         "600" => Some("[[600.WHY.Compass-SoT#600.WHY.Compass]]".to_string()),
         _ => None,
+    }
+}
+
+fn normalize_subject_root(subject: &str) -> String {
+    let normalized = subject
+        .strip_suffix("-Identity")
+        .or_else(|| subject.strip_suffix("-Capabilities"))
+        .or_else(|| subject.strip_suffix("-Intent"))
+        .unwrap_or(subject);
+    sanitize_growth_stem(normalized)
+}
+
+fn child_context_for_source(name: &str) -> Option<String> {
+    let subject = matrix_subject_for_name(name)?;
+    let root = normalize_subject_root(&subject);
+    if root.is_empty() {
+        return None;
+    }
+    Some(root.to_ascii_uppercase())
+}
+
+fn spawn_subject_for_source(name: &str) -> Option<String> {
+    let kind = matrix_id_kind_for_name(name)?;
+    let subject = normalize_subject_root(&matrix_subject_for_name(name)?);
+    if subject.is_empty() {
+        return None;
+    }
+    match kind {
+        "hub" => Some(format!("{subject}-Child")),
+        "direct-child" => Some(format!("{subject}-Child")),
+        "grandchild" => Some(subject),
+        _ => Some(subject),
     }
 }
 
@@ -3516,10 +3570,7 @@ mod tests {
         assert!(findings.is_empty());
         let plan = plan.expect("growth plan");
         assert_eq!(plan.kind, "spawned-sot");
-        assert_eq!(
-            plan.target,
-            "knowledge/140.WHO.Vela-Identity-Spawned-Child-SoT.md"
-        );
+        assert_eq!(plan.target, "knowledge/111.VELA.Vela-Child-SoT.md");
     }
 
     #[test]
@@ -3532,7 +3583,7 @@ mod tests {
             &root,
             "spawn",
             "knowledge/110.WHO.Vela-Identity-SoT.md",
-            "knowledge/140.WHO.Vela-Identity-Spawned-Child-SoT.md",
+            "knowledge/111.VELA.Vela-Child-SoT.md",
             "knowledge/ARTIFACTS/proposals/growth-apply-spawn-test.md",
         );
         assert!(findings.is_empty());
@@ -3540,7 +3591,7 @@ mod tests {
         assert_eq!(plan.target_dimension, "## 200.WHAT.Scope");
         assert!(plan
             .active_pointer_line
-            .contains("[[140.WHO.Vela-Identity-Spawned-Child-SoT]]"));
+            .contains("[[111.VELA.Vela-Child-SoT]]"));
     }
 
     #[test]
