@@ -1,12 +1,12 @@
 use crate::events::{plan_event_append, EventRecord, ValidationSummary};
 use crate::inventory::{discover_matrix_inventory, inferred_inventory_role_for_path};
 use crate::models::{
-    ArchiveTransactionPlan, CrossReferencePlan, CsvInboxEntry, CsvInboxPlan, DreamerAction,
-    DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary, DreamerProposalCandidate,
-    DreamerProposalSummary, DreamerReviewPlan, GrowthAssessment, GrowthExecutionPlan,
-    GrowthSourceUpdatePlan, InboxTriagePlan, NightCyclePlan, OperationLifecyclePlan,
-    OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan, SchedulerPlan,
-    ValidationFinding,
+    ArchiveTransactionPlan, CompanionPathPlan, CrossReferencePlan, CsvInboxEntry, CsvInboxPlan,
+    DreamerAction, DreamerActionRegistry, DreamerApplyPlan, DreamerFollowUpSummary,
+    DreamerProposalCandidate, DreamerProposalSummary, DreamerReviewPlan, GrowthAssessment,
+    GrowthExecutionPlan, GrowthSourceUpdatePlan, InboxTriagePlan, NightCyclePlan,
+    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatrolPlan,
+    SchedulerPlan, ValidationFinding,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -1982,6 +1982,42 @@ pub fn plan_csv_inbox(
     (Some(CsvInboxPlan { target, entries }), Vec::new())
 }
 
+pub fn plan_companion_path(
+    root: &Path,
+    source_rel: &str,
+    target_rel: &str,
+    date_stamp: &str,
+) -> (Option<CompanionPathPlan>, Vec<ValidationFinding>) {
+    let source_path = root.join(source_rel);
+    let target_path = root.join(target_rel);
+    let Some(extension) = source_path.extension().and_then(|item| item.to_str()) else {
+        return (
+            None,
+            vec![ValidationFinding::error(
+                "INBOX_COMPANION_EXTENSION_MISSING",
+                format!("Inbox source `{source_rel}` has no extension"),
+            )],
+        );
+    };
+    let target_stem = target_path
+        .file_stem()
+        .and_then(|item| item.to_str())
+        .unwrap_or("target");
+    let parent = target_path.parent().unwrap_or(root);
+    let preferred = parent.join(format!("{target_stem}.{extension}"));
+    let destination = if preferred.exists() {
+        parent.join(format!("{target_stem}-{date_stamp}.{extension}"))
+    } else {
+        preferred
+    };
+    let destination = destination
+        .strip_prefix(root)
+        .ok()
+        .map(|path| path.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_else(|| destination.to_string_lossy().replace('\\', "/"));
+    (Some(CompanionPathPlan { destination }), Vec::new())
+}
+
 fn extract_target(root: &Path, text: &str) -> Option<String> {
     let trimmed = text.trim_start();
     if let Some(rest) = trimmed.strip_prefix("---\n") {
@@ -3347,6 +3383,23 @@ mod tests {
         assert_eq!(
             plan.entries[0].value,
             "Repo watch summary recorded. (2026-04-10)"
+        );
+    }
+
+    #[test]
+    fn plans_companion_destination() {
+        let root = Path::new("/home/knosence/vela");
+        let (plan, findings) = plan_companion_path(
+            root,
+            "knowledge/INBOX/test-inbox-item.txt",
+            "knowledge/ARTIFACTS/proposals/inbox-triage-target.md",
+            "20260410",
+        );
+        assert!(findings.is_empty());
+        let plan = plan.expect("companion plan");
+        assert_eq!(
+            plan.destination,
+            "knowledge/ARTIFACTS/proposals/inbox-triage-target.txt"
         );
     }
 

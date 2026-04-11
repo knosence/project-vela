@@ -51,6 +51,7 @@ from prototypes.python.vela.rust_bridge import (
     extract_blocked_items_payload,
     extract_patch_targets_payload,
     plan_csv_inbox_payload,
+    plan_companion_path_payload,
     plan_inbox_entry_payload,
     parse_operations_state_payload,
     plan_event_append_payload,
@@ -2005,6 +2006,16 @@ class VelaSystemTest(unittest.TestCase):
         self.assertTrue(csv_plan["ok"])
         self.assertEqual(csv_plan["plan"]["target"], "knowledge/220.WHAT.Repo-Watchlist-SoT.md")
         self.assertEqual(csv_plan["plan"]["entries"][0]["dimension"], "200")
+        companion_plan = plan_companion_path_payload(
+            "knowledge/INBOX/test-inbox-item.txt",
+            "knowledge/ARTIFACTS/proposals/inbox-triage-target.md",
+            "20260410",
+        )
+        self.assertTrue(companion_plan["ok"])
+        self.assertEqual(
+            companion_plan["plan"]["destination"],
+            "knowledge/ARTIFACTS/proposals/inbox-triage-target.txt",
+        )
         proposal_candidates = plan_dreamer_proposals_payload(
             "20260411-0300",
             [

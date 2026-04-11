@@ -37,6 +37,10 @@ def plan_csv_inbox_payload(text: str, source_name: str) -> dict[str, Any]:
     return _run(["plan-csv-inbox", source_name], stdin=text)
 
 
+def plan_companion_path_payload(source_rel: str, target_rel: str, date_stamp: str) -> dict[str, Any]:
+    return _run(["plan-companion-path", source_rel, target_rel, date_stamp])
+
+
 def match_dreamer_actions_payload(
     registry_json: str,
     mode: str,

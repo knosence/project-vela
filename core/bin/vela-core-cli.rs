@@ -14,10 +14,11 @@ use vela_core::matrix::{
     validate_sot_structure as validate_matrix_sot_structure,
 };
 use vela_core::models::{
-    ArchiveTransactionPlan, BlockedItemSummary, CrossReferencePlan, CsvInboxPlan,
-    DreamerProposalCandidate, GrowthAssessment, GrowthExecutionPlan, GrowthSourceUpdatePlan,
-    GrowthTarget, InboxTriagePlan, OnboardingConfig, OperationLifecyclePlan, OperationLockRecord,
-    OperationStateEntry, OperationsState, PatchTarget, SchedulerPlan, Severity, ValidationFinding,
+    ArchiveTransactionPlan, BlockedItemSummary, CompanionPathPlan, CrossReferencePlan,
+    CsvInboxPlan, DreamerProposalCandidate, GrowthAssessment, GrowthExecutionPlan,
+    GrowthSourceUpdatePlan, GrowthTarget, InboxTriagePlan, OnboardingConfig,
+    OperationLifecyclePlan, OperationLockRecord, OperationStateEntry, OperationsState, PatchTarget,
+    SchedulerPlan, Severity, ValidationFinding,
 };
 use vela_core::operations::{
     assess_growth_target as assess_growth_target_policy,
@@ -34,6 +35,7 @@ use vela_core::operations::{
     parse_dreamer_action_registry as parse_dreamer_action_registry_policy,
     parse_operations_state as parse_operations_state_policy,
     plan_archive_transaction as plan_archive_transaction_policy,
+    plan_companion_path as plan_companion_path_policy,
     plan_cross_reference_update as plan_cross_reference_update_policy,
     plan_csv_inbox as plan_csv_inbox_policy,
     plan_dreamer_follow_up_apply as plan_dreamer_follow_up_apply_policy,
@@ -168,6 +170,30 @@ fn run() -> Result<(), String> {
                 print_findings(&findings, None);
             } else if let Some(plan) = plan {
                 println!("{{\"ok\":true,\"plan\":{}}}", render_csv_inbox_plan(&plan));
+            } else {
+                println!("{{\"ok\":true,\"plan\":null}}");
+            }
+        }
+        "plan-companion-path" => {
+            let source_rel = args
+                .next()
+                .ok_or_else(|| "missing source path".to_string())?;
+            let target_rel = args
+                .next()
+                .ok_or_else(|| "missing target path".to_string())?;
+            let date_stamp = args
+                .next()
+                .ok_or_else(|| "missing date stamp".to_string())?;
+            let repo_root = env::current_dir().map_err(|err| err.to_string())?;
+            let (plan, findings) =
+                plan_companion_path_policy(&repo_root, &source_rel, &target_rel, &date_stamp);
+            if !findings.is_empty() {
+                print_findings(&findings, None);
+            } else if let Some(plan) = plan {
+                println!(
+                    "{{\"ok\":true,\"plan\":{}}}",
+                    render_companion_path_plan(&plan)
+                );
             } else {
                 println!("{{\"ok\":true,\"plan\":null}}");
             }
@@ -2085,6 +2111,10 @@ fn render_csv_inbox_plan(item: &CsvInboxPlan) -> String {
         escape_json(&item.target),
         entries
     )
+}
+
+fn render_companion_path_plan(item: &CompanionPathPlan) -> String {
+    format!("{{\"destination\":\"{}\"}}", escape_json(&item.destination))
 }
 
 fn render_dreamer_follow_up_summary(item: &vela_core::models::DreamerFollowUpSummary) -> String {

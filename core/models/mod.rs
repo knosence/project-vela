@@ -171,6 +171,11 @@ pub struct CsvInboxPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompanionPathPlan {
+    pub destination: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PatchTarget {
     pub path: String,
 }

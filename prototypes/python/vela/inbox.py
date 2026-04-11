@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import re
 import subprocess
 from datetime import datetime, timezone
@@ -12,6 +11,7 @@ from .governance import append_event, build_pointer_entry, route_inbox_entry, wr
 from .models import EventRecord
 from .paths import INBOX_DIR, PATCH_LOG_PATH, REPO_ROOT
 from .rust_bridge import plan_csv_inbox_payload
+from .rust_bridge import plan_companion_path_payload
 from .rust_bridge import plan_inbox_entry_payload
 
 
@@ -403,97 +403,12 @@ def _block_missing_target(path: Path, actor: str, target: str, dimension: str) -
     return {"ok": False, "file": relative_path, "status": "blocked", "reason": "target-missing", "dimension": dimension, "target": target}
 
 
-def _extract_target(text: str) -> str | None:
-    frontmatter_match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
-    if frontmatter_match:
-        target_match = re.search(r'^target:\s*"?(.+?)"?$', frontmatter_match.group(1), re.MULTILINE)
-        if target_match:
-            return _normalize_target(target_match.group(1))
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            stripped = stripped.lstrip("#").strip()
-        if stripped.lower().startswith("target:"):
-            return _normalize_target(stripped.split(":", 1)[1].strip())
-    return None
-
-
-def _parse_csv_rows(text: str) -> list[dict[str, str]]:
-    lines = text.splitlines()
-    data_lines = [line for line in lines if not line.lstrip().startswith("#")]
-    if not data_lines:
-        return []
-    reader = csv.DictReader(data_lines)
-    rows: list[dict[str, str]] = []
-    for row in reader:
-        normalized = {
-            (key or "").strip().lower(): (value or "").strip()
-            for key, value in row.items()
-        }
-        if any(value for value in normalized.values()):
-            rows.append(normalized)
-    return rows
-
-
-def _normalize_target(value: str) -> str | None:
-    value = value.strip().strip("`").strip('"').strip("'")
-    match = re.match(r"\[\[(.+?)\]\]", value)
-    if match:
-        value = match.group(1)
-    value = value.split("#", 1)[0].strip()
-    if not value:
-        return None
-    existing_match = _resolve_existing_target(value)
-    if existing_match:
-        return existing_match
-    if value.lower().endswith(".md"):
-        return f"knowledge/{value}" if not value.startswith("knowledge/") else value
-    return f"knowledge/{value}.md"
-
-
-def _resolve_existing_target(value: str) -> str | None:
-    normalized = value if value.lower().endswith(".md") else f"{value}.md"
-    direct = REPO_ROOT / normalized
-    if direct.exists():
-        return str(direct.relative_to(REPO_ROOT))
-    matches = sorted(
-        path for path in REPO_ROOT.rglob(normalized)
-        if path.is_file() and ".git/" not in str(path)
-    )
-    if len(matches) == 1:
-        return str(matches[0].relative_to(REPO_ROOT))
-    return None
-
-
-def _extract_entry(text: str, path: Path) -> dict[str, str]:
-    body = _strip_frontmatter(text)
-    lines = [line.strip() for line in body.splitlines() if line.strip()]
-    lines = [line for line in lines if not line.lower().startswith("target:")]
-    if lines and lines[0].startswith("#"):
-        lines = lines[1:]
-    value = lines[0].lstrip("- ").strip() if lines else path.stem.replace("-", " ")
-    context_lines = [line for line in lines[1:] if not line.startswith("#")]
-    context = " ".join(context_lines).strip() if context_lines else "Extracted from Inbox during governed triage."
-    return {"value": f"{value}. ({_today()})" if not re.search(r"\(\d{4}-\d{2}-\d{2}\)$", value) else value, "context": context}
-
-
-def _entry_from_csv_row(row: dict[str, str]) -> dict[str, str]:
-    value = row.get("value") or row.get("title") or row.get("subject") or ""
-    context = row.get("context") or row.get("detail") or row.get("notes") or ""
-    if not value:
-        value = "Inbox CSV entry"
-    if not re.search(r"\(\d{4}-\d{2}-\d{2}\)$", value):
-        value = f"{value}. ({_today()})"
-    if not context:
-        context = "Extracted from Inbox CSV during governed triage."
-    return {"value": value, "context": context}
-
-
 def _move_to_companion_path(source: Path, target_path: Path) -> Path:
-    companion_name = f"{target_path.stem}{source.suffix}"
-    destination = target_path.with_name(companion_name)
-    if destination.exists():
-        destination = target_path.with_name(f"{target_path.stem}-{_today().replace('-', '')}{source.suffix}")
+    source_rel = str(source.relative_to(REPO_ROOT))
+    target_rel = str(target_path.relative_to(REPO_ROOT))
+    plan = plan_companion_path_payload(source_rel, target_rel, _today().replace("-", ""))
+    destination_rel = str(plan["plan"]["destination"])
+    destination = REPO_ROOT / destination_rel
     source.rename(destination)
     return destination
 
@@ -528,14 +443,6 @@ def _dimension_heading(content: str, dimension: str) -> str:
 
 def _dimension_anchor(content: str, dimension: str) -> str:
     return _dimension_heading(content, dimension).replace("## ", "", 1)
-
-
-def _strip_frontmatter(text: str) -> str:
-    if text.startswith("---\n"):
-        parts = text.split("---\n", 2)
-        if len(parts) == 3:
-            return parts[2]
-    return text
 
 
 def _append_patch_log(status: str, target: str, detail: str, actor: str) -> None:
