@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use crate::models::{GovernedReference, GrowthTarget, MatrixSoT, ValidationFinding};
 use crate::references::inspect_reference;
 
+const HUB_IDS: [&str; 7] = ["100", "200", "300", "400", "500", "600", "700"];
+
 pub fn discover_matrix_inventory(
     root: &Path,
 ) -> (
@@ -40,7 +42,7 @@ pub fn inventory_area_for_path(path: &str) -> Option<&'static str> {
         Some("inbox")
     } else if normalized.starts_with("knowledge/") && normalized.ends_with("-SoT.md") {
         let name = normalized.rsplit('/').next().unwrap_or(normalized.as_str());
-        if is_dimension_hub_name(name) {
+        if matrix_id_kind_for_name(name) == Some("hub") {
             Some("dimensions")
         } else if is_agent_identity_name(name) {
             Some("agents")
@@ -67,11 +69,9 @@ pub fn inferred_inventory_role_for_path(path: &str) -> Option<&'static str> {
         let name = path.rsplit('/').next().unwrap_or(path);
         if name == "Cornerstone.Knosence-SoT.md" {
             Some("cornerstone")
-        } else if (name.starts_with("WHO.") || name.contains("Identity-SoT"))
-            && name.ends_with(".md")
-        {
+        } else if is_agent_identity_name(name) {
             Some("agent-identity")
-        } else if is_dimension_hub(path) {
+        } else if matrix_id_kind_for_name(name) == Some("hub") {
             Some("dimension-hub")
         } else if name.ends_with("-SoT.md") {
             Some("branch-sot")
@@ -164,7 +164,7 @@ fn classify_sot_role(path: &str, area: &str) -> &'static str {
     if path.ends_with("Cornerstone.Knosence-SoT.md") {
         return "cornerstone";
     }
-    if area == "dimensions" && is_dimension_hub(path) {
+    if area == "dimensions" && matrix_id_kind_for_path(path) == Some("hub") {
         return "dimension-hub";
     }
     if area == "agents" && is_agent_identity_name(path.rsplit('/').next().unwrap_or(path)) {
@@ -173,30 +173,68 @@ fn classify_sot_role(path: &str, area: &str) -> &'static str {
     "branch-sot"
 }
 
-fn is_dimension_hub(path: &str) -> bool {
+pub fn matrix_numeric_id_for_path(path: &str) -> Option<String> {
     let name = path.rsplit('/').next().unwrap_or(path);
-    is_dimension_hub_name(name)
+    matrix_numeric_id_for_name(name)
 }
 
-fn is_dimension_hub_name(name: &str) -> bool {
-    matches!(
-        name,
-        "100.WHO.Circle-SoT.md"
-            | "200.WHAT.Domain-SoT.md"
-            | "300.WHERE.Terrain-SoT.md"
-            | "400.WHEN.Chronicle-SoT.md"
-            | "500.HOW.Method-SoT.md"
-            | "600.WHY.Compass-SoT.md"
-    )
+pub fn matrix_numeric_id_for_name(name: &str) -> Option<String> {
+    let token = matrix_id_token(name)?;
+    match token.len() {
+        3 => Some(token),
+        4 => Some(token.chars().take(3).collect()),
+        _ => None,
+    }
+}
+
+pub fn matrix_id_kind_for_path(path: &str) -> Option<&'static str> {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    matrix_id_kind_for_name(name)
+}
+
+pub fn matrix_id_kind_for_name(name: &str) -> Option<&'static str> {
+    let token = matrix_id_token(name)?;
+    match token.len() {
+        3 if HUB_IDS.contains(&token.as_str()) => Some("hub"),
+        3 if token.ends_with('0') => Some("direct-child"),
+        3 => Some("grandchild"),
+        4 if token
+            .chars()
+            .last()
+            .is_some_and(|item| item.is_ascii_lowercase()) =>
+        {
+            Some("ref")
+        }
+        _ => None,
+    }
+}
+
+fn matrix_id_token(name: &str) -> Option<String> {
+    if name == "Cornerstone.Knosence-SoT.md" {
+        return Some("Cornerstone".to_string());
+    }
+    let stem = name.strip_suffix(".md")?;
+    let token = stem.split_once('.')?.0;
+    if token.len() == 3 && token.chars().all(is_base36_lower) {
+        return Some(token.to_string());
+    }
+    if token.len() == 4 {
+        let mut chars = token.chars();
+        let prefix: String = chars.by_ref().take(3).collect();
+        let suffix = chars.next()?;
+        if prefix.chars().all(is_base36_lower) && suffix.is_ascii_lowercase() {
+            return Some(token.to_string());
+        }
+    }
+    None
+}
+
+fn is_base36_lower(value: char) -> bool {
+    value.is_ascii_digit() || value.is_ascii_lowercase()
 }
 
 fn is_agent_identity_name(name: &str) -> bool {
-    (name.starts_with("WHO.")
-        || name.starts_with("100.WHO.")
-        || name.starts_with("110.WHO.")
-        || name.starts_with("111.WHO.")
-        || name.starts_with("112.WHO."))
-        && name.contains("Identity-SoT")
+    name.ends_with("-Identity-SoT.md") && matrix_id_kind_for_name(name).is_some()
 }
 
 fn parse_frontmatter(text: &str) -> Vec<(String, String)> {

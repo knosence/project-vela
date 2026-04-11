@@ -14,7 +14,7 @@ tags: ["matrix","index","reference","registry"]
 The index layer exists so the system can see the matrix as a whole, keep track of canonical homes, and verify that the tree still respects the root, parent, and indexing laws.
 
 ## This Summary Shows the Current Shape of the Matrix at a Glance
-- total SoTs: 15
+- total SoTs: 13
 - total governed refs: 15
 - cornerstone count: 1
 - indexed areas: agents, cornerstone, dimensions, knowledge
@@ -22,11 +22,9 @@ The index layer exists so the system can see the matrix as a whole, keep track o
 ## This Section Lists the Agents SoTs Registered in the Matrix
 | Title | Path | Type | Parent | Status |
 |---|---|---|---|---|
-| Custom Vela Identity Source of Truth | `knowledge/100.WHO.Custom-Vela-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
-| Test Custom Identity Source of Truth | `knowledge/100.WHO.Test-Custom-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
 | Vela Identity Source of Truth | `knowledge/110.WHO.Vela-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
-| Custom Vela Identity Source of Truth | `knowledge/111.WHO.Custom-Vela-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
-| Test Custom Identity Source of Truth | `knowledge/112.WHO.Test-Custom-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
+| Custom Vela Identity Source of Truth | `knowledge/120.WHO.Custom-Vela-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
+| Test Custom Identity Source of Truth | `knowledge/130.WHO.Test-Custom-Identity-SoT.md` | `system` | `[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]` | `active` |
 
 ## This Section Lists the Cornerstone SoTs Registered in the Matrix
 | Title | Path | Type | Parent | Status |

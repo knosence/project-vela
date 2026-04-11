@@ -12,28 +12,6 @@
       "is_cornerstone": false
     },
     {
-      "path": "knowledge/100.WHO.Custom-Vela-Identity-SoT.md",
-      "title": "Custom Vela Identity Source of Truth",
-      "sot_type": "system",
-      "inventory_role": "agent-identity",
-      "parent": "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]",
-      "domain": "agents",
-      "status": "active",
-      "area": "agents",
-      "is_cornerstone": false
-    },
-    {
-      "path": "knowledge/100.WHO.Test-Custom-Identity-SoT.md",
-      "title": "Test Custom Identity Source of Truth",
-      "sot_type": "system",
-      "inventory_role": "agent-identity",
-      "parent": "[[100.WHO.Circle-SoT#100.WHO.Humans-and-Agents]]",
-      "domain": "agents",
-      "status": "active",
-      "area": "agents",
-      "is_cornerstone": false
-    },
-    {
       "path": "knowledge/110.WHO.Vela-Identity-SoT.md",
       "title": "Vela Identity Source of Truth",
       "sot_type": "system",
@@ -45,7 +23,7 @@
       "is_cornerstone": false
     },
     {
-      "path": "knowledge/111.WHO.Custom-Vela-Identity-SoT.md",
+      "path": "knowledge/120.WHO.Custom-Vela-Identity-SoT.md",
       "title": "Custom Vela Identity Source of Truth",
       "sot_type": "system",
       "inventory_role": "agent-identity",
@@ -56,7 +34,7 @@
       "is_cornerstone": false
     },
     {
-      "path": "knowledge/112.WHO.Test-Custom-Identity-SoT.md",
+      "path": "knowledge/130.WHO.Test-Custom-Identity-SoT.md",
       "title": "Test Custom Identity Source of Truth",
       "sot_type": "system",
       "inventory_role": "agent-identity",

@@ -2761,6 +2761,18 @@ fn inventory_role_for_growth_target(root: &Path, target: &str) -> String {
     if let Some(entry) = entries.into_iter().find(|item| item.path == target) {
         return entry.inventory_role;
     }
+    let target_path = root.join(target);
+    if let Ok(content) = fs::read_to_string(&target_path) {
+        if content.contains("Hub Source of Truth") {
+            return "dimension-hub".to_string();
+        }
+        if content.contains("Identity Source of Truth") || content.contains("## 100.WHO.Identity") {
+            return "agent-identity".to_string();
+        }
+        if content.contains("Cornerstone Source of Truth") {
+            return "cornerstone".to_string();
+        }
+    }
     inferred_inventory_role_for_path(target)
         .unwrap_or("branch-sot")
         .to_string()

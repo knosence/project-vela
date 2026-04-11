@@ -7,6 +7,8 @@ from .config import load_config, set_active_profile
 from .paths import PROFILE_DIR
 from .simple_yaml import dumps, loads
 
+BASE36_CHILD_SLOTS = "123456789abcdefghijklmnopqrstuvwxyz"
+
 
 def profile_manifest_path(name: str) -> Path:
     return PROFILE_DIR / name / "profile.yaml"
@@ -59,7 +61,11 @@ def register_profile(name: str, label: str, base_profile: str = "vela") -> Path:
     )
     knowledge_dir = PROFILE_DIR.parents[1] / "knowledge"
     knowledge_dir.mkdir(parents=True, exist_ok=True)
-    (knowledge_dir / f"100.WHO.{label.replace(' ', '-')}-Identity-SoT.md").write_text(
+    label_slug = label.replace(" ", "-")
+    identity_path = existing_identity_path(knowledge_dir, label_slug) or (
+        knowledge_dir / f"{next_who_child_id(knowledge_dir)}.WHO.{label_slug}-Identity-SoT.md"
+    )
+    identity_path.write_text(
         "\n".join(
             [
                 "---",
@@ -215,6 +221,25 @@ def register_profile(name: str, label: str, base_profile: str = "vela") -> Path:
         encoding="utf-8",
     )
     return manifest
+
+
+def existing_identity_path(knowledge_dir: Path, label_slug: str) -> Path | None:
+    matches = sorted(knowledge_dir.glob(f"*.WHO.{label_slug}-Identity-SoT.md"))
+    return matches[0] if matches else None
+
+
+def next_who_child_id(knowledge_dir: Path) -> str:
+    used = set()
+    for candidate in knowledge_dir.glob("*.WHO.*-SoT.md"):
+        stem = candidate.stem
+        prefix = stem.split(".", 1)[0]
+        if len(prefix) == 3 and prefix[0] == "1" and prefix[2] == "0" and prefix != "100":
+            used.add(prefix)
+    for slot in BASE36_CHILD_SLOTS:
+        candidate = f"1{slot}0"
+        if candidate not in used:
+            return candidate
+    raise ValueError("No available WHO child IDs remain")
 
 
 def list_profiles() -> dict[str, Any]:

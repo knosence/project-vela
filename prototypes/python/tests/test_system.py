@@ -698,9 +698,12 @@ class VelaSystemTest(unittest.TestCase):
             for idx in range(1, 10)
         )
         path.write_text(
-            (REPO_ROOT / "knowledge/110.WHO.Vela-Identity-SoT.md")
+            (REPO_ROOT / "knowledge/210.WHAT.Vela-Capabilities-SoT.md")
             .read_text(encoding="utf-8")
-            .replace("- Vela is the default installed assistant profile under Knosence. (2026-04-08)\n  - The profile is close to the human root without replacing it. [HUMAN]", entries),
+            .replace(
+                "- Vela routes, plans, drafts, critiques, validates, documents, and proposes growth under governed workflows. (2026-04-08)\n  - The profile is oriented toward structured assistance rather than unbounded autonomy. [AGENT:gpt-5]",
+                entries,
+            ),
             encoding="utf-8",
         )
         assessment = assess_growth(target)

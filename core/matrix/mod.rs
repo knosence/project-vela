@@ -1,9 +1,11 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
 use crate::inventory::{
     discover_matrix_inventory, inferred_inventory_role_for_path, inventory_area_for_path,
-    inventory_role_for_path,
+    inventory_role_for_path, matrix_id_kind_for_name, matrix_id_kind_for_path,
+    matrix_numeric_id_for_path,
 };
 use crate::models::{GovernedReference, MatrixSoT, Severity, ValidationFinding};
 
@@ -260,6 +262,7 @@ fn section_for_dimension<'a>(text: &'a str, dimension: &str) -> Option<&'a str> 
 fn validate_matrix_rules(entries: &[MatrixSoT]) -> Vec<ValidationFinding> {
     let mut findings = Vec::new();
     let cornerstone_count = entries.iter().filter(|item| item.is_cornerstone).count();
+    let mut seen_ids: BTreeMap<String, Vec<&str>> = BTreeMap::new();
 
     if cornerstone_count != 1 {
         findings.push(ValidationFinding::error(
@@ -275,9 +278,61 @@ fn validate_matrix_rules(entries: &[MatrixSoT]) -> Vec<ValidationFinding> {
                 format!("{} is missing a parent link", entry.path),
             ));
         }
+
+        if let Some(id) = matrix_numeric_id_for_path(&entry.path) {
+            seen_ids.entry(id).or_default().push(entry.path.as_str());
+        }
+
+        if matches!(
+            entry.inventory_role.as_str(),
+            "branch-sot" | "agent-identity"
+        ) && matrix_id_kind_for_path(&entry.path) == Some("hub")
+        {
+            findings.push(ValidationFinding::error(
+                "MATRIX_HUB_ID_RESERVED",
+                format!(
+                    "{} uses a reserved hub ID and must be renumbered",
+                    entry.path
+                ),
+            ));
+        }
+
+        let parent_name = parent_target_name(&entry.parent);
+        if let Some(parent_name) = parent_name {
+            if matrix_id_kind_for_name(&parent_name) == Some("hub")
+                && !entry.is_cornerstone
+                && matrix_id_kind_for_path(&entry.path) != Some("direct-child")
+            {
+                findings.push(ValidationFinding::error(
+                    "MATRIX_DIRECT_CHILD_ID_REQUIRED",
+                    format!(
+                        "{} points to hub parent {} and must use an `XX0` child ID",
+                        entry.path, parent_name
+                    ),
+                ));
+            }
+        }
+    }
+
+    for (id, paths) in seen_ids {
+        if paths.len() > 1 {
+            findings.push(ValidationFinding::error(
+                "MATRIX_DUPLICATE_NUMERIC_ID",
+                format!(
+                    "Matrix numeric ID {id} is used by multiple SoTs: {}",
+                    paths.join(", ")
+                ),
+            ));
+        }
     }
 
     findings
+}
+
+fn parent_target_name(value: &str) -> Option<String> {
+    let trimmed = value.trim().trim_matches('"').trim();
+    let inner = trimmed.strip_prefix("[[")?.strip_suffix("]]")?;
+    Some(inner.split('#').next()?.to_string())
 }
 
 fn render_matrix_index(entries: &[MatrixSoT], refs: &[GovernedReference]) -> String {
@@ -477,7 +532,8 @@ tags: [\"agent\"]\n\
 ### Subject Declaration\n\n\
 **Parent:** [[Cornerstone.Knosence-SoT#100.WHO.Circle]]\n";
 
-        let findings = validate_parent_consistency("knowledge/WHO.Example-Identity-SoT.md", text);
+        let findings =
+            validate_parent_consistency("knowledge/110.WHO.Example-Identity-SoT.md", text);
         assert!(findings
             .iter()
             .any(|item| item.code == "MATRIX_HUB_PARENT_REQUIRED"));
