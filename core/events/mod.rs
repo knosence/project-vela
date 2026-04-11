@@ -1,4 +1,4 @@
-use crate::models::ValidationFinding;
+use crate::models::{EventAppendPlan, ValidationFinding};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationSummary {
@@ -144,6 +144,26 @@ pub fn render_event_record_json(
     )
 }
 
+pub fn plan_event_append(
+    record: &EventRecord,
+    artifacts_json: &str,
+    validation_summary_json: &str,
+) -> (Option<EventAppendPlan>, Vec<ValidationFinding>) {
+    let findings = validate_event_record(record);
+    if !findings.is_empty() {
+        return (None, findings);
+    }
+    let line = render_event_record_json(record, artifacts_json, validation_summary_json);
+    (
+        Some(EventAppendPlan {
+            line,
+            event_id: record.event_id.clone(),
+            timestamp: record.timestamp.clone(),
+        }),
+        Vec::new(),
+    )
+}
+
 fn escape_json(value: &str) -> String {
     let mut escaped = String::new();
     for ch in value.chars() {
@@ -213,5 +233,28 @@ mod tests {
         assert!(rendered.contains("\"artifacts\":[\"knowledge/ARTIFACTS/refs/test.md\"]"));
         assert!(rendered
             .contains("\"validation_summary\":{\"finding_codes\":[\"OK\"],\"blocking\":false}"));
+    }
+
+    #[test]
+    fn plans_event_append() {
+        let event = EventRecord::new(
+            "evt_123",
+            "2026-04-11T01:00:00Z",
+            "vela",
+            "verify",
+            "scribe",
+            "knowledge/ARTIFACTS/refs/test.md",
+            "committed",
+            "test write",
+        );
+        let (plan, findings) = plan_event_append(
+            &event,
+            "[\"knowledge/ARTIFACTS/refs/test.md\"]",
+            "{\"finding_codes\":[\"OK\"],\"blocking\":false}",
+        );
+        assert!(findings.is_empty());
+        let plan = plan.expect("plan should exist");
+        assert!(plan.line.contains("\"event_id\":\"evt_123\""));
+        assert_eq!(plan.event_id, "evt_123");
     }
 }

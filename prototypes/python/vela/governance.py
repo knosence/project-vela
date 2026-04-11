@@ -13,6 +13,7 @@ from .matrix import classify_change_zone
 from .models import EventRecord, ValidationFinding
 from .paths import APPROVALS_PATH, BACKUP_DIR, EVENT_LOG_PATH, PROPOSALS_DIR, QUEUE_DIR, REPO_ROOT
 from .rust_bridge import route_for_target as rust_route_for_target
+from .rust_bridge import plan_event_append_payload
 from .rust_bridge import render_event_payload
 from .rust_bridge import route_inbox_payload
 from .rust_bridge import validate_archive_postconditions_payload
@@ -193,15 +194,12 @@ def authorize_dreamer_action_mutation(
 
 
 def append_event(record: EventRecord) -> None:
-    event_validation = validate_event_payload(record.as_dict())
-    if not event_validation["ok"]:
-        raise ValueError(f"Invalid event record: {event_validation['findings']}")
-    rendered = render_event_payload(record.as_dict())
-    if not rendered["ok"]:
-        raise ValueError(f"Failed to render event record: {rendered['findings']}")
+    append_plan = plan_event_append_payload(record.as_dict())
+    if not append_plan["ok"]:
+        raise ValueError(f"Invalid event append plan: {append_plan['findings']}")
     EVENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with EVENT_LOG_PATH.open("a", encoding="utf-8") as handle:
-        handle.write(rendered["line"] + "\n")
+        handle.write(str(append_plan["plan"]["line"]) + "\n")
 
 
 def acquire_write_lock(target: str, actor: str) -> Path:

@@ -114,6 +114,13 @@ pub struct DreamerApplyPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventAppendPlan {
+    pub line: String,
+    pub event_id: String,
+    pub timestamp: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OperationStateEntry {
     pub status: String,
     pub last_started: String,

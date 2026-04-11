@@ -47,6 +47,7 @@ from prototypes.python.vela.rust_bridge import (
     matrix_inventory_payload,
     parse_dreamer_actions_payload,
     parse_operations_state_payload,
+    plan_event_append_payload,
     plan_dreamer_follow_up_apply_payload,
     plan_dreamer_review_payload,
     render_dc_night_report_payload,
@@ -448,6 +449,23 @@ class VelaSystemTest(unittest.TestCase):
         )
         self.assertTrue(rendered["ok"])
         self.assertIn("\"event_id\":\"evt_test\"", rendered["line"])
+        append_plan = plan_event_append_payload(
+            {
+                "event_id": "evt_test",
+                "timestamp": "2026-04-11T01:00:00Z",
+                "source": "vela",
+                "endpoint": "test",
+                "actor": "scribe",
+                "target": "knowledge/ARTIFACTS/refs/test.md",
+                "status": "committed",
+                "reason": "test write",
+                "artifacts": ["knowledge/ARTIFACTS/refs/test.md"],
+                "approval_required": False,
+                "validation_summary": {"finding_codes": ["OK"], "blocking": False},
+            }
+        )
+        self.assertTrue(append_plan["ok"])
+        self.assertIn("\"event_id\":\"evt_test\"", append_plan["plan"]["line"])
 
     def test_protected_zone_write_creates_backup(self) -> None:
         target = "knowledge/ARTIFACTS/proposals/protected-zone-test.md"

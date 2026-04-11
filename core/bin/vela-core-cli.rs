@@ -2,7 +2,8 @@ use std::env;
 use std::io::{self, Read};
 
 use vela_core::events::{
-    render_event_record_json, validate_event_record, EventRecord, ValidationSummary,
+    plan_event_append, render_event_record_json, validate_event_record, EventRecord,
+    ValidationSummary,
 };
 use vela_core::inventory::discover_matrix_inventory;
 use vela_core::matrix::{
@@ -1008,6 +1009,62 @@ fn run() -> Result<(), String> {
                     .join(",")
             );
         }
+        "plan-event-append" => {
+            let event_id = args.next().ok_or_else(|| "missing event id".to_string())?;
+            let timestamp = args.next().ok_or_else(|| "missing timestamp".to_string())?;
+            let source = args.next().ok_or_else(|| "missing source".to_string())?;
+            let endpoint = args.next().ok_or_else(|| "missing endpoint".to_string())?;
+            let actor = args.next().ok_or_else(|| "missing actor".to_string())?;
+            let target = args.next().ok_or_else(|| "missing target".to_string())?;
+            let status = args.next().ok_or_else(|| "missing status".to_string())?;
+            let reason = args.next().ok_or_else(|| "missing reason".to_string())?;
+            let approval_required = parse_bool(
+                &args
+                    .next()
+                    .ok_or_else(|| "missing approval required".to_string())?,
+            )?;
+            let mut content = String::new();
+            io::stdin()
+                .read_to_string(&mut content)
+                .map_err(|err| format!("failed reading stdin: {err}"))?;
+            let (artifacts_json, validation_summary_json) = content
+                .split_once("\n===SUMMARY===\n")
+                .ok_or_else(|| "missing event append split marker".to_string())?;
+            let event = EventRecord {
+                event_id,
+                timestamp,
+                source,
+                endpoint,
+                actor,
+                target,
+                status,
+                reason,
+                artifacts: Vec::new(),
+                approval_required,
+                validation_summary: ValidationSummary {
+                    finding_codes: Vec::new(),
+                    blocking: false,
+                },
+            };
+            let (plan, findings) =
+                plan_event_append(&event, artifacts_json, validation_summary_json);
+            println!(
+                "{{\"ok\":{},\"plan\":{},\"findings\":[{}]}}",
+                if !has_blocking_findings(&findings) {
+                    "true"
+                } else {
+                    "false"
+                },
+                plan.as_ref()
+                    .map(render_event_append_plan)
+                    .unwrap_or_else(|| "null".to_string()),
+                findings
+                    .iter()
+                    .map(render_finding)
+                    .collect::<Vec<String>>()
+                    .join(",")
+            );
+        }
         "analyze-release" => {
             let repo = args.next().ok_or_else(|| "missing repo".to_string())?;
             let version = args.next().ok_or_else(|| "missing version".to_string())?;
@@ -1305,6 +1362,15 @@ fn render_dreamer_apply_plan(item: &vela_core::models::DreamerApplyPlan) -> Stri
         escape_json(&item.execution_content),
         escape_json(&item.updated_follow_up_content),
         if item.already_applied { "true" } else { "false" },
+    )
+}
+
+fn render_event_append_plan(item: &vela_core::models::EventAppendPlan) -> String {
+    format!(
+        "{{\"line\":\"{}\",\"event_id\":\"{}\",\"timestamp\":\"{}\"}}",
+        escape_json(&item.line),
+        escape_json(&item.event_id),
+        escape_json(&item.timestamp),
     )
 }
 
