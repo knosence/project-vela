@@ -42,6 +42,7 @@ from prototypes.python.vela.operations_runtime import (
 from prototypes.python.vela.paths import APPROVALS_PATH, DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
 from prototypes.python.vela.repo_watch import analyze_release
+from prototypes.python.vela.telegram import telegram_status
 from prototypes.python.vela.rust_bridge import (
     classify_dreamer_follow_up_payload,
     assess_growth_payload,
@@ -112,6 +113,7 @@ from prototypes.python.vela.rust_bridge import (
 )
 from prototypes.python.vela.server import VelaService
 from prototypes.python.vela.verification import run_scenario
+from prototypes.python.vela import telegram as telegram_runtime
 
 TEST_SOVEREIGN_TARGET = "knowledge/ARTIFACTS/proposals/TEST.Sovereign-Guardrail-Fixture.md"
 
@@ -1710,6 +1712,98 @@ class VelaSystemTest(unittest.TestCase):
             "refusal-tightening": "refusal_tightenings",
         }[apply_result["data"]["kind"]]
         self.assertEqual(len(registry[bucket]), 1)
+
+    def test_telegram_status_and_test_send_when_disabled(self) -> None:
+        status = telegram_status()
+        self.assertFalse(status["enabled"])
+        result = VelaService().telegram_test_send({"actor": "human", "text": "disabled test"})
+        self.assertFalse(result["ok"])
+        self.assertTrue(any(item["code"] == "TELEGRAM_DISABLED" for item in result["errors"]))
+
+    def test_telegram_test_send_service_endpoint(self) -> None:
+        cfg = load_config()
+        cfg["integrations"]["telegram"] = True
+        cfg["telegram"]["bot_token"] = "123:abc"
+        cfg["telegram"]["default_chat_id"] = "123456"
+        save_config(cfg)
+
+        class _FakeResponse:
+            def __enter__(self) -> "_FakeResponse":
+                return self
+
+            def __exit__(self, exc_type, exc, tb) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return b'{"ok": true, "result": {"message_id": 1}}'
+
+        captured: dict[str, str] = {}
+        original_urlopen = telegram_runtime._urlopen
+
+        def _fake_urlopen(request, timeout=15):  # type: ignore[no-untyped-def]
+            captured["url"] = request.full_url
+            captured["body"] = request.data.decode("utf-8")
+            return _FakeResponse()
+
+        telegram_runtime._urlopen = _fake_urlopen
+        try:
+            result = VelaService().telegram_test_send({"actor": "human", "text": "hello telegram", "reason": "service test"})
+        finally:
+            telegram_runtime._urlopen = original_urlopen
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["endpoint"], "telegram-test-send")
+        self.assertIn("https://api.telegram.org/bot123:abc/sendMessage", captured["url"])
+        self.assertIn("chat_id=123456", captured["body"])
+
+    def test_night_cycle_sends_telegram_deliveries_when_enabled(self) -> None:
+        cfg = load_config()
+        cfg["integrations"]["telegram"] = True
+        cfg["telegram"]["bot_token"] = "123:abc"
+        cfg["telegram"]["default_chat_id"] = "123456"
+        cfg["telegram"]["send_morning_report"] = True
+        cfg["telegram"]["send_blocked_summary"] = True
+        save_config(cfg)
+
+        class _FakeResponse:
+            def __enter__(self) -> "_FakeResponse":
+                return self
+
+            def __exit__(self, exc_type, exc, tb) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return b'{"ok": true, "result": {"message_id": 1}}'
+
+        calls: list[str] = []
+        original_urlopen = telegram_runtime._urlopen
+
+        def _fake_urlopen(request, timeout=15):  # type: ignore[no-untyped-def]
+            calls.append(request.data.decode("utf-8"))
+            return _FakeResponse()
+
+        telegram_runtime._urlopen = _fake_urlopen
+        try:
+            for _ in range(3):
+                write_text(
+                    "knowledge/111.VELA.Capabilities-SoT.md",
+                    (REPO_ROOT / "knowledge/111.VELA.Capabilities-SoT.md").read_text(encoding="utf-8").replace(
+                        "Vela routes, plans, drafts, critiques, validates, documents, and proposes growth under governed workflows.",
+                        "Vela routes, plans, drafts, critiques, validates, documents, proposes growth, and patrols canonical writes.",
+                    ),
+                    actor="warden",
+                    endpoint="test",
+                    reason="force blocked pattern for telegram night cycle",
+                )
+            result = run_night_cycle(requested_by="human")
+        finally:
+            telegram_runtime._urlopen = original_urlopen
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(result["telegram_deliveries"]), 2)
+        self.assertEqual(result["telegram_deliveries"][0]["kind"], "morning-report")
+        self.assertEqual(result["telegram_deliveries"][1]["kind"], "blocked-summary")
+        self.assertEqual(len(calls), 2)
 
     def test_merge_service_endpoints(self) -> None:
         self.test_merge_candidates_are_detected_after_three_entities_share_a_ref()

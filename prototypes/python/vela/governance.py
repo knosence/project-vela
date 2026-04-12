@@ -53,7 +53,7 @@ ROLE_RULES: dict[str, set[str]] = {
     "grower": {"growth-proposal", "growth-apply", "write-artifact"},
     "reflector": {"reflect", "write-artifact"},
     "repo-watch": {"repo-release", "write-artifact"},
-    "n8n": {"inbox-triage", "cross-reference", "growth-apply", "approval-record", "validate", "reflect", "repo-release"},
+    "n8n": {"inbox-triage", "cross-reference", "growth-apply", "approval-record", "validate", "reflect", "repo-release", "telegram-send"},
     "human": {"*"},
     "system": {"*"},
 }

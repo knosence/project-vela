@@ -11,6 +11,7 @@ from .inbox import triage_inbox
 from .matrix import write_matrix_index
 from .models import EventRecord
 from .operations_runtime import (
+    deliver_telegram_test_message,
     apply_merge_follow_up,
     apply_dreamer_follow_up,
     list_merge_candidates,
@@ -28,6 +29,7 @@ from .operations_runtime import (
 )
 from .profiles import activate_profile, list_profiles
 from .server import VelaService, serve
+from .telegram import telegram_status
 from .verification import run_scenario, write_verification_report
 
 
@@ -286,6 +288,17 @@ def cmd_dreamer_apply_follow_up(args: argparse.Namespace) -> int:
     return 0 if result["ok"] else 1
 
 
+def cmd_telegram_status(_: argparse.Namespace) -> int:
+    print(json.dumps(telegram_status(), indent=2))
+    return 0
+
+
+def cmd_telegram_test_send(args: argparse.Namespace) -> int:
+    result = deliver_telegram_test_message(actor=args.actor, text=args.text, reason=args.reason)
+    print(json.dumps(result, indent=2))
+    return 0 if result["ok"] else 1
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     serve(host=args.host, port=args.port)
     return 0
@@ -429,6 +442,16 @@ def build_parser() -> argparse.ArgumentParser:
     dreamer_apply_follow_up_parser.add_argument("target")
     dreamer_apply_follow_up_parser.add_argument("--reason", default="")
     dreamer_apply_follow_up_parser.set_defaults(func=cmd_dreamer_apply_follow_up)
+
+    telegram_parser = sub.add_parser("telegram")
+    telegram_sub = telegram_parser.add_subparsers(dest="telegram_command", required=True)
+    telegram_status_parser = telegram_sub.add_parser("status")
+    telegram_status_parser.set_defaults(func=cmd_telegram_status)
+    telegram_test_send_parser = telegram_sub.add_parser("test-send")
+    telegram_test_send_parser.add_argument("--actor", default="human")
+    telegram_test_send_parser.add_argument("--text", default="Vela Telegram test message")
+    telegram_test_send_parser.add_argument("--reason", default="telegram test send")
+    telegram_test_send_parser.set_defaults(func=cmd_telegram_test_send)
 
     serve_parser = sub.add_parser("serve")
     serve_parser.add_argument("--host", default="127.0.0.1")

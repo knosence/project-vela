@@ -8,13 +8,14 @@ from typing import Any
 
 from .dreamer_actions import load_dreamer_actions
 from .dreamer_actions import register_dreamer_action as register_dreamer_action_runtime
-from .governance import append_event, record_approval, validate_target, write_text
+from .governance import append_event, enforce_actor_operation, record_approval, validate_target, write_text
 from .growth import assess_growth
 from .merge import (
     detect_merge_candidates,
 )
 from .models import EventRecord
 from .paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REFS_DIR, REPO_ROOT
+from .telegram import build_blocked_summary_text, send_telegram_message, telegram_status
 from .rust_bridge import (
     inspect_dreamer_follow_up_payload,
     inspect_dreamer_follow_up_kind_payload,
@@ -344,6 +345,12 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
             "dreamer_proposals": [item["target"] for item in dreamer_proposals],
         },
     )
+    telegram_deliveries = _deliver_night_cycle_telegram(
+        requested_by=requested_by,
+        report_target=report_target,
+        report=report,
+        blocked_items=blocked_items,
+    )
     return {
         "ok": result["ok"] and dreamer_result["ok"],
         "report_target": report_target,
@@ -354,6 +361,7 @@ def run_night_cycle(requested_by: str = "system") -> dict[str, Any]:
         "dreamer_patterns": dreamer_patterns,
         "blocked_items": blocked_items,
         "dreamer_proposals": dreamer_proposals,
+        "telegram_deliveries": telegram_deliveries,
     }
 
 
@@ -377,6 +385,28 @@ def run_night_cycle_scheduler(
 
 def operations_state() -> dict[str, Any]:
     return _load_operations_state()
+
+
+def deliver_telegram_test_message(*, actor: str = "human", text: str = "Vela Telegram test message", reason: str = "telegram test send") -> dict[str, Any]:
+    role_failure = enforce_actor_operation(actor, "telegram-send", endpoint="telegram-send")
+    if role_failure:
+        return {"ok": False, "findings": [role_failure.as_dict()]}
+    result = send_telegram_message(text, actor=actor, reason=reason)
+    if result.get("ok"):
+        append_event(
+            EventRecord(
+                source="vela",
+                endpoint="telegram-send",
+                actor=actor,
+                target=f"telegram:{result['chat_id']}",
+                status="committed",
+                reason=reason,
+                artifacts=[],
+                approval_required=False,
+                validation_summary={"message_kind": "test"},
+            )
+        )
+    return result
 
 
 def _append_operation_event(
@@ -1018,6 +1048,63 @@ def _write_operations_state_json(state_json: str) -> None:
         json.dumps(payload.get("state", _default_operations_state()), indent=2),
         encoding="utf-8",
     )
+
+
+def _deliver_night_cycle_telegram(
+    *,
+    requested_by: str,
+    report_target: str,
+    report: str,
+    blocked_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    status = telegram_status()
+    if not status.get("enabled"):
+        return []
+    deliveries: list[dict[str, Any]] = []
+    if status.get("send_morning_report"):
+        result = send_telegram_message(
+            report,
+            actor="system",
+            reason=f"night cycle report {report_target}",
+        )
+        deliveries.append({"kind": "morning-report", **result})
+        if result.get("ok"):
+            append_event(
+                EventRecord(
+                    source="vela",
+                    endpoint="telegram-send",
+                    actor="system",
+                    target=f"telegram:{result['chat_id']}",
+                    status="committed",
+                    reason=f"night cycle report {report_target}",
+                    artifacts=[report_target],
+                    approval_required=False,
+                    validation_summary={"requested_by": requested_by, "message_kind": "morning-report"},
+                )
+            )
+    if status.get("send_blocked_summary") and blocked_items:
+        summary = build_blocked_summary_text(report_target=report_target, blocked_items=blocked_items)
+        result = send_telegram_message(
+            summary,
+            actor="system",
+            reason=f"blocked summary {report_target}",
+        )
+        deliveries.append({"kind": "blocked-summary", **result})
+        if result.get("ok"):
+            append_event(
+                EventRecord(
+                    source="vela",
+                    endpoint="telegram-send",
+                    actor="system",
+                    target=f"telegram:{result['chat_id']}",
+                    status="committed",
+                    reason=f"blocked summary {report_target}",
+                    artifacts=[report_target],
+                    approval_required=False,
+                    validation_summary={"requested_by": requested_by, "message_kind": "blocked-summary"},
+                )
+            )
+    return deliveries
 
 
 def _update_operation_state(

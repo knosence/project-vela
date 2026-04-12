@@ -5,7 +5,7 @@ owner:
   name: <required>
 assistant:
   default_profile: vela
-  active_profile: vela
+  active_profile: custom-vela
   allow_replacement: true
   allow_multiple_profiles: true
 onboarding:
@@ -18,12 +18,12 @@ runtime:
   primary_model: <required>
   fallback_model: gpt-5.4-mini
   fast_model: gpt-5.4-mini
-  local_model: none
+  local_model: null
   machine_secret: vela-dev-secret
 providers:
   primary: <required>
   fallback: openai
-  local: none
+  local: null
 integrations:
   github: true
   git: true
@@ -48,4 +48,4 @@ deployment:
 preferences:
   response_style: boring clarity over fancy magic
 open_questions:
-  items: none
+  items: null

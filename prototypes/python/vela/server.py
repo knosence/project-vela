@@ -20,6 +20,7 @@ from .inbox import triage_inbox
 from .models import ValidationFinding
 from .models import new_id
 from .operations_runtime import (
+    deliver_telegram_test_message,
     apply_merge_follow_up,
     apply_dreamer_follow_up,
     list_merge_candidates,
@@ -330,6 +331,16 @@ class VelaService:
     def dreamer_follow_ups(self) -> dict[str, Any]:
         return envelope(True, "dreamer-follow-ups", "accepted", "Dreamer follow up queue listed", data=list_dreamer_follow_ups())
 
+    def telegram_test_send(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = deliver_telegram_test_message(
+            actor=payload.get("actor", "human"),
+            text=payload.get("text", "Vela Telegram test message"),
+            reason=payload.get("reason", "telegram test send"),
+        )
+        if result["ok"]:
+            return envelope(True, "telegram-test-send", "accepted", "Telegram test message sent", data=result)
+        return envelope(False, "telegram-test-send", "rejected", "Telegram test message blocked", data=result, errors=result.get("findings", []))
+
     def merge_candidates(self) -> dict[str, Any]:
         return envelope(True, "merge-candidates", "accepted", "Merge candidates listed", data=list_merge_candidates())
 
@@ -427,6 +438,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/n8n/dreamer/follow-ups":
             self._send(self.service.dreamer_follow_ups())
             return
+        if parsed.path == "/api/n8n/telegram/status":
+            from .telegram import telegram_status
+
+            self._send(envelope(True, "telegram-status", "accepted", "Telegram status listed", data=telegram_status()))
+            return
         if parsed.path == "/api/n8n/merge/candidates":
             self._send(self.service.merge_candidates())
             return
@@ -458,6 +474,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             "/api/n8n/night-cycle/scheduler/run": self.service.night_cycle_scheduler_run,
             "/api/n8n/dreamer/review": self.service.dreamer_review,
             "/api/n8n/dreamer/follow-ups/apply": self.service.dreamer_apply_follow_up,
+            "/api/n8n/telegram/test-send": self.service.telegram_test_send,
             "/api/n8n/dreamer/actions/register": self.service.dreamer_register_action,
             "/api/n8n/dreamer/actions/status": self.service.dreamer_update_action_status,
             "/api/n8n/merge/review": self.service.merge_review,
