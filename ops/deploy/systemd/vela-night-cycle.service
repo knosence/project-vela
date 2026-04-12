@@ -1,0 +1,12 @@
+[Unit]
+Description=Vela Night Cycle
+After=vela-api.service
+Requires=vela-api.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/knosence/vela
+Environment=PYTHONUNBUFFERED=1
+Environment=VELA_NIGHT_CYCLE_ACTOR=system
+EnvironmentFile=-%h/.config/vela/vela.env
+ExecStart=/home/knosence/vela/ops/scripts/vela night-cycle run --actor ${VELA_NIGHT_CYCLE_ACTOR}

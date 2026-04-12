@@ -27,9 +27,17 @@ python3 -m prototypes.python.vela.cli index                   # index the knowle
 python3 -m prototypes.python.vela.cli dry-boot                # verify without committing
 python3 -m prototypes.python.vela.cli verify --scenario full  # full test suite
 python3 -m prototypes.python.vela.cli growth apply <proposal> # apply a growth proposal
+./ops/bootstrap/install-user-services.sh                      # install local user services
 ```
 
 The runtime boots into setup mode and refuses to claim readiness until every required onboarding value exists. No shortcuts.
+
+To keep Vela running continuously on a local machine, install the user units and enable them:
+
+```bash
+systemctl --machine=knosence@.host --user daemon-reload
+systemctl --machine=knosence@.host --user enable --now vela-api.service vela-patrol.timer vela-night-cycle.timer
+```
 
 ---
 

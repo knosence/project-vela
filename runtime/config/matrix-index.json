@@ -310,6 +310,15 @@
       "parent": "[[240.DOMAIN.Matrix-SoT#500.HOW.Operations]]",
       "domain": "matrix",
       "status": "active"
+    },
+    {
+      "path": "knowledge/240k.DOMAIN.Local-Service-Deploy-Ref.md",
+      "title": "Local Service Deploy Reference",
+      "ref_type": "reference",
+      "inventory_role": "governed-reference",
+      "parent": "[[240.DOMAIN.Matrix-SoT#200.WHAT.System]]",
+      "domain": "deployment",
+      "status": "active"
     }
   ],
   "findings": []

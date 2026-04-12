@@ -144,25 +144,25 @@ def cmd_merge_apply_follow_up(args: argparse.Namespace) -> int:
 
 
 def cmd_patrol_run(_: argparse.Namespace) -> int:
-    result = run_warden_patrol(requested_by="human")
+    result = run_warden_patrol(requested_by=_.actor)
     print(json.dumps(result, indent=2))
     return 0 if result["ok"] else 1
 
 
 def cmd_patrol_loop(args: argparse.Namespace) -> int:
-    result = run_warden_patrol_scheduler(requested_by="human", interval_seconds=args.interval_seconds, max_runs=args.max_runs)
+    result = run_warden_patrol_scheduler(requested_by=args.actor, interval_seconds=args.interval_seconds, max_runs=args.max_runs)
     print(json.dumps(result, indent=2))
     return 0 if result["ok"] else 1
 
 
 def cmd_night_cycle_run(_: argparse.Namespace) -> int:
-    result = run_night_cycle(requested_by="human")
+    result = run_night_cycle(requested_by=_.actor)
     print(json.dumps(result, indent=2))
     return 0 if result["ok"] else 1
 
 
 def cmd_night_cycle_loop(args: argparse.Namespace) -> int:
-    result = run_night_cycle_scheduler(requested_by="human", interval_seconds=args.interval_seconds, max_runs=args.max_runs)
+    result = run_night_cycle_scheduler(requested_by=args.actor, interval_seconds=args.interval_seconds, max_runs=args.max_runs)
     print(json.dumps(result, indent=2))
     return 0 if result["ok"] else 1
 
@@ -370,19 +370,23 @@ def build_parser() -> argparse.ArgumentParser:
     patrol_parser = sub.add_parser("patrol")
     patrol_sub = patrol_parser.add_subparsers(dest="patrol_command", required=True)
     patrol_run_parser = patrol_sub.add_parser("run")
+    patrol_run_parser.add_argument("--actor", default="human")
     patrol_run_parser.set_defaults(func=cmd_patrol_run)
     patrol_loop_parser = patrol_sub.add_parser("loop")
     patrol_loop_parser.add_argument("--interval-seconds", type=int, default=14400)
     patrol_loop_parser.add_argument("--max-runs", type=int, default=1)
+    patrol_loop_parser.add_argument("--actor", default="human")
     patrol_loop_parser.set_defaults(func=cmd_patrol_loop)
 
     night_cycle_parser = sub.add_parser("night-cycle")
     night_cycle_sub = night_cycle_parser.add_subparsers(dest="night_cycle_command", required=True)
     night_cycle_run_parser = night_cycle_sub.add_parser("run")
+    night_cycle_run_parser.add_argument("--actor", default="human")
     night_cycle_run_parser.set_defaults(func=cmd_night_cycle_run)
     night_cycle_loop_parser = night_cycle_sub.add_parser("loop")
     night_cycle_loop_parser.add_argument("--interval-seconds", type=int, default=86400)
     night_cycle_loop_parser.add_argument("--max-runs", type=int, default=1)
+    night_cycle_loop_parser.add_argument("--actor", default="human")
     night_cycle_loop_parser.set_defaults(func=cmd_night_cycle_loop)
 
     operations_parser = sub.add_parser("operations")

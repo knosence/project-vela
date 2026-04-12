@@ -1,0 +1,12 @@
+[Unit]
+Description=Vela Warden Patrol
+After=vela-api.service
+Requires=vela-api.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/knosence/vela
+Environment=PYTHONUNBUFFERED=1
+Environment=VELA_PATROL_ACTOR=system
+EnvironmentFile=-%h/.config/vela/vela.env
+ExecStart=/home/knosence/vela/ops/scripts/vela patrol run --actor ${VELA_PATROL_ACTOR}

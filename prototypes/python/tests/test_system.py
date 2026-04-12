@@ -39,7 +39,7 @@ from prototypes.python.vela.operations_runtime import (
     run_warden_patrol_scheduler,
     run_warden_patrol,
 )
-from prototypes.python.vela.paths import DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REPO_ROOT, STARTER_PATH
+from prototypes.python.vela.paths import APPROVALS_PATH, DREAMER_ACTIONS_PATH, EVENT_LOG_PATH, OPERATIONS_STATE_PATH, PATCH_LOG_PATH, QUEUE_DIR, REPO_ROOT, STARTER_PATH
 from prototypes.python.vela.profiles import activate_profile, list_profiles, register_profile
 from prototypes.python.vela.repo_watch import analyze_release
 from prototypes.python.vela.rust_bridge import (
@@ -122,6 +122,8 @@ class VelaSystemTest(unittest.TestCase):
         save_config(json.loads(json.dumps(DEFAULT_CONFIG)))
         EVENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         EVENT_LOG_PATH.write_text("", encoding="utf-8")
+        APPROVALS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        APPROVALS_PATH.write_text(json.dumps({"approvals": {}}, indent=2), encoding="utf-8")
         DREAMER_ACTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
         DREAMER_ACTIONS_PATH.write_text(
             json.dumps(
@@ -223,6 +225,7 @@ class VelaSystemTest(unittest.TestCase):
                         "240h.DOMAIN.CI-Commands-Ref.md",
                         "240i.DOMAIN.Verification-Ref.md",
                         "240j.DOMAIN.Merge-and-Growth-Ref.md",
+                        "240k.DOMAIN.Local-Service-Deploy-Ref.md",
                         "000.INDEX.Knosence-Matrix-Ref.md",
                         "001.INDEX.Matrix-Laws-Ref.md",
                         "002.INDEX.Vela-Matrix-Constitution-Ref.md",
@@ -1223,6 +1226,32 @@ class VelaSystemTest(unittest.TestCase):
         service_state = VelaService().operations_state()
         self.assertTrue(service_state["ok"])
         self.assertIn("patrol", service_state["data"])
+
+    def test_local_service_deploy_artifacts_exist(self) -> None:
+        install_script = REPO_ROOT / "ops/bootstrap/install-user-services.sh"
+        env_example = REPO_ROOT / "ops/deploy/systemd/vela.env.example"
+        api_service = REPO_ROOT / "ops/deploy/systemd/vela-api.service"
+        patrol_service = REPO_ROOT / "ops/deploy/systemd/vela-patrol.service"
+        patrol_timer = REPO_ROOT / "ops/deploy/systemd/vela-patrol.timer"
+        night_service = REPO_ROOT / "ops/deploy/systemd/vela-night-cycle.service"
+        night_timer = REPO_ROOT / "ops/deploy/systemd/vela-night-cycle.timer"
+        deploy_ref = REPO_ROOT / "knowledge/240k.DOMAIN.Local-Service-Deploy-Ref.md"
+
+        for path in (
+            install_script,
+            env_example,
+            api_service,
+            patrol_service,
+            patrol_timer,
+            night_service,
+            night_timer,
+            deploy_ref,
+        ):
+            self.assertTrue(path.exists(), f"missing deploy artifact: {path}")
+
+        self.assertIn("vela serve", api_service.read_text(encoding="utf-8"))
+        self.assertIn("02,06,10,14,18,22:00:00", patrol_timer.read_text(encoding="utf-8"))
+        self.assertIn("03:00:00", night_timer.read_text(encoding="utf-8"))
 
     def test_operation_overlap_lock_blocks_parallel_cycle(self) -> None:
         QUEUE_DIR.mkdir(parents=True, exist_ok=True)

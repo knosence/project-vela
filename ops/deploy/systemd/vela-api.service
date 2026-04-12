@@ -1,0 +1,17 @@
+[Unit]
+Description=Vela Governed API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/knosence/vela
+Environment=PYTHONUNBUFFERED=1
+Environment=VELA_HOST=127.0.0.1
+Environment=VELA_PORT=8787
+EnvironmentFile=-%h/.config/vela/vela.env
+ExecStart=/home/knosence/vela/ops/scripts/vela serve --host ${VELA_HOST} --port ${VELA_PORT}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
