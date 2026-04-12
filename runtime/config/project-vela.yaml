@@ -17,7 +17,11 @@ project:
 
 owner:
   # Your human name or operator name.
-  # Example: Knosence
+  # Options:
+  # - your real name
+  # - your handle
+  # - your operator name
+  # Examples: Knosence, NaDario, Dario
   name: <required>
 
 assistant:
@@ -39,23 +43,39 @@ onboarding:
   assistant_choice: keep-vela
 
   # How the assistant should relate to you.
-  # Example: trusted operator partner
+  # Common options:
+  # - trusted operator partner
+  # - direct technical copilot
+  # - research and governance partner
+  # - structured executive assistant
+  # - critical thought partner
   relationship_stance: <required>
 
   # High-level personality traits for the active profile.
   persona_traits: clear, rigorous, pragmatic
 
   # How much support vs critique you want.
-  # Example: direct critique with practical support
+  # Common options:
+  # - direct critique with practical support
+  # - balanced support and challenge
+  # - mostly supportive, critique when risk is high
+  # - strong critique, minimal hand-holding
   support_critique_balance: <required>
 
   # What kinds of subjective or personal boundaries the assistant should respect.
-  # Example: do not fake certainty about personal meaning or beliefs
+  # Common options:
+  # - do not fake certainty about personal meaning or beliefs
+  # - separate facts from interpretation
+  # - avoid emotional overreach or false intimacy
+  # - do not make identity-level decisions without explicit consent
   subjectivity_boundaries: <required>
 
 runtime:
   # The primary model you want Vela to use.
-  # Example: gpt-5.4
+  # Common options:
+  # - gpt-5.4
+  # - gpt-5.4-mini
+  # - a local model name if you are running one
   primary_model: <required>
 
   # Fallback and fast models can usually stay as-is.
@@ -63,7 +83,11 @@ runtime:
   fast_model: gpt-5.4-mini
 
   # Use null if you are not wiring a local model yet.
-  # Example local model names: llama3, mistral, qwen
+  # Example local model names:
+  # - llama3
+  # - mistral
+  # - qwen
+  # - deepseek-coder
   local_model: null
 
   # Shared secret for API requests from trusted local clients.
@@ -72,7 +96,11 @@ runtime:
 
 providers:
   # The provider backing primary_model.
-  # Example: openai
+  # Common options:
+  # - openai
+  # - ollama
+  # - openrouter
+  # - anthropic-via-adapter
   primary: <required>
 
   # Optional fallback provider.
@@ -104,7 +132,12 @@ repo_watch:
 
 deployment:
   # What environment this machine represents.
-  # Example: local-nixos
+  # Common options:
+  # - local-nixos
+  # - local-dev
+  # - laptop
+  # - workstation
+  # - homelab
   target: <required>
 
 preferences:
