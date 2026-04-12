@@ -1,148 +1,51 @@
-# Project Vela local machine config
-# Fill in the fields marked "<required>" to move the service from
-# "setup-required" to "ready".
-#
-# How to use this file:
-# - Keep the keys exactly as they are.
-# - Replace only the values that say "<required>" unless you know why
-#   you are changing something else.
-# - Comments are safe. They are ignored by the local config parser.
-
 project:
-  # The system name. Usually leave this alone.
   name: Project Vela
-
-  # This stays false until you finish onboarding and intentionally flip it.
   setup_complete: false
-
 owner:
-  # Your human name or operator name.
-  # Options:
-  # - your real name
-  # - your handle
-  # - your operator name
-  # Examples: Knosence, NaDario, Dario
   name: <required>
-
 assistant:
-  # The bundled default profile that ships with the system.
   default_profile: vela
-
-  # The profile currently active on this machine.
-  # Example values: vela, custom-vela
-  active_profile: custom-vela
-
-  # Keep true if you want profiles to be replaceable.
+  active_profile: vela
   allow_replacement: true
   allow_multiple_profiles: true
-
 onboarding:
-  # keep-vela = keep the bundled Vela profile active
-  # customize-vela = keep Vela, but change her profile
-  # replace-vela = switch to another profile
   assistant_choice: keep-vela
-
-  # How the assistant should relate to you.
-  # Common options:
-  # - trusted operator partner
-  # - direct technical copilot
-  # - research and governance partner
-  # - structured executive assistant
-  # - critical thought partner
   relationship_stance: <required>
-
-  # High-level personality traits for the active profile.
   persona_traits: clear, rigorous, pragmatic
-
-  # How much support vs critique you want.
-  # Common options:
-  # - direct critique with practical support
-  # - balanced support and challenge
-  # - mostly supportive, critique when risk is high
-  # - strong critique, minimal hand-holding
   support_critique_balance: <required>
-
-  # What kinds of subjective or personal boundaries the assistant should respect.
-  # Common options:
-  # - do not fake certainty about personal meaning or beliefs
-  # - separate facts from interpretation
-  # - avoid emotional overreach or false intimacy
-  # - do not make identity-level decisions without explicit consent
   subjectivity_boundaries: <required>
-
 runtime:
-  # The primary model you want Vela to use.
-  # Common options:
-  # - gpt-5.4
-  # - gpt-5.4-mini
-  # - a local model name if you are running one
   primary_model: <required>
-
-  # Fallback and fast models can usually stay as-is.
   fallback_model: gpt-5.4-mini
   fast_model: gpt-5.4-mini
-
-  # Use null if you are not wiring a local model yet.
-  # Example local model names:
-  # - llama3
-  # - mistral
-  # - qwen
-  # - deepseek-coder
-  local_model: null
-
-  # Shared secret for API requests from trusted local clients.
-  # Change this before exposing the service beyond local testing.
+  local_model: none
   machine_secret: vela-dev-secret
-
 providers:
-  # The provider backing primary_model.
-  # Common options:
-  # - openai
-  # - ollama
-  # - openrouter
-  # - anthropic-via-adapter
   primary: <required>
-
-  # Optional fallback provider.
   fallback: openai
-
-  # Use null if you are not using a local provider.
-  # Example: ollama
-  local: null
-
+  local: none
 integrations:
   github: true
   git: true
   webhook: true
   discord: false
+  telegram: false
   localfs: true
-
+telegram:
+  bot_token: <required-if-enabled>
+  default_chat_id: <required-if-enabled>
+  send_morning_report: true
+  send_blocked_summary: true
 governance:
-  # These are the safe defaults for the governed system.
   human_gate_on_sovereignty: true
   single_writer: true
   reflection_before_mutation: true
-
 repo_watch:
-  # Canonical watchlist SoT for watched upstream repos.
   watchlist_path: knowledge/220.WHAT.Repo-Watchlist-SoT.md
-
-  # manual-seed means the watchlist is maintained deliberately, not auto-filled.
   bootstrap: manual-seed
-
 deployment:
-  # What environment this machine represents.
-  # Common options:
-  # - local-nixos
-  # - local-dev
-  # - laptop
-  # - workstation
-  # - homelab
   target: <required>
-
 preferences:
   response_style: boring clarity over fancy magic
-
 open_questions:
-  # Use null when there are no unresolved config questions yet.
-  items: null
+  items: none

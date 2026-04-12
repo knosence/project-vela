@@ -152,6 +152,7 @@ vela/
 │   ├── discord/          Discord bot
 │   ├── github/           GitHub API
 │   ├── git/              git operations
+│   ├── telegram/         Telegram operator messaging
 │   ├── webhook/          inbound webhooks
 │   └── localfs/          filesystem operations
 │

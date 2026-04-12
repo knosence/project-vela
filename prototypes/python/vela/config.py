@@ -44,7 +44,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "machine_secret": "vela-dev-secret",
     },
     "providers": {"primary": "<required>", "fallback": "openai", "local": "none"},
-    "integrations": {"github": True, "git": True, "webhook": True, "discord": False, "localfs": True},
+    "integrations": {"github": True, "git": True, "webhook": True, "discord": False, "telegram": False, "localfs": True},
+    "telegram": {
+        "bot_token": "<required-if-enabled>",
+        "default_chat_id": "<required-if-enabled>",
+        "send_morning_report": True,
+        "send_blocked_summary": True,
+    },
     "governance": {
         "human_gate_on_sovereignty": True,
         "single_writer": True,

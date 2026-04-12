@@ -226,6 +226,7 @@ class VelaSystemTest(unittest.TestCase):
                         "240i.DOMAIN.Verification-Ref.md",
                         "240j.DOMAIN.Merge-and-Growth-Ref.md",
                         "240k.DOMAIN.Local-Service-Deploy-Ref.md",
+                        "240l.DOMAIN.Telegram-Integration-Ref.md",
                         "000.INDEX.Knosence-Matrix-Ref.md",
                         "001.INDEX.Matrix-Laws-Ref.md",
                         "002.INDEX.Vela-Matrix-Constitution-Ref.md",
