@@ -33,6 +33,7 @@ knowledge/ARTIFACTS/refs/DC-Night-Report-*.md
 knowledge/ARTIFACTS/refs/verification-*.json
 runtime/config/verification-status.json
 runtime/config/approvals.json
+runtime/config/project-vela.yaml
 runtime/queues/*.lock
 
 

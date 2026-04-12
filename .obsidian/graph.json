@@ -1,6 +1,6 @@
 {
   "collapse-filter": false,
-  "search": "-path:\"knowledge/ARTIFACTS\"",
+  "search": "-path:\"knowledge/ARTIFACTS\" -path:\"runtime/config/project-vela.yaml\"",
   "showTags": true,
   "showAttachments": false,
   "hideUnresolved": true,
