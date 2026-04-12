@@ -1,29 +1,123 @@
+# Project Vela local runtime configuration.
+#
+# How to use this file:
+# - Leave the active key line in place and edit its value.
+# - Use the commented option lines as a menu: copy one up or uncomment and move
+#   it into the active key line if that is easier in your editor.
+# - If none of the options fit, use your own value on the active key line.
+# - Values marked <required> or <required-if-enabled> still need your input.
+
 project:
   name: Project Vela
   setup_complete: false
+
 owner:
+  # Who owns this matrix.
   name: <required>
+  # Options:
+  # name: Knosence
+  # name: NaDario Seays
+  # name: Dario
+  # Custom:
+  # name: Your preferred owner name here
+
 assistant:
+  # The bundled default profile kept in the repo.
   default_profile: vela
+  # The profile currently active at runtime.
   active_profile: custom-vela
   allow_replacement: true
   allow_multiple_profiles: true
+
 onboarding:
+  # Keep or replace the bundled assistant profile.
   assistant_choice: keep-vela
+  # Options:
+  # assistant_choice: keep-vela
+  # assistant_choice: replace-with-custom
+  # assistant_choice: run-multi-profile
+
+  # What kind of relationship you want with the assistant.
   relationship_stance: <required>
+  # Options:
+  # relationship_stance: trusted operator partner
+  # relationship_stance: direct technical copilot
+  # relationship_stance: rigorous second brain
+  # relationship_stance: builder with pushback
+  # Custom:
+  # relationship_stance: Write your own stance here
+
+  # Default personality traits to lean on.
   persona_traits: clear, rigorous, pragmatic
+
+  # How much support vs critique you want.
   support_critique_balance: <required>
+  # Options:
+  # support_critique_balance: mostly critique
+  # support_critique_balance: balanced
+  # support_critique_balance: mostly supportive
+  # support_critique_balance: strict reviewer
+  # Custom:
+  # support_critique_balance: Write your own balance here
+
+  # What lines the assistant should avoid crossing.
   subjectivity_boundaries: <required>
+  # Options:
+  # subjectivity_boundaries: direct but non-manipulative
+  # subjectivity_boundaries: grounded, no therapy roleplay
+  # subjectivity_boundaries: no false certainty, no emotional steering
+  # subjectivity_boundaries: technical truth over validation
+  # Custom:
+  # subjectivity_boundaries: Write your own boundaries here
+
 runtime:
+  # Primary model used for normal work.
   primary_model: <required>
+  # Options:
+  # primary_model: gpt-5.4
+  # primary_model: gpt-5.4-mini
+  # primary_model: gpt-5.3-codex
+  # primary_model: gpt-5.2
+  # Custom:
+  # primary_model: Your preferred model name here
+
   fallback_model: gpt-5.4-mini
   fast_model: gpt-5.4-mini
-  local_model: null
+
+  # Optional local model. Use none if you are not running one.
+  local_model: none
+  # Options:
+  # local_model: none
+  # local_model: llama3
+  # local_model: mistral
+  # local_model: qwen
+  # Custom:
+  # local_model: Your local model name here
+
   machine_secret: vela-dev-secret
+
 providers:
+  # Primary provider for the primary model.
   primary: <required>
+  # Options:
+  # primary: openai
+  # primary: ollama
+  # primary: anthropic
+  # primary: openrouter
+  # Custom:
+  # primary: Your provider name here
+
   fallback: openai
-  local: null
+
+  # Optional local provider.
+  local: none
+  # Options:
+  # local: none
+  # local: ollama
+  # local: lmstudio
+  # Custom:
+  # local: Your local provider here
+
 integrations:
   github: true
   git: true
@@ -31,21 +125,42 @@ integrations:
   discord: false
   telegram: false
   localfs: true
+
 telegram:
+  # Only required if integrations.telegram is true.
   bot_token: <required-if-enabled>
+  # Example:
+  # bot_token: 123456:ABCDEF_your_bot_token_here
+
   default_chat_id: <required-if-enabled>
+  # Example:
+  # default_chat_id: "123456789"
+
   send_morning_report: true
   send_blocked_summary: true
+
 governance:
   human_gate_on_sovereignty: true
   single_writer: true
   reflection_before_mutation: true
+
 repo_watch:
   watchlist_path: knowledge/220.WHAT.Repo-Watchlist-SoT.md
   bootstrap: manual-seed
+
 deployment:
+  # What kind of environment this is running in.
   target: <required>
+  # Options:
+  # target: local-dev
+  # target: personal-workstation
+  # target: homeserver
+  # target: nixos-user-service
+  # Custom:
+  # target: Your deployment target here
+
 preferences:
   response_style: boring clarity over fancy magic
+
 open_questions:
-  items: null
+  items: none
